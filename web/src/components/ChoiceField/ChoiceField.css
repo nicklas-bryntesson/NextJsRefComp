@@ -1,0 +1,137 @@
+/* src/partials/components/ChoiceField/ChoiceField.css */
+/*
+ * ChoiceField — a styled NATIVE <input type="radio|checkbox"> + <label>.
+ *
+ * ONE component, keyed on the native `type` attribute (ADR-0015): radio and
+ * checkbox share a single skeleton — the input itself is the box (appearance:
+ * none + border), the ::after is the mark. The `type` is the discriminator, not
+ * an invented API, so behaviour (single-select via shared name + arrow roving vs
+ * independent toggle) and visuals (circle+dot vs square+tick) both follow the
+ * one attribute native already owns.
+ *
+ * No JS: the native input is the single source of truth (ADR-0013).
+ *
+ * NEUTRAL by default: a monochrome skeleton on system colours, like the rest of
+ * the field family (AffixField, WeekField). It TAKES design from the host —
+ * override --_cf-selected to paint the selection in an accent; everything else
+ * reads currentColor / Canvas / CanvasText.
+ *
+ * Root carries tokens + root props only; every part is a flat, fully-qualified
+ * `.ChoiceField <part>` rule below (ADR-0019).
+ */
+
+.ChoiceField {
+  /* ── Public API ──────────────────────────────────────────────────────── */
+  --_cf-size: 1.5em;                               /* control box — em so it scales with the local text (≈24px at 16px) */
+  --_cf-gap: 0.5rem;                               /* box → label */
+  --_cf-border-width: 1px;
+  --_cf-radius: 0.25rem;                           /* checkbox corner (radio is always 50%) */
+  --_cf-border-color: currentColor;
+  --_cf-border-color-hover: CanvasText;
+  --_cf-border-color-invalid: var(--ui-destructive, #c00);
+  --_cf-bg-hover: var(--ui-hover);
+  --_cf-selected: CanvasText;                      /* checkbox fill · radio ring+dot — host overrides for accent */
+  --_cf-mark-color: Canvas;                        /* checkbox tick on the filled box */
+  --_cf-transition: 120ms ease;
+  /* Single tick shape; mask alpha carries the form, --_cf-mark-color the colour. */
+  --_cf-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z'/%3E%3C/svg%3E");
+
+  display: inline-flex;
+  align-items: center;
+  gap: var(--_cf-gap);
+}
+
+/* ── Shared skeleton (both types) ────────────────────────────────────── */
+.ChoiceField input {
+  appearance: none;
+  -webkit-appearance: none;
+  /* inherit the surrounding type so --_cf-size (em) tracks the label/context
+     font-size, not the UA input default (~13px) */
+  font: inherit;
+  margin: 0;
+  flex-shrink: 0;
+  inline-size: var(--_cf-size);
+  block-size: var(--_cf-size);
+  display: grid;
+  place-content: center;
+  border: var(--_cf-border-width) solid var(--_cf-border-color);
+  background-color: Canvas;
+  cursor: pointer;
+  transition: background-color var(--_cf-transition), border-color var(--_cf-transition);
+}
+.ChoiceField input::after {
+  content: "";
+  /* Fixed size, not %: the box is a place-content:center grid, so a
+     percentage resolves against an auto track sized by this very element
+     → 0. Size the mark off the token in the type branches below. */
+  opacity: 0;
+  transform: scale(0.6);          /* initial: shrunk; :checked restores to full */
+  transition: opacity var(--_cf-transition), transform var(--_cf-transition);
+}
+/* :checked has higher specificity than the type branches, so it wins the
+   final size regardless of source order — the mark reaches its full size. */
+.ChoiceField input:checked::after { opacity: 1; transform: none; }
+
+/* ── Checkbox branch: square box, filled + tick ──────────────────────── */
+.ChoiceField input[type="checkbox"] { border-radius: var(--_cf-radius); }
+.ChoiceField input[type="checkbox"]::after {
+  inline-size: calc(var(--_cf-size) * 0.82);
+  block-size: calc(var(--_cf-size) * 0.82);
+  background-color: var(--_cf-mark-color);
+  -webkit-mask: var(--_cf-mark) center / contain no-repeat;
+          mask: var(--_cf-mark) center / contain no-repeat;
+}
+.ChoiceField input[type="checkbox"]:checked {
+  background-color: var(--_cf-selected);
+  border-color: var(--_cf-selected);
+}
+
+/* ── Radio branch: circle box, ring + dot (box stays unfilled) ───────── */
+.ChoiceField input[type="radio"] { border-radius: 50%; }
+.ChoiceField input[type="radio"]::after {
+  inline-size: calc(var(--_cf-size) * 0.6);
+  block-size: calc(var(--_cf-size) * 0.6);
+  border-radius: 50%;
+  background-color: var(--_cf-selected);
+}
+.ChoiceField input[type="radio"]:checked { border-color: var(--_cf-selected); }
+
+/* ── Interaction states (real pseudo-class + data-test-state pairs) ──── */
+.ChoiceField input:hover,
+.ChoiceField[data-test-state="hover"] input { border-color: var(--_cf-border-color-hover); }
+.ChoiceField input:not(:checked):hover,
+.ChoiceField[data-test-state="hover"] input:not(:checked) { background-color: var(--_cf-bg-hover); }
+
+/* focus — matches the family: 2px solid currentColor, offset 1px */
+.ChoiceField input:focus-visible,
+.ChoiceField[data-test-state="focus"] input { outline: 2px solid; outline-offset: 1px; }
+.ChoiceField input:focus:not(:focus-visible) { outline: none; }
+
+.ChoiceField input:active,
+.ChoiceField[data-test-state="active"] input { border-color: var(--_cf-border-color-hover); }
+.ChoiceField input:not(:checked):active,
+.ChoiceField[data-test-state="active"] input:not(:checked) { background-color: var(--_cf-bg-hover); }
+
+/* invalid — data-* on the root is the API (ADR-0002) */
+.ChoiceField[data-invalid="true"] input { border-color: var(--_cf-border-color-invalid); }
+
+/* disabled — family convention: dim, don't recolour */
+.ChoiceField input:disabled { cursor: not-allowed; opacity: 0.5; }
+.ChoiceField input:disabled ~ label { cursor: not-allowed; opacity: 0.5; }
+
+.ChoiceField label { cursor: pointer; }
+
+/* Windows High Contrast / forced-colors: appearance:none loses the selection —
+   redraw the selected state from system colours (unchecked already uses
+   currentColor + Canvas, which forced-colors maps on its own). */
+@media (forced-colors: active) {
+  .ChoiceField input[type="checkbox"]:checked { background-color: Highlight; border-color: Highlight; }
+  .ChoiceField input[type="checkbox"]:checked::after { background-color: HighlightText; }
+  .ChoiceField input[type="radio"]:checked { border-color: Highlight; }
+  .ChoiceField input[type="radio"]:checked::after { background-color: Highlight; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ChoiceField input,
+  .ChoiceField input::after { transition: none; }
+}

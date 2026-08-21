@@ -1,0 +1,34 @@
+@import "tailwindcss";
+
+/* The design system (our look) … */
+@import "../styles/design-tokens.css";
+/* … then the bridge onto the reference library's seam. Order matters: the
+   bridge reads the design tokens defined above it. */
+@import "../styles/ui-tokens.css";
+/* Site layout scaffolding the popup family reads for viewport-edge clearance. */
+@import "../styles/site-tokens.css";
+
+/* Component stylesheets are deliberately NOT imported here. Each component
+   imports its own verbatim stylesheet from its own module (see any <Name>.tsx),
+   which keeps it deletable in one move and lets components be ported in
+   parallel without contending for a shared import list. */
+
+@layer base {
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-body);
+    font-family: var(--font-sans);
+    font-size: var(--text-body-md);
+    line-height: 1.5;
+  }
+
+  /* Display voice: weight 400, negative tracking. Never bold. */
+  h1, h2, h3, h4 {
+    color: var(--color-ink);
+    font-weight: 400;
+  }
+
+  code, kbd, samp, pre {
+    font-family: var(--font-mono);
+  }
+}

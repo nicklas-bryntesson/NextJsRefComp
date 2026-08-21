@@ -1,0 +1,282 @@
+/* Root — tokens + root-level props only. Every part is a flat, fully-qualified
+   `.MonthField .element` rule below (ADR-0019). */
+.MonthField {
+  position: relative;
+  display: inline-block;
+  /* Public API */
+  /* Popup sizes to its content (fit-content); month + year columns define the width. */
+  --_mf-popup-gap: 1.5rem;
+  --_mf-site-padding: var(--SITE--PADDING, 1rem);
+  /* Field-family height contract — every field's bordered box is min 2.5rem tall */
+  --_mf-field-min-block-size: 2.5rem;
+  /* Design tokens — segments */
+  --_mf-border-color: currentColor;
+  --_mf-border-color-hover: CanvasText;
+  --_mf-bg-hover: var(--ui-hover);
+  --_mf-border-color-invalid: var(--ui-destructive, #c00);
+  --_mf-color-muted: var(--ui-muted-foreground);
+  --_mf-trigger-bg-hover: var(--ui-hover);
+  --_mf-trigger-bg-active: var(--ui-hover);
+  /* Design tokens — popup (shared popover surface) */
+  --_mf-popup-bg: var(--ui-surface);
+  --_mf-popup-color: var(--ui-surface-foreground);
+  --_mf-popup-border-color: var(--ui-border);
+  --_mf-popup-radius: var(--ui-radius);
+  --_mf-popup-shadow: var(--ui-shadow);
+  --_mf-option-bg-selected: var(--ui-primary);
+  --_mf-option-color-selected: var(--ui-primary-foreground);
+  /* Wheel visuals live in the shared src/kernel/css/Wheel.css (.Wheel .ring / .option) */
+  /* Internal */
+  --_mf-arrow-size: 0.75rem;
+  --_mf-arrow-corner-radius: 0.25rem;
+}
+
+/* ── Native / custom fallback ──────────────────────────────────────────── */
+.MonthField .native {
+  display: block;
+}
+.MonthField .overlay {
+  display: none;
+}
+
+.MonthField[data-disabled="true"] {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.MonthField[data-input-mode="custom"] .native {
+  position: absolute;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+}
+.MonthField[data-input-mode="custom"] .overlay {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  min-block-size: var(--_mf-field-min-block-size);
+  gap: 0.125rem;
+  border: 1px solid var(--_mf-border-color);
+  padding-inline: 0.5rem;
+  padding-block: 0.25rem;
+  border-radius: 4px;
+}
+
+.MonthField[data-input-mode="display"] .native {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+.MonthField[data-input-mode="display"] .overlay {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  min-block-size: var(--_mf-field-min-block-size);
+  gap: 0.125rem;
+  border: 1px solid var(--_mf-border-color);
+  padding-inline: 0.5rem;
+  padding-block: 0.25rem;
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+/* ── Segments ──────────────────────────────────────────────────────────── */
+.MonthField .segments {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+}
+
+.MonthField .segment {
+  font-variant-numeric: tabular-nums;
+  min-inline-size: 2ch;
+  text-align: center;
+  outline: none;
+  border-radius: 2px;
+  cursor: default;
+}
+.MonthField .segment[data-segment="year"] {
+  min-inline-size: 4ch;
+}
+.MonthField .segment[data-focused="true"] {
+  background-color: var(--ui-primary);
+  color: var(--ui-primary-foreground);
+}
+.MonthField .segment[data-placeholder="true"] {
+  color: var(--_mf-color-muted);
+}
+
+.MonthField .separator {
+  user-select: none;
+  color: var(--_mf-color-muted);
+}
+
+.MonthField[data-input-mode="custom"] .overlay:hover,
+.MonthField[data-test-state="hover"] .overlay {
+  border-color: var(--_mf-border-color-hover);
+  background-color: var(--_mf-bg-hover);
+}
+
+.MonthField[data-input-mode="custom"] .overlay:focus-within,
+.MonthField[data-test-state="focus"] .overlay {
+  outline: 2px solid;
+  outline-offset: 1px;
+}
+
+.MonthField[data-invalid="true"] .overlay {
+  border-color: var(--_mf-border-color-invalid);
+}
+
+/* ── Trigger ───────────────────────────────────────────────────────────── */
+.MonthField .trigger {
+  margin-inline-start: 0.25rem;
+  background: none;
+  border: none;
+  padding: 0.25rem;
+  cursor: pointer;
+  border-radius: 2px;
+  vertical-align: middle;
+}
+.MonthField .trigger svg {
+  /* block — an inline svg reserves baseline descender space below the icon */
+  display: block;
+}
+.MonthField .trigger:focus-visible {
+  outline: 2px solid;
+  outline-offset: 2px;
+}
+.MonthField .trigger:hover {
+  background-color: var(--_mf-trigger-bg-hover);
+}
+.MonthField .trigger:active {
+  background-color: var(--_mf-trigger-bg-active);
+}
+
+/* ── Announce (SR-only) ────────────────────────────────────────────────── */
+.MonthField .announce {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ── Initialisation gate ───────────────────────────────────────────────── */
+/* [PORT] BOTH halves of the init gate are DROPPED, per PORTING.md § Runtime-only
+   CSS and Findings F-010. The reference hides unstyled content with
+   `.MonthField { overflow: hidden }` and flips it to `visible` once its vanilla
+   JS sets data-initialized. React renders formed markup, so there is nothing to
+   hide — and leaving `overflow: hidden` in CLIPS THE POPUP, because the popup
+   lives inside `.rail`, an absolutely-positioned descendant of the root. Removed:
+     .MonthField                          { overflow: hidden;  }
+     .MonthField[data-initialized="true"] { overflow: visible; }
+   The `data-initialized="true"` ATTRIBUTE is still emitted by MonthField.tsx —
+   the conformance suite waits on it. Nothing else in this file is changed. */
+
+/* ── Slide rail ────────────────────────────────────────────────────────── */
+.MonthField .rail {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(100vw, calc(100vw - 2rem));
+  height: 0;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ── Popup bubble ──────────────────────────────────────────────────────── */
+.MonthField .popup {
+  position: absolute;
+  left: var(--_mf-popup-offset, 50%);
+  transform: translateX(-50%);
+  inline-size: fit-content;
+  pointer-events: auto;
+  background: var(--_mf-popup-bg);
+  color: var(--_mf-popup-color);
+  border: 1px solid var(--_mf-popup-border-color);
+  border-radius: var(--_mf-popup-radius);
+  box-shadow: var(--_mf-popup-shadow);
+  z-index: 100;
+  padding: var(--ui-surface-padding);
+  font-size: 1rem;
+}
+.MonthField[data-direction="bottom"] .popup {
+  top: var(--_mf-popup-gap);
+}
+.MonthField[data-direction="top"] .popup {
+  bottom: var(--_mf-popup-gap);
+}
+
+/* ── Month/year picker ─────────────────────────────────────────────────── */
+.MonthField .popup .year-month-picker {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  gap: 0.25rem;
+  justify-content: center;
+}
+
+/* The shared .Wheel is 64px — sized for numeric time/year columns. The month
+   wheel shows full localized names ("september", "februari"), so it needs to be
+   wider or the names clip under the wheel's overflow:hidden. */
+.MonthField .popup .year-month-picker .Wheel[data-picker="month"] {
+  width: 7rem;
+}
+
+/* ── Popup footer ──────────────────────────────────────────────────────── */
+.MonthField .popup .footer {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  margin-block-start: 0.5rem;
+  gap: 0.5rem;
+}
+.MonthField .popup .footer button {
+  background: none;
+  border: none;
+  color: var(--ui-primary);
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+  border-radius: 2px;
+  font: inherit;
+}
+.MonthField .popup .footer button:hover {
+  background-color: var(--_mf-bg-hover);
+}
+.MonthField .popup .footer button:focus-visible {
+  outline: 2px solid;
+  outline-offset: 2px;
+}
+.MonthField .popup .footer button:disabled {
+  color: var(--_mf-color-muted);
+  cursor: not-allowed;
+}
+
+/* ── Arrow ─────────────────────────────────────────────────────────────── */
+.MonthField .arrow {
+  position: absolute;
+  width: var(--_mf-arrow-size);
+  height: var(--_mf-arrow-size);
+  background-color: var(--_mf-popup-bg);
+  left: 50%;
+  z-index: 3;
+}
+.MonthField[data-direction="top"] .arrow {
+  bottom: calc(var(--_mf-arrow-size) * -0.5);
+  transform: translateX(calc(-50% + var(--_mf-arrow-offset, 0px))) rotate(45deg);
+  border-end-end-radius: var(--_mf-arrow-corner-radius);
+}
+.MonthField[data-direction="bottom"] .arrow {
+  top: calc(var(--_mf-arrow-size) * -0.5);
+  transform: translateX(calc(-50% + var(--_mf-arrow-offset, 0px))) rotate(45deg);
+  border-start-start-radius: var(--_mf-arrow-corner-radius);
+}

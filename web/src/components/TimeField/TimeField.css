@@ -1,0 +1,268 @@
+/* Root — tokens + root-level props only. Every part is a flat, fully-qualified
+   `.TimeField .element` rule below (ADR-0019). */
+.TimeField {
+  position: relative;
+  display: inline-block;
+  /* PORT: `overflow: hidden` dropped with the init gate below (PORTING.md
+     "Runtime-only CSS" / Findings F-010) — React renders formed markup, so the
+     pre-init FOUC guard has nothing to guard, and leaving it in clips the popup. */
+  /* Public API */
+  --_tf-popup-width: 14rem;
+  --_tf-popup-gap: 1.5rem;
+  --_tf-site-padding: var(--SITE--PADDING, 1rem);
+  /* Field-family height contract — every field's bordered box is min 2.5rem tall */
+  --_tf-field-min-block-size: 2.5rem;
+  /* Design tokens — segments */
+  --_tf-border-color: currentColor;
+  --_tf-border-color-hover: CanvasText;
+  --_tf-bg-hover: var(--ui-hover);
+  --_tf-border-color-invalid: var(--ui-destructive, #c00);
+  --_tf-color-muted: var(--ui-muted-foreground);
+  --_tf-trigger-bg-hover: var(--ui-hover);
+  --_tf-trigger-bg-active: var(--ui-hover);
+  /* Design tokens — popup (shared popover surface) */
+  --_tf-popup-bg: var(--ui-surface);
+  --_tf-popup-color: var(--ui-surface-foreground);
+  --_tf-popup-border-color: var(--ui-border);
+  --_tf-popup-radius: var(--ui-radius);
+  --_tf-popup-shadow: var(--ui-shadow);
+  --_tf-option-bg-selected: var(--ui-primary);
+  --_tf-option-color-selected: var(--ui-primary-foreground);
+  /* Wheel visuals live in the shared src/kernel/css/Wheel.css (.Wheel .ring / .option) */
+  /* Internal */
+  --_tf-arrow-size: 0.75rem;
+  --_tf-arrow-corner-radius: 0.25rem;
+}
+
+/* ── Native / custom fallback ──────────────────────────────────────────── */
+.TimeField .native {
+  display: block;
+}
+.TimeField .overlay {
+  display: none;
+}
+
+.TimeField[data-disabled="true"] {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.TimeField[data-input-mode="custom"] .native {
+  position: absolute;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+}
+.TimeField[data-input-mode="custom"] .overlay {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  min-block-size: var(--_tf-field-min-block-size);
+  gap: 0.125rem;
+  border: 1px solid var(--_tf-border-color);
+  padding-inline: 0.5rem;
+  padding-block: 0.25rem;
+  border-radius: 4px;
+}
+
+.TimeField[data-input-mode="display"] .native {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+.TimeField[data-input-mode="display"] .overlay {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  min-block-size: var(--_tf-field-min-block-size);
+  gap: 0.125rem;
+  border: 1px solid var(--_tf-border-color);
+  padding-inline: 0.5rem;
+  padding-block: 0.25rem;
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+/* ── Segments ──────────────────────────────────────────────────────────── */
+.TimeField .segments {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+}
+
+.TimeField .segment {
+  font-variant-numeric: tabular-nums;
+  min-inline-size: 2ch;
+  text-align: center;
+  outline: none;
+  border-radius: 2px;
+  cursor: default;
+}
+.TimeField .segment[data-focused="true"] {
+  background-color: var(--ui-primary);
+  color: var(--ui-primary-foreground);
+}
+.TimeField .segment[data-placeholder="true"] {
+  color: var(--_tf-color-muted);
+}
+
+.TimeField .separator {
+  user-select: none;
+  color: var(--_tf-color-muted);
+}
+
+.TimeField[data-input-mode="custom"] .overlay:hover,
+.TimeField[data-test-state="hover"] .overlay {
+  border-color: var(--_tf-border-color-hover);
+  background-color: var(--_tf-bg-hover);
+}
+
+.TimeField[data-input-mode="custom"] .overlay:focus-within,
+.TimeField[data-test-state="focus"] .overlay {
+  outline: 2px solid;
+  outline-offset: 1px;
+}
+
+.TimeField[data-invalid="true"] .overlay {
+  border-color: var(--_tf-border-color-invalid);
+}
+
+/* ── Trigger ───────────────────────────────────────────────────────────── */
+.TimeField .trigger {
+  margin-inline-start: 0.25rem;
+  background: none;
+  border: none;
+  padding: 0.25rem;
+  cursor: pointer;
+  border-radius: 2px;
+  vertical-align: middle;
+}
+.TimeField .trigger svg {
+  /* block — an inline svg reserves baseline descender space below the icon */
+  display: block;
+}
+.TimeField .trigger:focus-visible {
+  outline: 2px solid;
+  outline-offset: 2px;
+}
+.TimeField .trigger:hover {
+  background-color: var(--_tf-trigger-bg-hover);
+}
+.TimeField .trigger:active {
+  background-color: var(--_tf-trigger-bg-active);
+}
+
+/* ── Announce (SR-only) ────────────────────────────────────────────────── */
+.TimeField .announce {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ── Initialisation gate ───────────────────────────────────────────────── */
+/* PORT: the `[data-initialized="true"] { overflow: visible }` half of the gate is
+   dropped with its `overflow: hidden` counterpart above. The ATTRIBUTE is still
+   emitted by TimeField.tsx — it is contract and the suite waits on it (F-010). */
+
+/* ── Slide rail ────────────────────────────────────────────────────────── */
+.TimeField .rail {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(100vw, calc(100vw - 2rem));
+  height: 0;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ── Popup bubble ──────────────────────────────────────────────────────── */
+.TimeField .popup {
+  position: absolute;
+  left: var(--_tf-popup-offset, 50%);
+  transform: translateX(-50%);
+  inline-size: var(--_tf-popup-width);
+  pointer-events: auto;
+  background: var(--_tf-popup-bg);
+  color: var(--_tf-popup-color);
+  border: 1px solid var(--_tf-popup-border-color);
+  border-radius: var(--_tf-popup-radius);
+  box-shadow: var(--_tf-popup-shadow);
+  z-index: 100;
+  padding: var(--ui-surface-padding);
+  font-size: 1rem;
+}
+.TimeField[data-direction="bottom"] .popup {
+  top: var(--_tf-popup-gap);
+}
+.TimeField[data-direction="top"] .popup {
+  bottom: var(--_tf-popup-gap);
+}
+
+/* ── Popup columns ─────────────────────────────────────────────────────── */
+.TimeField .popup .time-columns {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  gap: 0.25rem;
+  justify-content: center;
+}
+
+/* ── Popup footer ──────────────────────────────────────────────────────── */
+.TimeField .popup .footer {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  margin-block-start: 0.5rem;
+  gap: 0.5rem;
+}
+.TimeField .popup .footer button {
+  background: none;
+  border: none;
+  color: var(--ui-primary);
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+  border-radius: 2px;
+  font: inherit;
+}
+.TimeField .popup .footer button:hover {
+  background-color: var(--_tf-bg-hover);
+}
+.TimeField .popup .footer button:focus-visible {
+  outline: 2px solid;
+  outline-offset: 2px;
+}
+.TimeField .popup .footer button:disabled {
+  color: var(--_tf-color-muted);
+  cursor: not-allowed;
+}
+
+/* ── Arrow ─────────────────────────────────────────────────────────────── */
+.TimeField .arrow {
+  position: absolute;
+  width: var(--_tf-arrow-size);
+  height: var(--_tf-arrow-size);
+  background-color: var(--_tf-popup-bg);
+  left: 50%;
+  z-index: 3;
+}
+.TimeField[data-direction="top"] .arrow {
+  bottom: calc(var(--_tf-arrow-size) * -0.5);
+  transform: translateX(calc(-50% + var(--_tf-arrow-offset, 0px))) rotate(45deg);
+  border-end-end-radius: var(--_tf-arrow-corner-radius);
+}
+.TimeField[data-direction="bottom"] .arrow {
+  top: calc(var(--_tf-arrow-size) * -0.5);
+  transform: translateX(calc(-50% + var(--_tf-arrow-offset, 0px))) rotate(45deg);
+  border-start-start-radius: var(--_tf-arrow-corner-radius);
+}

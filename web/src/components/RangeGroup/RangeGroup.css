@@ -1,0 +1,90 @@
+/* src/partials/components/RangeGroup/RangeGroup.css */
+/*
+ * RangeGroup — a <fieldset> holding two RangeFields on one shared RangeScale.
+ *
+ * Native <fieldset> gives the group its intrinsic name from <legend> and the
+ * disabled cascade for free; native <input type="range"> gives each end its role,
+ * its keyboard and its own entry in the form data (?lower=&upper=, which is what
+ * a server wanted anyway). This file is layout: the legend, the two role labels
+ * and their readouts. The lane draws, the class in RangeGroup.ts owns the rules
+ * that are about the pair.
+ *
+ * There is no `data-clamp`. Hard stop is the only behaviour, because the other two
+ * strategies are not styling choices: push silently moves a value the user did not
+ * touch, and swap changes a control's identity mid-interaction while focus stays
+ * put — which no ARIA mechanism can announce.
+ *
+ * Lengths are relative, like the rest of the family.
+ */
+
+.RangeGroup {
+  /* ── Public API ──────────────────────────────────────────────────────── */
+  --_rg-gap: 0.5em;                  /* legend → roles → lane */
+  --_rg-role-size: 0.875em;
+  --_rg-role-color: currentColor;
+  --_rg-readout-color: currentColor;
+
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-inline-size: 0;                /* a fieldset will not shrink below its content otherwise */
+  display: grid;
+  row-gap: var(--_rg-gap);
+}
+
+/* <legend> must be the first child of <fieldset> — a spec requirement, and the
+   only INTRINSIC group name: no id plumbing, no document-outline dependency. */
+.RangeGroup > legend {
+  padding: 0;
+  font-size: var(--_rg-role-size);
+  color: var(--_rg-role-color);
+}
+
+/* The two ends are named, because "lowest" and "highest" is what each control
+   actually is — a span is not one value with two handles. */
+.RangeGroup .roles {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--_rg-gap);
+  font-size: var(--_rg-role-size);
+  color: var(--_rg-role-color);
+}
+
+.RangeGroup .roles label {
+  display: flex;
+  gap: 0.35em;
+}
+
+.RangeGroup .roles [data-readout] {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--_rg-readout-color);
+  /* A number plus a unit is its own bidi run; isolating it keeps it from
+     reordering the text around it in a mixed-direction document. */
+  unicode-bidi: isolate;
+}
+
+/* Room for the widest NUMBER this group can show, so the component's width does
+   not follow its content: a value crossing into another digit otherwise widened
+   the whole group, and with it the lane, which made the thumb jump mid-drag.
+
+   Digits only, and in `ch` — under tabular numerals that is exactly a digit's
+   width. The unit sits outside this element and costs its natural width, because
+   reserving the whole string over-reserved by a quarter. Set by RangeGroup.ts from
+   min/max; override --_rg-readout-digits by hand for an unusual format. */
+.RangeGroup .roles [data-readout] .digits {
+  display: inline-block;
+  min-inline-size: calc(var(--_rg-readout-digits, 0) * 1ch);
+  text-align: end;
+}
+
+/* The end labels mirror the lane's ends, so in RTL they swap with it. */
+.RangeGroup .roles label:last-child {
+  text-align: end;
+}
+
+/* Native gives the disabled cascade; this only makes it visible, and matches the
+   field's own treatment so the whole group dims as one thing. */
+.RangeGroup:disabled {
+  opacity: 0.5;
+}

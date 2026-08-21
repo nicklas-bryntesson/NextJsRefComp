@@ -1,0 +1,106 @@
+/* src/partials/components/Notice/Notice.css */
+/*
+ * Notice — a presentational message (severity + icon + text).
+ *
+ * PAYLOAD ONLY: no live role, no announcement, no dismissal/timing. To announce
+ * it, the CONTEXT renders it into a persistent live region (`.notice-region`,
+ * role="alert"|"status", present and empty at load, content swapped in). See Notice.md.
+ *
+ * Composable, from basic to enriched — three independent boolean data-* toggles
+ * over one coloured base:
+ *   base            surface tint (accent-derived) + icon. Coloured but calm.
+ *   data-icon       icon on/off.
+ *   data-border     a full border in the accent (icon) colour.
+ *   data-emphasis   the "styled" hook — a thick leading accent bar (the richest look).
+ * Severity is carried by the icon (shape + colour), never by chrome alone.
+ *
+ * Icons are inline SVG using currentColor (pointed at the accent on .icon), so the
+ * mark re-tints with the variant — no sprite sheet dependency, fully portable.
+ *
+ * Root carries tokens + root props only; every part is a flat, fully-qualified
+ * `.Notice .element` rule below (ADR-0019).
+ */
+
+.Notice {
+  /* ── Public API ──────────────────────────────────────────────────────── */
+  --_nt-accent: CanvasText;                                  /* per-variant below */
+  --_nt-bg: color-mix(in srgb, var(--_nt-accent) 8%, Canvas); /* base tint, derived from accent */
+  --_nt-text-color: CanvasText;
+  --_nt-title-color: currentColor;                           /* bold; accent-free by default */
+  --_nt-border-width: 1px;                                   /* data-border (accent-coloured) */
+  --_nt-bar-width: 0.25rem;                                  /* data-emphasis leading bar */
+  --_nt-radius: 0.375rem;
+  --_nt-padding: 1rem;
+  --_nt-gap: 1rem;                                           /* icon → content */
+  --_nt-content-gap: 0.25rem;                                /* title → body */
+  --_nt-icon-size: 1.5rem;
+  --_nt-max-inline-size: 50rem;
+
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: var(--_nt-gap);
+  max-inline-size: var(--_nt-max-inline-size);
+  padding: var(--_nt-padding);
+  border-radius: var(--_nt-radius);
+  background-color: var(--_nt-bg);   /* base: coloured */
+  color: var(--_nt-text-color);
+  /* no border by default — data-border / data-emphasis add chrome */
+}
+
+/* ── Icon ──────────────────────────────────────────────────────────────── */
+.Notice .icon {
+  color: var(--_nt-accent);
+  display: flex;
+  align-items: flex-start;   /* top-align with the first line of content */
+}
+.Notice .icon svg {
+  display: block;
+  inline-size: var(--_nt-icon-size);
+  block-size: var(--_nt-icon-size);
+  fill: none;
+  stroke: currentColor;    /* inherits --_nt-accent from .icon */
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ── Content ───────────────────────────────────────────────────────────── */
+.Notice .content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--_nt-content-gap);
+  min-inline-size: 0;        /* let long words wrap instead of overflowing */
+}
+
+.Notice .title {
+  color: var(--_nt-title-color);
+  font-weight: 600;
+}
+
+/* ── Independent toggles (data-* is the API, gated not :has()) ──────────── */
+
+/* Icon on/off */
+.Notice[data-icon="false"] { grid-template-columns: 1fr; }
+.Notice[data-icon="false"] .icon { display: none; }
+
+/* Full border in the accent (icon) colour */
+.Notice[data-border="true"] { border: var(--_nt-border-width) solid var(--_nt-accent); }
+
+/* The "styled" hook — a thick leading accent bar (richest look) */
+.Notice[data-emphasis="true"] { border-inline-start: var(--_nt-bar-width) solid var(--_nt-accent); }
+
+/* ── Variants: set only the accent; tint + icon + chrome derive ─────────── */
+.Notice[data-variant="error"]   { --_nt-accent: var(--ui-destructive,   #c0362c); }
+.Notice[data-variant="warning"] { --_nt-accent: var(--ui-warning, #a85a00); }
+.Notice[data-variant="success"] { --_nt-accent: var(--ui-success, #1a7f37); }
+.Notice[data-variant="info"]    { --_nt-accent: var(--ui-info,    #0b6bcb); }
+.Notice[data-variant="neutral"],
+.Notice:not([data-variant])     { --_nt-accent: CanvasText; }
+
+/* Forced colors: the tint collapses to Canvas, so give every Notice a boundary,
+   and draw chrome from system colours. Meaning stays with the per-variant icon. */
+@media (forced-colors: active) {
+  .Notice { border: 1px solid CanvasText; background-color: Canvas; }
+  .Notice[data-emphasis="true"] { border-inline-start-color: CanvasText; }
+  .Notice .icon { color: CanvasText; }
+}

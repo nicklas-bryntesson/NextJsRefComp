@@ -1,0 +1,198 @@
+/* design-tokens.css — cursor-DESIGN.md expressed as Tailwind v4 theme tokens.
+ *
+ * This file is the DESIGN system. It is the source of truth for our look, and it
+ * knows nothing about the reference-components library. The bridge between the two
+ * lives in ui-tokens.css, which maps this namespace onto the library's `--ui-*`
+ * seam (ADR-0018).
+ *
+ * Every value here traces back to a token in cursor-DESIGN.md. Where a value had
+ * to move to clear WCAG 2 AA, the original is kept in a comment and the move is
+ * logged in /Findings.md — the library's exit criteria demand zero axe violations,
+ * so accessibility wins ties against the design doc.
+ */
+
+@theme {
+  /* ── Colour ───────────────────────────────────────────────────────────
+     Every colour is a `light-dark()` pair, so the whole design system follows
+     `color-scheme` with no `dark:` variants and no duplicate blocks. Tailwind
+     utilities built from these tokens (`bg-canvas`, `text-ink`, …) become
+     appearance-reactive for free, which is what satisfies the appearance
+     suite's "the page scaffolding flips with the components, not after them".
+
+     cursor-DESIGN.md is a light-only document — it defines no dark palette. The
+     dark halves below are DERIVED design work owned by this project (the doc
+     itself says design is the consuming project's responsibility), and every
+     pair the `--ui-*` seam forms was measured against its WCAG floor in BOTH
+     appearances before being committed. The derivation and its verification
+     live in `web/tasks/probes/dark-palette.mjs`; the reasoning is Findings.md
+     F-020. Two principles held the dark half together:
+
+       · The system is WARM. The dark ground is a warm near-black (#1a1a17),
+         mirroring the warm cream — not a neutral or cool grey, which would
+         read as a different brand.
+       · Lightness inverts, hue does not. Cursor Orange lifts to #ff7a40 on a
+         dark ground and its foreground flips to the dark canvas, so the CTA
+         stays the same colour family in both appearances. */
+
+  /* Brand — the single voltage. Used scarcely (CTA + wordmark). */
+  /* #f54e00 is the doc's brand hue. It carries white at only 3.52:1 and reads
+     on cream at 3.28:1, so it is kept for DECORATIVE use (wordmark, non-text
+     accents) where the floor is 3:1 — never as a text or fill colour. F-001. */
+  --color-primary-brand: light-dark(#f54e00, #ff7a40);
+  /* The AA-safe fill and link colour. One stop darker than the doc's own press
+     state in light (#c84000 clears 4.67:1 on cream, where #d04200 fell to 4.39). */
+  --color-primary: light-dark(#c84000, #ff7a40);
+  --color-primary-active: light-dark(#a83500, #ff9466);
+
+  /* Ink & text */
+  --color-ink: light-dark(#26251e, #f2f1ec);
+  --color-body: light-dark(#5a5852, #b9b7af);
+  --color-muted: light-dark(#807d72, #918e84);
+  /* Disabled text ONLY — 2.73:1 light / 3.1:1 dark, valid under the WCAG 1.4.3
+     inactive-component exception and invalid for anything live. It leaked into
+     kitchensink state captions once already; see F-017. */
+  --color-muted-soft: light-dark(#a09c92, #6e6b64);
+  --color-on-primary: light-dark(#ffffff, #1a1a17);
+
+  /* Surfaces — warm cream floor / warm near-black floor. Never pure white or
+     pure black: the page is always one step off the extreme. */
+  --color-canvas: light-dark(#f7f7f4, #1a1a17);
+  --color-canvas-soft: light-dark(#fafaf7, #151513);
+  --color-surface-card: light-dark(#ffffff, #232320);
+  --color-surface-strong: light-dark(#e6e5e0, #33322e);
+
+  /* Hairlines — the only depth mechanism in this system. No shadows. */
+  --color-hairline: light-dark(#e6e5e0, #33322e);
+  --color-hairline-soft: light-dark(#efeee8, #2a2926);
+  --color-hairline-strong: light-dark(#cfcdc4, #4d4b45);
+
+  /* Timeline pastels — in-product agent stages ONLY. Never system action
+     colours (the doc is explicit). Left light-only: they are illustration
+     inside a product mockup, not UI that has to survive an appearance flip. */
+  --color-timeline-thinking: #dfa88f;
+  --color-timeline-grep: #9fc9a2;
+  --color-timeline-read: #9fbbe0;
+  --color-timeline-edit: #c0a8dd;
+  --color-timeline-done: #c08532;
+
+  /* Semantic. The doc defines error and success; warning and info are this
+     project's additions, because the library consumes four and a design system
+     feeding real form components needs all four. They are NOT derived from the
+     timeline pastels — borrowing that identity is an explicit "Don't" in the
+     doc. Warning is a warm amber, which belongs in a warm system; info is a
+     cool-neutral slate that reads as informational without inventing a second
+     brand hue. F-021. */
+  --color-semantic-error: light-dark(#cf2d56, #ff8095);
+  --color-semantic-success: light-dark(#1e8662, #5fc79b);
+  --color-semantic-warning: light-dark(#9d6d29, #e0a94e);
+  --color-semantic-info: light-dark(#5b6b7f, #9db3cc);
+
+  /* ── Type ───────────────────────────────────────────────────────────── */
+  /* CursorGothic is licensed; the doc names Inter as the substitute. */
+  /*
+   * EVERY LENGTH BELOW IS `rem` OR `em`, NOT `px`, AND THAT IS LOAD-BEARING.
+   *
+   * cursor-DESIGN.md specifies the whole scale in px, and transcribing it
+   * literally is what we did first. The RangeField port measured the
+   * consequence: `body { font-size: 16px }` pins the root, so the library's
+   * entire `em` model goes inert. Root at 32px → the field's input still
+   * rendered at 16px and its box still measured 24px; with `1rem` on the body
+   * the same field doubled to 32px/48px, which is what its contract asserts.
+   *
+   * Two things break with px, not one:
+   *   · The library's central sizing mechanism. ADR-0025 has the components
+   *     "express relationships, never a scale" — a hint at `0.875em` is the
+   *     statement "supporting text is smaller than what it supports", designed
+   *     to survive whatever scale the consumer installs. A px root removes the
+   *     thing those relationships are relative TO.
+   *   · WCAG 1.4.4 Resize Text. A px font-size on `body` ignores the user's
+   *     browser font-size preference outright.
+   *
+   * The values are unchanged at a 16px root, so the design is byte-identical as
+   * rendered — this costs nothing and buys back both. `letter-spacing` is `em`
+   * for the same reason: tracking has to stay proportional when the type scales.
+   * See Findings.md F-026.
+   */
+  --font-sans: var(--font-inter), system-ui, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), "Fira Code", ui-monospace, monospace;
+
+  --text-display-mega: 4.5rem;
+  --text-display-mega--line-height: 1.1;
+  --text-display-mega--letter-spacing: -0.03em;
+  --text-display-mega--font-weight: 400;
+
+  --text-display-lg: 2.25rem;
+  --text-display-lg--line-height: 1.2;
+  --text-display-lg--letter-spacing: -0.02em;
+  --text-display-lg--font-weight: 400;
+
+  --text-display-md: 1.625rem;
+  --text-display-md--line-height: 1.25;
+  --text-display-md--letter-spacing: -0.0125em;
+  --text-display-md--font-weight: 400;
+
+  --text-display-sm: 1.375rem;
+  --text-display-sm--line-height: 1.3;
+  --text-display-sm--letter-spacing: -0.005em;
+  --text-display-sm--font-weight: 400;
+
+  --text-title-md: 1.125rem;
+  --text-title-md--line-height: 1.4;
+  --text-title-md--font-weight: 600;
+
+  --text-title-sm: 1rem;
+  --text-title-sm--line-height: 1.4;
+  --text-title-sm--font-weight: 600;
+
+  --text-body-md: 1rem;
+  --text-body-md--line-height: 1.5;
+
+  --text-body-tracked: 1rem;
+  --text-body-tracked--line-height: 1.5;
+  --text-body-tracked--letter-spacing: 0.005em;
+
+  --text-body-sm: 0.875rem;
+  --text-body-sm--line-height: 1.5;
+
+  --text-caption: 0.8125rem;
+  --text-caption--line-height: 1.4;
+
+  --text-caption-uppercase: 0.6875rem;
+  --text-caption-uppercase--line-height: 1.4;
+  --text-caption-uppercase--letter-spacing: 0.08em;
+  --text-caption-uppercase--font-weight: 600;
+
+  --text-code: 0.8125rem;
+  --text-code--line-height: 1.5;
+
+  --text-button: 0.875rem;
+  --text-button--line-height: 1;
+  --text-button--font-weight: 500;
+
+  --text-nav-link: 0.875rem;
+  --text-nav-link--line-height: 1.4;
+  --text-nav-link--font-weight: 500;
+
+  /* ── Radius ─────────────────────────────────────────────────────────── */
+  --radius-xs: 0.25rem;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;   /* CTAs, form inputs — the developer dialect */
+  --radius-lg: 0.75rem;  /* cards, panes, popovers */
+  --radius-xl: 1rem;
+  --radius-pill: 9999px;
+
+  /* ── Spacing ────────────────────────────────────────────────────────── */
+  /* 4px base. Named steps so `p-section` reads as the rhythm it is. */
+  --spacing-xxs: 0.25rem;
+  --spacing-xs: 0.5rem;
+  --spacing-sm: 0.75rem;
+  --spacing-base: 1rem;
+  --spacing-md: 1.25rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+  --spacing-xxl: 3rem;
+  --spacing-section: 5rem;
+
+  /* ── Layout ─────────────────────────────────────────────────────────── */
+  --container-content: 75rem;
+}

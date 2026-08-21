@@ -1,0 +1,112 @@
+/* ui-tokens.css — the bridge. Our design system → the library's `--ui-*` seam.
+ *
+ * This is the ONE file the reference components read design from (ADR-0018). It
+ * replaces the library's own src/css/site/01-Setup/ui-tokens.css. Every token in
+ * the library's seam is answered here exactly once; nothing else in our tree
+ * should ever define a `--ui-*`.
+ *
+ * Read /Findings.md alongside this file — several mappings are not one-to-one,
+ * and each divergence is recorded there with its measurement.
+ */
+
+:root {
+  /* ── Appearance ──────────────────────────────────────────────────────────
+     PORTING.md calls this "the single most expensive line to lose in the whole
+     port", and it is: a library whose components all read Canvas/CanvasText
+     follows the OS through this one declaration, and a consumer who drops it
+     ships a light-only site to dark-OS users with nothing visibly broken and no
+     test failing.
+     We keep it. Our design system supplies BOTH halves (design-tokens.css), so
+     every `--ui-*` below is an explicit `light-dark()` pair rather than a system
+     colour — the values are ours, the switching is the platform's.
+     The projection contract is three rules and an absence: no attribute means
+     "follow the OS", which is the whole `system` state, so nothing has to be
+     computed before first paint and the common case cannot flash. (ADR-0021) */
+  color-scheme: light dark;
+
+  /* ── Surface ─────────────────────────────────────────────────────────────
+     Popovers and panels are cards lifted off the page floor — white on cream in
+     light, a lifted warm grey on near-black in dark. That contrast is
+     decorative; the ring below is what actually delineates the panel. */
+  --ui-surface: var(--color-surface-card);
+  --ui-surface-foreground: var(--color-ink);
+  --ui-surface-padding: var(--spacing-sm);   /* 12px */
+  --ui-radius: var(--radius-lg);             /* 12px — cards & panes */
+
+  /* ── Depth ───────────────────────────────────────────────────────────────
+     "Don't add drop shadows. Hairlines + ink-on-cream contrast carry the depth."
+     A popover still has to read as detached from the content behind it, and a
+     card-on-canvas step of ~1.2:1 does not do that alone. So `--ui-shadow`
+     becomes a 1px hairline RING rather than a shadow: the same CSS property,
+     honouring the no-shadow rule literally and by intent.
+     It still satisfies the appearance suite's requirement that the shadow ink
+     differ between appearances — `--color-hairline-strong` is itself a pair, and
+     the dark half is lighter because a dark ring on a dark ground is invisible,
+     which is the same reasoning the library's own shadow pair records. F-006. */
+  --ui-shadow: 0 0 0 1px var(--color-hairline-strong);
+
+  /* ── Lines & focus ───────────────────────────────────────────────────────
+     The library ships ONE `--ui-border` for two jobs with different obligations:
+     a decorative divider (no contrast floor) and the boundary that identifies a
+     form control (WCAG 1.4.11, 3:1). Our hairline is ~1.2:1 against the canvas —
+     correct as a divider, an accessibility failure as a field border. We answer
+     the seam with the accessible value and keep the delicate hairline for our
+     own dividers via Tailwind utilities.
+     `--color-muted` measures 3.84:1 light / 5.32:1 dark on canvas. F-003. */
+  --ui-border: var(--color-muted);
+  --ui-ring: var(--ui-primary);
+
+  /* ── Roles ───────────────────────────────────────────────────────────────
+     `--ui-primary` is a FILL under `--ui-primary-foreground`, and also the
+     colour of links and the focus ring. The doc's brand orange #f54e00 clears
+     neither job (3.52:1 under white, 3.28:1 as text on cream), so the seam gets
+     the AA-safe stop and `--color-primary-brand` keeps the true hue for
+     decorative use. In dark the orange lifts and its foreground flips to the
+     dark canvas, so the CTA stays one colour family across appearances. F-001. */
+  --ui-primary: var(--color-primary);
+  --ui-primary-foreground: var(--color-on-primary);
+
+  /* Placeholder and hint text land on a card, where the doc's `muted` measures
+     4.12:1 — under AA. The library sized its own default specifically to clear
+     4.5, with a comment recording that the ratio was picked against the tightest
+     surface the token lands on. We honour that intent with `body`: 7.11:1 light,
+     7.84:1 dark. F-004. */
+  --ui-muted-foreground: var(--color-body);
+
+  --ui-hover: color-mix(in srgb, var(--color-ink) 4%, transparent);
+
+  /* ── State ───────────────────────────────────────────────────────────────
+     All four roles are consumed (field-invalid plus the Notice variants). The
+     doc supplies two; warning and info are this project's additions rather than
+     darkened timeline pastels, which the doc explicitly forbids as system
+     colours. Every value clears 4.5:1 as text on a card in both appearances —
+     measured in web/tasks/probes/dark-palette.mjs. F-005, F-021. */
+  --ui-destructive: var(--color-semantic-error);
+  --ui-success: var(--color-semantic-success);
+  --ui-warning: var(--color-semantic-warning);
+  --ui-info: var(--color-semantic-info);
+}
+
+/* An explicit user choice pins the scheme; absence means "follow the OS".
+   These two rules are the entire projection surface — see ADR-0021. The token
+   values above need no duplication, because `light-dark()` resolves against the
+   USED `color-scheme`, which these rules set. */
+:root[data-appearance="light"] { color-scheme: light; }
+:root[data-appearance="dark"]  { color-scheme: dark; }
+
+/* Increased contrast composes as one orthogonal block, because `light-dark()`
+   resolves against the active scheme — so a single declaration per token covers
+   all four cells (light/dark × normal/more) without naming any of them.
+   `prefers-contrast: more` has no user override, so it is a media query and
+   never enters the appearance state machine (ADR-0021). Deliberately kept to
+   the media query only: a style-query override would let the in-app toggle sit
+   on the same named condition, but where style queries are unsupported the whole
+   block drops and the user's OS preference would be SILENTLY ignored — the
+   obligation failing invisibly, which PORTING.md warns about at length. */
+@media (prefers-contrast: more) {
+  :root {
+    --ui-border: var(--color-ink);
+    --ui-muted-foreground: var(--color-ink);
+    --ui-primary: light-dark(#8f2d00, #ffb08c);
+  }
+}

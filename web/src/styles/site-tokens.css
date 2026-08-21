@@ -1,0 +1,26 @@
+/* site-tokens.css — site LAYOUT scaffolding, not the theming seam.
+ *
+ * ADR-0018 keeps these deliberately separate from `--ui-*`: these are the
+ * consuming page's layout facts, and the popup family reads them to keep a
+ * popover clear of the viewport edge. Only two are actually consumed by the
+ * components we port (verified by grep over the submodule), so only two are
+ * defined — the library's own tokens.css ships a dozen more for its demo grid,
+ * and importing that would drag its layout system into ours for no reason.
+ */
+
+:root {
+  /* Read by DateField / DateTimeField / TimeField / MonthField / WeekField /
+     ToggleTip as the minimum gap between a popover and the viewport edge. */
+  --SITE--PADDING: var(--spacing-base);   /* 16px */
+
+  /* Read by DateField / DateTimeField to cap how far a popup may be pushed. */
+  --MAX--WIDTH--SITE: var(--container-content);   /* 1200px */
+}
+
+@media (width >= 48rem) {
+  :root { --SITE--PADDING: var(--spacing-xl); }   /* 32px */
+}
+
+@media (width >= 75rem) {
+  :root { --SITE--PADDING: var(--spacing-xxl); }  /* 48px — design footer gutter */
+}

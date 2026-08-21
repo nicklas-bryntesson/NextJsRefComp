@@ -1,0 +1,64 @@
+/* Demo backends for the MotionRegion kitchensink — AUTHORED CONTENT, not part of
+ * the component. Lifted from the inline <style> block in the reference's
+ * MotionRegion.html so the demo backend is byte-faithful; kept in its own file so
+ * MotionRegion.css stays byte-identical to the reference stylesheet.
+ *
+ * The `animation-play-state` rule is the ENTIRE integration for a CSS backend —
+ * no JavaScript. That the simplest backend needs nothing from the component but
+ * one gated rule is the proof the `data-motion` seam sits at the right level.
+ */
+
+.demo-animation {
+  block-size: 12rem;
+  background: linear-gradient(120deg, #6a5acd, #ff6b6b, #4ecdc4, #6a5acd);
+  background-size: 300% 300%;
+  animation: motionRegionDemo 6s ease infinite;
+}
+
+.MotionRegion[data-motion="paused"] .demo-animation {
+  animation-play-state: paused;
+}
+
+/* Added by the port, and only by the port. `data-motion` is absent until the
+ * component initializes, so between first paint and hydration the gate above
+ * cannot fire and the animation runs — a window the reference also has (its JS
+ * attaches after parse) but which SSR + hydration widens. Under an OS
+ * reduced-motion preference that window is a WCAG 2.3.3 miss, so the pre-init
+ * state is gated too. Scoped to `:not([data-motion])` on purpose: once the
+ * component has spoken, the kernel's precedence — including a user's explicit
+ * start overriding reduced-motion — is the only authority. See
+ * findings/MotionRegion.md. */
+@media (prefers-reduced-motion: reduce) {
+  .MotionRegion:not([data-motion]) .demo-animation {
+    animation-play-state: paused;
+  }
+}
+
+@keyframes motionRegionDemo {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.MotionRegion video {
+  display: block;
+  inline-size: 100%;
+  block-size: 12rem;
+  object-fit: cover;
+}
+
+/* Demo width. WCAG 1.4.10 Reflow: the demo must never make the *document* scroll
+ * horizontally at 320 CSS px, and `w-[28rem] max-w-full` does exactly that — a
+ * fixed 448 px item sizes the auto grid track it sits in, so `max-w-full`
+ * resolves against 448 px and rescues nothing (measured: 169 px of document
+ * overflow at 320 px, 9 px at 480 px). Going fully fluid is not the answer
+ * either: with no intrinsic width the auto track collapses to the width of the
+ * caption above it (measured 142 px at a 1280 px viewport).
+ *
+ * So the width is stated in viewport units, which are not circular with track
+ * sizing: cap at the design width, and never claim more than the viewport minus
+ * the page/section chrome (8rem of slack also covers a classic scrollbar, which
+ * 100vw ignores). See findings/MotionRegion.md. */
+.motion-region-demo {
+  inline-size: min(28rem, calc(100vw - 8rem));
+}

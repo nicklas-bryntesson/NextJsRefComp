@@ -1,0 +1,176 @@
+/* src/partials/components/AffixField/AffixField.css */
+/*
+ * Grid-stack overlay (kept from the SVL origin): every child shares one grid
+ * area, the affixes float above the input with pointer-events: none, so the
+ * ENTIRE component surface stays the native input's hit target — clicking an
+ * affix focuses the field for free.
+ *
+ * Layout model: character counts × one calibrated character unit. The count
+ * custom properties (--_af-prefix-chars / --_af-suffix-chars) are content facts
+ * — gap-filled by the reference JS from the affix string length, or authored
+ * server-side from the same string length. The formulas below own all the
+ * math; nothing is ever measured.
+ *
+ * Root carries tokens + root props only; every part is a flat, fully-qualified
+ * `.AffixField .element` rule below (ADR-0019).
+ */
+
+.AffixField {
+  /* Public API */
+  /* Calibration: the width of ONE character slot for the host's typeface.
+     1ch is the width of the font's "0" glyph; in a proportional font other
+     characters vary around it, so a calibration factor maps "one character"
+     to a practical average slot. 1.125ch is the production-proven default
+     from SVL — calibrate it against your typeface like any other token. */
+  --_af-ch-unit: 1.125ch;
+  --_af-gap: 0.5ch;              /* space between an affix and the value area */
+  --_af-inline-padding: 0.75rem; /* inline padding inside the input */
+  --_af-border-width: 1px;       /* input border (also part of the sized-width calc) */
+  /* Field-family height contract — every field's bordered box is min 2.5rem tall */
+  --_af-field-min-block-size: 2.5rem;
+  /* Design tokens */
+  --_af-border-color: currentColor;
+  --_af-border-color-hover: CanvasText;
+  --_af-border-color-invalid: var(--ui-destructive, #c00);
+  --_af-bg-hover: var(--ui-hover);
+  --_af-bg-active: var(--ui-hover);
+  --_af-affix-color: var(--ui-muted-foreground);
+  /* Set by JS at init (or authored server-side) — never given base values here:
+     --_af-prefix-chars, --_af-suffix-chars  (affix string length, plain number)
+     --_af-input-chars                      (number, from data-input-characters) */
+
+  /* Grid stack: one named area, all children overlap. minmax(0, 1fr) lets the
+     column track the root's set inline-size (sized variant) while still
+     shrink-to-fitting the input's natural width when no size is imposed. */
+  display: inline-grid;
+  grid-template-columns: [stack] minmax(0, 1fr);
+  grid-template-rows: [stack] auto;
+  align-items: center;
+}
+
+.AffixField > * {
+  grid-area: stack;
+}
+
+/* ── Affixes ──────────────────────────────────────────────────────────────── */
+.AffixField .prefix,
+.AffixField .suffix {
+  white-space: nowrap;
+  line-height: 1;
+  color: var(--_af-affix-color);
+  /* Above the input, but transparent to the pointer — the input under the
+     affix remains the click target. */
+  pointer-events: none;
+  z-index: 1;
+}
+
+.AffixField .prefix {
+  justify-self: start;
+  margin-inline-start: var(--_af-inline-padding);
+}
+
+.AffixField .suffix {
+  justify-self: end;
+  margin-inline-end: var(--_af-inline-padding);
+}
+
+/* ── Input ────────────────────────────────────────────────────────────────── */
+.AffixField .input {
+  box-sizing: border-box;
+  min-inline-size: 0; /* allow the sized variant to shrink below the input's UA minimum */
+  min-block-size: var(--_af-field-min-block-size);
+  font: inherit;      /* the wrapper's ch unit must equal the input's ch unit */
+  border: var(--_af-border-width) solid var(--_af-border-color);
+  border-radius: 4px;
+  padding-block: 0.25rem;
+  padding-inline-start: var(--_af-pad-start);
+  padding-inline-end: var(--_af-pad-end);
+}
+
+/* ── Inline padding gates ──────────────────────────────────────────────────
+   Each affix side reserves count × character unit + gap; a side without an
+   affix is plain inline padding. Gated on data-has-prefix / data-has-suffix,
+   which are part of the end-state contract (server-rendered or JS-gap-filled,
+   exactly like the ids and aria-describedby). Attribute selectors, not
+   :has(): affix presence is load-bearing layout data, and load-bearing
+   functionality must never depend on :has() support. Exhaustive,
+   self-contained branches (deletability): the base rule only consumes the
+   private props set here. */
+.AffixField:not([data-has-prefix="true"]) {
+  --_af-pad-start: var(--_af-inline-padding);
+}
+
+.AffixField[data-has-prefix="true"] {
+  --_af-pad-start: calc(var(--_af-prefix-chars, 0) * var(--_af-ch-unit) + var(--_af-gap) + var(--_af-inline-padding));
+}
+
+.AffixField:not([data-has-suffix="true"]) {
+  --_af-pad-end: var(--_af-inline-padding);
+}
+
+.AffixField[data-has-suffix="true"] {
+  --_af-pad-end: calc(var(--_af-suffix-chars, 0) * var(--_af-ch-unit) + var(--_af-gap) + var(--_af-inline-padding));
+}
+
+/* ── Sized variant ─────────────────────────────────────────────────────────
+   Only when data-input-characters is authored: the value area is exactly
+   N character units — the same unit the affixes speak — plus whatever the
+   affixes/gaps/paddings consume. When --_af-input-chars is missing (no JS
+   ran and nothing was authored) the calc is invalid at computed-value time
+   and the width gracefully stays auto. */
+.AffixField[data-input-characters] {
+  inline-size: calc(
+    var(--_af-input-chars) * var(--_af-ch-unit)
+    + var(--_af-pad-start) + var(--_af-pad-end)
+    + 2 * var(--_af-border-width)
+  );
+}
+
+/* ── Alignment ─────────────────────────────────────────────────────────────
+   Opt-in end-alignment of the value (amounts). Default is the UA's start. */
+.AffixField[data-align="end"] .input {
+  text-align: end;
+}
+
+/* ── Number spinner ────────────────────────────────────────────────────────
+   type="number" is a primary use case and the WebKit spinner physically
+   collides with a suffix at inline-end — the contract hides it. Arrow-key
+   stepping still works; this is deliberate and a11y-safe (see AffixField.md). */
+.AffixField .input[type="number"] {
+  appearance: textfield; /* Firefox */
+}
+.AffixField .input[type="number"]::-webkit-inner-spin-button,
+.AffixField .input[type="number"]::-webkit-outer-spin-button {
+  appearance: none;
+  display: none;
+}
+
+/* ── Interaction states (real pseudo-class + data-test-state pairs) ──────── */
+.AffixField .input:hover,
+.AffixField[data-test-state="hover"] .input {
+  border-color: var(--_af-border-color-hover);
+  background-color: var(--_af-bg-hover);
+}
+
+.AffixField .input:focus-visible,
+.AffixField[data-test-state="focus"] .input {
+  outline: 2px solid;
+  outline-offset: 1px;
+}
+
+.AffixField .input:active,
+.AffixField[data-test-state="active"] .input {
+  border-color: var(--_af-border-color-hover);
+  background-color: var(--_af-bg-active);
+}
+
+/* ── Disabled (functional state — no interaction states can occur) ───────── */
+.AffixField[data-disabled="true"] {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* ── Invalid ──────────────────────────────────────────────────────────────── */
+.AffixField[data-invalid="true"] .input {
+  border-color: var(--_af-border-color-invalid);
+}

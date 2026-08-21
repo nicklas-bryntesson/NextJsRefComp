@@ -1,0 +1,2006 @@
+# Findings
+
+A running log of decisions taken and problem surfaces found while porting
+[`reference-components`](https://github.com/nicklas-bryntesson/reference-components)
+into Next.js + Tailwind under the `cursor-DESIGN.md` design system.
+
+Each entry is `F-nnn`, states the surface it was found on, and ends with either a
+**Decision** (settled, with the reasoning) or an **Open question** (needs a call
+from the project owner). Entries are append-only; a reversal gets a new entry
+that supersedes the old one.
+
+---
+
+## Phase 0 — Foundation
+
+### F-000 · Project layout: the app sits in `web/`, not the repo root
+
+**Surface:** scaffolding.
+
+`create-next-app` refuses to scaffold into a directory whose basename contains
+capital letters (`NextJsRefComp`) because npm package names can't. Scaffolding
+into `web/` and relocating the contents to the root was blocked by the sandbox,
+so the app stayed in `web/`.
+
+**Decision:** keep it. The layout is arguably better than root-level anyway —
+the repo root now holds the three things that are *about* the port
+(`cursor-DESIGN.md`, `Findings.md`, `reference-components/`) and `web/` holds the
+thing being ported into. PORTING.md's only structural requirement is that the
+shell's cwd is never inside the submodule, which this satisfies.
+
+---
+
+### F-001 · Cursor Orange cannot carry white text at AA — the signature CTA fails as specified
+
+**Surface:** `cursor-DESIGN.md` → `--ui-primary`.
+
+`button-primary` specifies background `#f54e00` with `#ffffff` text at
+`typography.button` — 14px / weight 500. Measured:
+
+| Pair | Ratio | AA (4.5 normal text) |
+|---|---|---|
+| `#ffffff` on `#f54e00` | **3.52** | ✗ |
+| `#f54e00` as text on `#f7f7f4` | **3.28** | ✗ |
+| `#ffffff` on `#d04200` (doc's press state) | **4.71** | ✓ |
+
+14px/500 is not WCAG "large text" (that needs 18.66px bold or 24px), so 3:1 does
+not apply — 4.5 does. The design doc's primary CTA is not AA-compliant as
+written, and the library's exit criteria demand *zero* axe WCAG 2 AA violations.
+Something has to give, and it cannot be the exit criterion.
+
+**Decision:** promote the doc's own press colour `#d04200` to the resting fill
+for `--ui-primary`. It is already in the palette, it is the same hue family, and
+it clears AA at 4.71. `--color-primary` (`#f54e00`) stays in the theme for
+decorative use (wordmark, non-text accents) where 3:1 is the applicable floor.
+
+**Open question:** this darkens the brand's most recognisable colour by one stop
+on every CTA. The alternatives are ink-on-orange text (13.1:1, but loses the
+white-on-orange look entirely) or raising the button label to 18.66px bold
+(breaks `typography.button` and the "never bold" rule). Confirm the choice.
+
+---
+
+### F-002 · The library is themed through *system colours*; our design system is light-only
+
+**Surface:** `PORTING.md` → *Appearance*, `ui-tokens.css`.
+
+The library follows light/dark through `color-scheme: light dark` plus
+`Canvas`/`CanvasText`, so the whole set reacts to the OS for free.
+PORTING.md calls that line "the single most expensive line to lose in the whole
+port" — losing it silently renders light for a dark-OS user.
+
+`cursor-DESIGN.md` is a warm-cream light-only system. It has no dark palette,
+and inventing one is unauthorised design work.
+
+We are the first row of PORTING.md's own decision table — *one colour scheme →
+map `--ui-*` to your colours and move on*. But there is a trap in taking that
+row: pinning `color-scheme: light` is **not sufficient on its own**. Any
+`--ui-*` token left to fall through to its `Canvas`/`CanvasText` default would
+still resolve against the pinned scheme correctly — but any token we *forgot*
+would inherit a neutral grey that has nothing to do with the design.
+
+**Decision:** pin `color-scheme: light` **and** answer every single `--ui-*`
+token with an explicit literal from our palette. `ui-tokens.css` is exhaustive
+on purpose; no token is allowed to fall through. Because nothing has to be
+resolved before first paint, there is no FOUC to prevent and no head script —
+the entire *Preventing FOUC* section of PORTING.md becomes inapplicable, which is
+the payoff for being light-only.
+
+**Consequence — two things are now out of scope:** the `ThemeSwitch` component
+and `reference-components/tests/appearance.e2e.test.js`. Both exist to exercise
+an appearance override we deliberately do not have. They are deferred, not
+failed. Re-scoping them is a cookie read plus one `data-appearance` attribute on
+`<html>` — but it needs a dark palette first.
+
+**Open question:** is light-only the intended end state, or should we derive a
+dark counterpart so the appearance machinery can be press-tested too? That
+machinery is one of the more interesting parts of the library and we are
+currently skipping it.
+
+---
+
+### F-003 · One `--ui-border` token serves two roles with different WCAG obligations
+
+**Surface:** `ui-tokens.css`, WCAG 1.4.11 Non-text Contrast.
+
+The library ships a single `--ui-border` described as "borders + dividers/
+hairlines". Those are two jobs:
+
+- a **decorative divider** has no contrast floor;
+- the **boundary that identifies a form control** needs 3:1 against its
+  surroundings.
+
+The design system's depth model is hairline-only — no shadows — and its
+hairlines are deliberately delicate:
+
+| Token | vs canvas `#f7f7f4` | vs card `#ffffff` | 3:1? |
+|---|---|---|---|
+| `hairline` `#e6e5e0` | 1.18 | 1.27 | ✗ |
+| `hairline-strong` `#cfcdc4` | 1.48 | 1.59 | ✗ |
+| `muted` `#807d72` | **3.84** | **4.12** | ✓ |
+
+Wired naively, every ported field would have an invisible border and fail 1.4.11.
+"Hairline-only depth" is an editorial marketing-site aesthetic; it does not
+survive contact with form controls, where the border *is* the affordance.
+
+**Decision:** `--ui-border` gets `--color-muted` (`#807d72`). Our own dividers
+keep the delicate `hairline` via Tailwind utilities — the split is real, we just
+express it on our side of the seam rather than the library's.
+
+**Upstream suggestion:** the seam would be more honest as two tokens —
+`--ui-border` (decorative) and something like `--ui-control-border` (interactive,
+3:1 floor). A consumer currently has to notice the conflation to avoid shipping
+an accessibility bug, and PORTING.md's own advice ("if a role is missing, add it
+to `ui-tokens.css`") isn't available to a consumer who keeps the submodule
+pristine.
+
+---
+
+### F-004 · The design's `muted` fails AA as placeholder text
+
+**Surface:** `ui-tokens.css` → `--ui-muted-foreground`.
+
+`muted` `#807d72` measures 4.12:1 on a white field — under AA. The library's own
+default is a `color-mix` sized specifically to clear 4.5, with a comment
+recording that the ratio was picked against the tightest surface the token lands
+on rather than against `Canvas`. That intent is worth preserving.
+
+**Decision:** map `--ui-muted-foreground` to `--color-body` (`#5a5852`, 7.11:1).
+`muted` keeps its documented role as sub-title colour in our own utilities, where
+the text is larger and the floor is lower.
+
+Related: `muted-soft` `#a09c92` measures 2.74:1 and is documented for disabled
+text. That is acceptable — WCAG 1.4.3 exempts inactive components — but it is
+only acceptable *for that role*, so it must not leak into hint or helper text.
+
+---
+
+### F-005 · The library needs four state colours; the design system defines two
+
+**Surface:** `ui-tokens.css` → `--ui-warning`, `--ui-info`.
+
+`--ui-destructive` / `--ui-warning` / `--ui-success` / `--ui-info` are all
+consumed (field-invalid and the `Notice` variants). `cursor-DESIGN.md` supplies
+only `semantic-error` and `semantic-success` — and `semantic-success` `#1f8a65`
+measures 4.30:1, itself just under AA.
+
+**Decision (provisional):** `success` nudged to `#1e8662` (4.52:1). `warning`
+and `info` derived by darkening the nearest timeline pastel to AA —
+`timeline-done` → `#9d6d29` (4.51:1) and `timeline-read` → `#66788f` (4.52:1).
+
+**Open question — this brushes against an explicit "Don't".** The design doc
+says timeline pastels are for in-product agent visualisations only and must never
+become system action colours, which is precisely what deriving from them does.
+The honest position is that the palette has a genuine gap: a design system
+consumed by real form components needs a warning and an informational hue, and
+this one has neither. Two proper hues are wanted here rather than my derivation.
+
+---
+
+### F-006 · No drop shadows, but a popover still has to detach
+
+**Surface:** `ui-tokens.css` → `--ui-shadow`.
+
+The design forbids drop shadows; depth is hairlines plus ink-on-cream. But the
+popup family reads `--ui-shadow` to separate a floating panel from the content
+behind it, and white-on-cream is 1.18:1 — not separation. `ToggleTip.md` also
+records that `box-shadow: var(--ui-shadow)` is the one property in that component
+with **no literal fallback**: without the token there is simply no shadow.
+
+**Decision:** `--ui-shadow: 0 0 0 1px var(--color-hairline-strong)` — the same
+CSS property, used as a 1px ring rather than a shadow. It honours the no-shadow
+rule literally and by intent (hairlines carry depth) while keeping the popover
+delineated.
+
+---
+
+### F-007 · Only two of the library's dozen site tokens are actually consumed
+
+**Surface:** `site-tokens.css`.
+
+The library's `01-Setup/tokens.css` ships a full layout scaffolding —
+`--SITE--PADDING--*`, `--MAX--WIDTH--*`, `--GRID--*`, breakpoints. Grepping the
+components and kernel for actual consumption returns exactly two:
+`--SITE--PADDING` (popover viewport-edge clearance, read by the five popup fields
+and `ToggleTip`) and `--MAX--WIDTH--SITE` (read by `DateField` /
+`DateTimeField`).
+
+**Decision:** define only those two, mapped onto our spacing scale and content
+cap. Importing the library's `tokens.css` wholesale would drag its demo grid
+system into ours to satisfy nothing.
+
+Worth noting the naming asymmetry the library's own ADR-0017 already flags as
+untidied: `--SITE--PADDING` and `--MAX--WIDTH--SITE` put the qualifier on
+opposite ends. Harmless, but it defeats a prefix grep.
+
+---
+
+### F-008 · `data-*` is billed as the public API — but the conformance suite hard-codes ~30 class names
+
+**Surface:** the e2e suite. **This is the central tension for a Tailwind port.**
+
+ADR-0002 states `data-*` attributes are the component's public API, and ADR-0019
+presents a "swap map" telling consumers that `lowercase-kebab` element classes are
+"our internal element styling — replace with your utilities on the same DOM".
+Read together, those promise that class names are ours to discard.
+
+They are not. PORTING.md names the e2e + axe suite as *the portable contract*, and
+that suite selects on element class names throughout. Grepping every
+`*.e2e.test.js` for class selectors:
+
+| Class | Hits | Class | Hits |
+|---|---|---|---|
+| `.trigger` | 142 | `.calendar-grid` | 14 |
+| `.popup` | 118 | `.option` | 13 |
+| `.Wheel` | 38 | `.item-remove` | 9 |
+| `.Picklist` | 30 | `.footer-now` | 8 |
+| `.input` | 28 | `.item` · `.ink` | 8 |
+| `.segment` | 25 | `.lower` · `.upper` | 7 |
+| `.RangeField` | 25 | `.suffix` · `.section` | 6 |
+| `.month-year-trigger` | 23 | `.stops` · `.notice-region` | 5 |
+| `.track` · `.native` | 16 | `.item-error` | 5 |
+
+…plus `.body`, `.grid`, `.Notice`, `.RangeScale`, `.ChoiceGroup`,
+`.calendar-footer-now`, `.kitchensink-section` and others. Highest density:
+`FileUpload` (53 class selectors), `RangeScale` (33), `Picklist` (24).
+
+So the real contract is wider than the documented one: **`data-*` *plus* the
+element class names**. Any port that takes the swap map at face value and
+replaces `.popup` with `flex rounded-lg bg-white …` breaks the suite instantly —
+and breaks it on *missing elements*, which reads as a structural defect rather
+than a renaming.
+
+**Decision:** treat the element class names as **structural hooks that must be
+preserved verbatim**, and layer Tailwind alongside rather than instead:
+
+```tsx
+<div className="popup rounded-lg border border-hairline bg-surface-card">
+```
+
+The semantic class is the test/CSS contract; the utilities are the design. This
+is the standard "semantic hook + utilities" Tailwind pattern, and it costs
+nothing — but it must be a deliberate rule from the first component, because
+retrofitting it after a suite has gone red is guesswork about which of 30 names
+were load-bearing.
+
+**Upstream suggestion:** if class names are contractual, ADR-0019's swap map
+should say so — or the suite should select on `data-part="popup"` and leave class
+names genuinely free. The current docs actively mislead a consumer into a broken
+port. This is the single most valuable finding of the port so far.
+
+---
+
+### F-009 · Tailwind's model and "copy the `.css` verbatim" are directly opposed
+
+**Surface:** `PORTING.md` → step 2 and *Restyle to your own convention*.
+
+PORTING.md is emphatic: copy each component's `.css` **verbatim**, get the suite
+green, and only then translate to your own convention — "doing both at once
+leaves you two variables and nothing to bisect". It also warns the suite cannot
+catch a botched translation, since it asserts behaviour, not appearance.
+
+Tailwind's whole proposition is the opposite: no component stylesheet at all,
+utilities in markup. A Tailwind-native port skips straight to the end state the
+guide tells you to reach separately — and gives up the bisectable baseline.
+
+**Decision:** follow PORTING.md, in two explicit phases per component.
+
+1. **Phase A — verbatim.** Copy `<Name>.css` unchanged into
+   `web/src/components/<Name>/`, import it, port the behaviour to React, get the
+   suite green. Tailwind is not involved. The only edits permitted to the copied
+   CSS are the ones PORTING.md itself sanctions: dropping the runtime-only
+   init-gate rules (see F-010).
+2. **Phase B — translate.** Move design values to Tailwind utilities on the same
+   DOM, keeping every structural class name (F-008). Guard it with the cheap net
+   PORTING.md suggests — snapshot `getComputedStyle` for the popup, footer,
+   segments and trigger with the popup **open**, translate, snapshot again, diff.
+
+Phase B is where the actual research question lives, so it gets its own findings
+once a component has reached it. Recorded now because the temptation to collapse
+the phases is strongest at the start, and collapsing them would forfeit the
+comparison this whole POC exists to make.
+
+---
+
+### F-010 · The init gate must be dropped, but `data-initialized` must be kept
+
+**Surface:** `PORTING.md` → *Runtime-only CSS*, `e2e-helpers/target.js`.
+
+The reference hides unstyled content until its vanilla JS boots:
+`.DateField { overflow: hidden }`, flipped to `visible` by
+`[data-initialized="true"]`. PORTING.md says to drop those rules — a framework
+rendering formed markup never needs the gate, and leaving it in *clips the popup*.
+
+But the attribute is not only a gate. `target.js` resolves the `FileUpload` test
+target as `[data-component="FileUpload"][data-initialized]`, and PORTING.md's
+own *What the tests expect* section says tests locate components by
+`data-id` / `data-initialized="true"` state attributes.
+
+**Decision:** drop the init-gated **CSS rules**, keep emitting the
+**attribute**. In React that means rendering `data-initialized="true"` from the
+client component — which is honest, since by the time it hydrates it *is*
+initialised. Deleting the attribute along with the CSS is the trap here, and it
+would fail the suite on a missing element.
+
+---
+
+## Phase 1 — AffixField
+
+**Result: 15 / 16 conformance tests green on the first run**, including both axe
+audits (zero WCAG 2 AA violations) and the geometry test. The one failure is
+F-011 below, and it is not a defect in the port.
+
+---
+
+### F-011 · A byte-identity assertion on `style` is unreachable from React
+
+**Surface:** `AffixField.e2e.test.js` → *the fully-authored variant is untouched*.
+
+The assertion:
+
+```js
+await expect(root).toHaveAttribute('style', '--_af-prefix-chars: 1; --_af-suffix-chars: 3')
+```
+
+React normalises the `style` prop when it serialises it, and it does so
+unconditionally. Probed directly (`web/tasks/probes/probe-style.mjs`):
+
+| Input | Rendered |
+|---|---|
+| `{'--_af-prefix-chars': 1}` | `--_af-prefix-chars:1` |
+| `{'--_af-prefix-chars': '1'}` | `--_af-prefix-chars:1` |
+| `{'--_af-prefix-chars': ' 1'}` | `--_af-prefix-chars:1` |
+
+There is no spacing variant React will emit, and `style` cannot be passed as a
+raw string — React throws (*"The `style` prop expects a mapping from style
+properties to values, not a string"*). So the assertion is **structurally
+unsatisfiable** by any idiomatic React implementation.
+
+More interesting than the incompatibility is *what the assertion is for*. Its
+own comment says: "any JS write would re-serialize it (spacing/semicolon
+normalization)" — it is a fingerprint check proving the reference's client JS did
+not touch an authored value. That is a **mechanism** test, sitting in a suite
+whose header states, in the file's first paragraph, that "the suite asserts the
+END-STATE, not the mechanism" and that "a server-rendered implementation with
+zero client JS that renders the same end-state passes this suite unchanged".
+
+It does not. This one assertion is the exception to the file's own promise, and
+it fails precisely the implementation the contract holds up as the ideal.
+
+Note the end-state it is *nominally* about — that the counts are `1` and `3` — is
+already asserted independently, and passes.
+
+**Decision:** leave it failing and treat it as a known non-portable assertion
+rather than bend the component around it. The workaround exists — render that one
+variant's root through `dangerouslySetInnerHTML` to control the raw attribute
+string — but it would replace a real React component with a hand-written HTML
+blob purely to satisfy a whitespace comparison, and would misrepresent the port.
+
+**Upstream suggestion:** assert the mechanism through the CSSOM rather than the
+attribute text, e.g.
+
+```js
+expect(await root.evaluate(el => el.style.getPropertyValue('--_af-prefix-chars').trim())).toBe('1')
+```
+
+That still catches a JS overwrite of an authored count (the value would differ if
+gap-fill had won) without depending on the host framework's whitespace habits.
+
+---
+
+### F-012 · A zero-JS port collapses the `bare` / `authored` distinction
+
+**Surface:** the `affixfield-bare` and `affixfield-authored` variants.
+
+The reference ships these as two variants to demonstrate two *paths* to one DOM:
+`bare` authors minimal markup and lets JS gap-fill; `authored` renders the full
+end-state server-side and proves JS touches nothing.
+
+In a Server Component both variants are rendered from the same function, so the
+distinction disappears — they produce identical DOM, and the test *"JS gap-fills
+the presence attributes on the bare variant"* passes without any gap-filling
+having occurred.
+
+That is not a problem — the end state is what is contractual, and both are
+correct. It is worth recording because **the suite can no longer tell the two
+apart**, so it silently stops covering something it was written to cover. A port
+that later introduces client JS would not be warned if that JS started
+overwriting authored values.
+
+---
+
+### F-013 · The `1.125ch` calibration survived a typeface change
+
+**Surface:** *input value area clears both affixes (bounding boxes)* — passed.
+
+`--_af-ch-unit: 1.125ch` is documented as "the production-proven default from
+SVL — calibrate it against your typeface like any other design token". We
+render in **Inter**, not the reference's typeface, and the geometry test — which
+measures real rendered boxes and fails if the reserved padding falls short of the
+rendered affix — passes untouched.
+
+So the calibration factor generalises across at least two proportional sans
+faces. Recorded as a positive finding: the character-count layout model is more
+portable than its own documentation claims, and no calibration work was needed.
+Worth re-checking if the design ever adopts CursorGothic proper, which is the
+licensed face Inter is standing in for.
+
+---
+
+### F-014 · The suite depends on a class name that belongs to the reference *demo page*
+
+**Surface:** `AffixField.e2e.test.js` → *all kitchensink states pass axe*.
+
+```js
+await checkA11y(page, '.kitchensink-section:has([data-id="affixfield-live"])', …)
+```
+
+`.kitchensink-section` is not part of any component contract — it is a wrapper
+class from the reference's own demo page. Nothing in PORTING.md or AGENTS.md
+mentions owing it, and the component `.md` has no reason to. A port discovers it
+by reading the spec source, or by watching the test fail on a null scope.
+
+This is F-008 widening: the real contract is `data-*` **plus** element class
+names **plus** a demo-page wrapper class. Our kitchen-sink page renders
+`.kitchensink-section` per component section for exactly this reason.
+
+**Upstream suggestion:** scope the full-section axe run to something the porter
+already owes — e.g. a `[data-kitchensink-section]` attribute documented in
+PORTING.md, or derive the scope from the component root's closest section.
+
+---
+
+### F-015 · React's strongest showing: the contract's ideal implementation is idiomatic here
+
+**Surface:** `AffixField.tsx`.
+
+Worth recording as a win rather than a problem. `AffixField.md` describes a
+zero-client-JS, server-rendered implementation as the *more correct* placement of
+the logic, and frames it as an aspiration for server stacks ("an ASP.NET Tag
+Helper can render the identical end-state with no client JS at all").
+
+In Next.js App Router that is not an aspiration, it is the default. `AffixField`
+is a plain Server Component with no `'use client'`, and the five `attach()` steps
+become render-time expressions:
+
+| Reference `attach()` step | React |
+|---|---|
+| set `data-has-prefix` / `-suffix` | `data-has-prefix={hasPrefix ? "true" : undefined}` |
+| set `--_af-*-chars` from `textContent.trim().length` | `prefix.trim().length` in the style object |
+| map `data-input-characters` → `--_af-input-chars` | one prop |
+| wire affix ids + `aria-describedby` | derived, ordered array join |
+| set `data-initialized="true"` | rendered literally |
+
+Zero bytes of JavaScript ship for this component. The reference's "authored
+values always win" gap-fill logic — the guard clauses that make `attach()`
+idempotent and non-destructive — disappears entirely, because there is nothing to
+gap-fill when the render *is* the authoring step.
+
+`undefined` doing the work of "absent" is the detail that makes this clean: the
+library's boolean convention is `="true"` or *no attribute*, and that is exactly
+React's conditional-attribute semantics. The two conventions happen to line up
+perfectly.
+
+---
+
+## Phase 2 — Fan-out, and the appearance seam
+
+Wave 1 ported six components in parallel via subagents, each working from
+`CLAUDE.md` with no shared context. Results, all re-verified after the
+project-wide palette change below:
+
+| Component | Conformance | Notes |
+|---|---|---|
+| AffixField | 15 / 16 | the one failure is F-011, non-portable |
+| ChoiceField | 8 / 8 | Server Component, zero client JS |
+| Notice | 7 / 7 | Server Component, zero client JS |
+| ScrollArea | 3 / 3 | `'use client'` — first component that *measures* |
+| MotionRegion | 5 / 5 | + 15 kernel unit tests (`motion-policy`) |
+| ToggleTip | 11 / 11 | + 11 kernel unit tests (`popup-position`) |
+
+Plus 35 kernel unit tests green across `motion-policy`, `popup-position` and
+`theme-preference`. Per-component detail lives in `findings/<Name>.md`; what
+follows are the project-level findings.
+
+---
+
+### F-017 · A component-scoped axe pass is not evidence the page is accessible
+
+**Surface:** `kitchensink-ui.tsx`, found by the ChoiceField and Notice ports.
+
+Our shared kitchensink chrome shipped **20+ colour-contrast failures** and every
+suite up to that point had missed them, because they all scope their audit to the
+component root (`scopedCheckA11y`). The ChoiceField spec runs an *unscoped*
+`checkA11y(page, '#ChoiceField')` over its whole section and found them
+immediately:
+
+| Element | Token | Ratio | Floor |
+|---|---|---|---|
+| `Block` heading | `text-muted` `#807d72` on `#f7f7f4` | 3.84 | 4.5 |
+| `Cell` caption | `text-muted-soft` `#a09c92` on `#ffffff` | 2.73 | 4.5 |
+
+The second is the sharper lesson: `design-tokens.css` **already carried a comment
+on that token** saying "disabled text only (WCAG 1.4.3 inactive exception)", and
+it still ended up on a live state caption — which gets no exception. F-004 warned
+that `muted-soft` "must not leak into hint or helper text"; it leaked into the
+chrome instead, in the same session that wrote the warning.
+
+**Decision:** both roles now use `text-body` (~6.3:1). More durably: a
+component-scoped green is a statement about one component, and the page needs its
+own audit. `web/tasks/probes/axe-dark.cjs` now runs axe over the entire
+kitchensink in both appearances, and it is the check that has to be green before
+anything is called done.
+
+---
+
+### F-018 · Some suites scope axe to the id of the reference *demo section*
+
+**Surface:** `ChoiceField.e2e.test.js`, `Notice.e2e.test.js`, `Picklist`.
+
+Several specs run `checkA11y(page, '#<Component>')` — `#ChoiceField`, `#Notice`,
+`#Picklist`. That id belongs to the reference's own demo page markup. It is in no
+component contract, in no ADR, and nowhere in PORTING.md. A port discovers it by
+watching axe run against a null scope, which does not fail loudly — it audits
+nothing and reports success.
+
+This is F-008 and F-014 widening again: the real contract is `data-*`, **plus**
+element class names, **plus** `.kitchensink-section`, **plus** a per-component
+section id.
+
+**Decision:** `<Section>` takes an optional `anchorId` that puts the id on the
+`.kitchensink-section` element itself. That placement matters — the first port to
+hit this wrapped its own div *outside* `.kitchensink-section`, so the audit
+covered a different subtree than the reference's and passed for the wrong reason.
+
+**Upstream suggestion:** an unscoped `checkA11y` that silently audits nothing when
+its scope is missing is a worse failure mode than a hard error. Asserting the
+scope exists first would turn every one of these into a clear message.
+
+---
+
+### F-019 · Nine specs hard-code `page.goto('/')`, so `TARGET_PATH` is inert
+
+**Surface:** the e2e suite. **This is the most expensive undocumented gap so far.**
+
+PORTING.md documents `TARGET_PATH` as the seam for pointing the suite at your own
+page: *"`TARGET_PATH` — the page the tests navigate to (default `/`). Set it when
+your demo lives elsewhere."* And `e2e-helpers/target.js` exposes `targetPath()`
+for exactly that.
+
+Nine of the eighteen component specs never call it. They write
+`await page.goto('/')` directly:
+
+> ChoiceField · ChoiceGroup · Notice · Picklist · RangeField · RangeGroup ·
+> RangeScale · ThemeSwitch · ToggleTip
+
+Playwright resolves a bare `'/'` against the **origin** of `baseURL`, so
+`TARGET_PATH` is silently discarded and the suite lands on whatever the host
+serves at the site root. Every assertion then fails on a missing element — which
+reads as a catastrophic structural defect in the port, not as a routing mismatch.
+One agent lost meaningful time building an HTTP proxy to rewrite `/` before the
+cause was identified.
+
+The reference repo cannot notice this, because its own `/` *is* the kitchensink.
+
+**Decision:** serve the aggregate kitchensink at `/` as well as `/kitchen-sink`.
+That is the same shape as the reference rather than a workaround, and it satisfies
+both spec styles at once — the nine that hard-code `/` find their component, and
+the nine that honour `targetPath()` can still be pointed at an isolated route,
+which is faster and makes a failure unambiguous.
+
+A proxy is the wrong fix twice over: it also breaks App Router hydration, which a
+second agent independently measured.
+
+**Upstream suggestion:** replace `goto('/')` with `goto(targetPath())` in those
+nine files. It is a one-line change per spec and it makes the documented seam true.
+
+---
+
+### F-020 · The dark palette is derived design work, and it was the right call
+
+**Surface:** `design-tokens.css`, `ui-tokens.css`. **Supersedes F-002.**
+
+F-002 took PORTING.md's first decision-table row — one colour scheme, map
+`--ui-*`, move on — and pinned `color-scheme: light`. That forfeited the
+`ThemeSwitch` component and `tests/appearance.e2e.test.js`, i.e. one of the more
+interesting seams in the library, on the grounds that `cursor-DESIGN.md` ships no
+dark palette and inventing one is unauthorised.
+
+Reversed. The design doc is explicit that design belongs to the consuming
+project, and ADR-0021 is explicit that *values* are never the library's business
+("What `dark` actually looks like — ❌ never; defaults only"). Supplying the dark
+half is therefore the port's job, not a liberty it takes.
+
+Two principles held the derivation together:
+
+- **The system is warm.** The dark ground is a warm near-black `#1a1a17`
+  mirroring the warm cream, not a neutral or cool grey — a cool dark ground reads
+  as a different brand.
+- **Lightness inverts, hue does not.** Cursor Orange lifts to `#ff7a40` on dark
+  and its foreground flips to the dark canvas, so the CTA stays one colour family
+  across both appearances rather than becoming a second accent.
+
+Every pair the `--ui-*` seam forms was measured against its WCAG floor in both
+appearances before being committed (`web/tasks/probes/dark-palette.mjs`), then
+re-measured in Chromium (`verify-appearance.cjs`) because `light-dark()` fails
+*silently* — an unsupported or malformed declaration is invalid at computed-value
+time, the custom property goes unset, and `var(--ui-x, #literal)` quietly falls
+back to the light literal. Browser-verified results:
+
+| Check | Light | Dark |
+|---|---|---|
+| body text on page | 6.63:1 | 8.68:1 |
+| `--ui-primary-foreground` on the primary fill | 5.01:1 | 6.74:1 |
+| `--ui-border` as a control edge (1.4.11, 3:1) | 4.12:1 | 4.81:1 |
+| all nine probed `--ui-*` differ between appearances | ✓ | ✓ |
+| shadow ink differs | ✓ | ✓ |
+| axe over the whole kitchensink | 0 violations | 0 violations |
+
+Because every token is a `light-dark()` pair, the whole design system follows
+`color-scheme` with **no `dark:` variants and no duplicate blocks** — Tailwind
+utilities built from the tokens (`bg-canvas`, `text-ink`) are appearance-reactive
+for free. That is a genuinely better answer than the `darkMode` selector mapping
+ADR-0021 anticipates for Tailwind consumers, and it is worth reporting upstream as
+a third conformant route alongside the ADR's Route A and Route B.
+
+The one caveat that bit immediately: pinning or switching the scheme is not
+enough on its own. **Every** `--ui-*` must carry an explicit value, because a
+token left to fall through to `Canvas`/`CanvasText` follows the OS rather than the
+projected attribute. `ui-tokens.css` is exhaustive for that reason.
+
+---
+
+### F-021 · `warning` and `info` are additions to the design system, not derivations
+
+**Surface:** `design-tokens.css`. **Supersedes the provisional half of F-005.**
+
+F-005 derived `--ui-warning` and `--ui-info` by darkening the nearest timeline
+pastel to AA, and flagged that this brushes against an explicit "Don't" —
+`cursor-DESIGN.md` reserves the timeline pastels for in-product agent
+visualisations and says they must never become system action colours.
+
+Resolved by respecting the Don't. The palette has a genuine gap: a design system
+consumed by real form components needs four state roles and this one defines two.
+So `warning` and `info` are now **additions** rather than borrowings:
+
+- **`warning`** — a warm amber (`#9d6d29` / `#e0a94e`). A warm system should not
+  reach for a cool caution colour, and amber is the near-universal convention.
+- **`info`** — a cool-neutral slate (`#5b6b7f` / `#9db3cc`). Informational, and
+  deliberately not a second brand hue.
+
+`success` also moved: the doc's `#1f8a65` measures 4.30:1 on white, just under AA,
+so it is `#1e8662` (4.52:1) in light and `#5fc79b` in dark.
+
+An unexpected corroboration came out of the Notice port. Because Notice derives
+its background from its accent (`color-mix(accent 8%, Canvas)`) rather than
+pairing hand-picked values, **every variant's icon clears WCAG 1.4.11
+automatically** — error 4.48:1, warning 4.09, success 4.09, info 4.11, neutral
+17.55 — even though these four values were chosen for text on a white card with
+no thought given to Notice at all. The contrast relationship there is structural,
+not per-variant designer diligence, which is a strong argument for the library's
+single-accent-token variant API.
+
+---
+
+### F-022 · The flash-free appearance structure costs static rendering, app-wide
+
+**Surface:** `web/src/app/layout.tsx`. **The sharpest Next.js-specific finding.**
+
+PORTING.md ranks two conformant ways to restore an explicit appearance without a
+flash, and is unambiguous about the preference:
+
+> **Server-rendered (preferred — no client JS, no flash by construction).** Read
+> your cookie during render and emit the attribute in the markup. […] The
+> preference has to live somewhere the *server* can read, so use a **cookie, not
+> `localStorage`**.
+
+Implemented exactly that: the root layout is an async Server Component that reads
+the `appearance-preference` cookie and runs it through the ported
+`theme-preference` kernel. Verified by curl, before any JavaScript exists:
+
+```
+no cookie          → <html lang="en" class="…">                          (system)
+cookie=dark        → <html lang="en" data-appearance="dark" class="…">
+cookie=light       → <html lang="en" data-appearance="light" class="…">
+cookie=Dark        → <html lang="en" class="…">        (case-sensitive → system)
+```
+
+**The cost, measured.** Reading a cookie in the **root** layout makes every route
+in the application dynamically rendered — Next.js cannot prerender a tree whose
+`<html>` element depends on a request header. The build output moved wholesale:
+
+```
+before:  ○ /  ○ /kitchen-sink  ○ /kitchen-sink/affixfield  …   (Static)
+after:   ƒ /  ƒ /kitchen-sink  ƒ /kitchen-sink/affixfield  …   (Dynamic)
+```
+
+Nine routes, all of them, including pages with no appearance-dependent content.
+That is the real trade PORTING.md's ranking does not price: in Next.js the
+*preferred* structure is bought with the entire app's static rendering, and the
+structure it ranks second — an inline `<head>` script reading `localStorage` —
+keeps every page static at the cost of reintroducing a render-blocking script
+whose only job is repairing the first paint.
+
+**Decision:** keep the cookie. This is a POC whose purpose is to press-test the
+contract, and the contract's preferred structure is the one worth exercising. The
+kernel makes the choice cheap to reverse — `resolvePreference` is already called
+from both a server and a client runtime, so switching to the script route means
+changing where it is called, not what it decides.
+
+**Worth knowing if this were production:** the middle path is to stop projecting
+from the root layout and instead let a route segment or a client boundary own it,
+keeping static rendering for everything that does not need the attribute. That
+trades one flash-free guarantee for nine static routes, and which way it should go
+depends entirely on how much of the app is actually appearance-sensitive.
+
+**Upstream suggestion:** PORTING.md's two structures are presented as a clean
+preference ordering. For a framework with static prerendering they are a genuine
+trade-off, and naming that would help the next porter decide rather than assume.
+
+---
+
+### F-023 · A compliant design system disables the text-spacing suite's own canary
+
+**Surface:** `tests/text-spacing.e2e.test.js`. Site-level, WCAG 1.4.12.
+
+The three substantive assertions **pass**: no text is clipped by the overrides,
+the page gains no horizontal scroll, and interactive targets keep their size. The
+components survive forced text spacing, which is the criterion.
+
+Two of the six tests fail, and neither is a port defect.
+
+**1. "the detector finds a planted violation" — the canary cannot fire.**
+
+The suite is unusually self-aware about the risk of becoming theatre. Its comment
+says so directly: *"This test plants a violation that cannot survive the
+overrides and requires the detector to find it. If it ever passes silently, the
+exclusions have eaten the suite."* The canary appends a one-line box, pins its
+`block-size` to the height it renders at *right now*, then forces
+`line-height: 1.5` and requires the box to clip.
+
+That mechanism assumes the host renders **below** 1.5. Measured
+(`web/tasks/probes/text-spacing-canary.cjs`):
+
+```
+BEFORE overrides: { pinnedHeight: 24, lineHeight: '24px', fontSize: '16px', scrollHeight: 24 }
+AFTER  overrides: { lineHeight: '24px', fontSize: '16px', scrollHeight: 24, clipped: false }
+line-height ratio before: 1.500   after: 1.500
+```
+
+`cursor-DESIGN.md` specifies `body-md` at line-height 1.5, so our base is
+*exactly* the value the override forces. Nothing grows, the planted box never
+clips, and the detector correctly finds nothing.
+
+So the canary is disabled by a host that already satisfies the line-height half of
+1.4.12 at rest. A design system being **more** compliant makes the library's
+anti-theatre check unable to prove itself — and it fails in a way that looks like
+a broken detector rather than an inapplicable premise.
+
+Worth being precise about what is and is not lost: the other three axes
+(`letter-spacing`, `word-spacing`, paragraph spacing) still change and still
+exercise the real assertions, so the suite is not inert. What is unverified is
+that the *clipping* detector's exclusion list has not eaten its own subject —
+which is exactly the thing the canary existed to prove.
+
+**Decision:** leave it failing and record it. Suppressing it would be worse than
+the gap: the canary's whole point is that a silent pass means the exclusions won.
+
+**Upstream suggestion:** pin the canary to a ratio *below* the current computed
+line-height rather than at it — e.g. set `block-size` to `1em` explicitly, or
+plant the violation on the `letter-spacing` axis (force a box to exactly the
+width of its text, which grows under `0.12em` regardless of the host's baseline).
+Either makes the canary independent of how compliant the consuming project
+already is.
+
+**2. "the overrides actually apply, and the page grows" — not enough components yet.**
+
+Its first assertion is `expect(before.sectionCount).toBeGreaterThan(10)`. The page
+currently carries 7 `.kitchensink-section` elements. This resolves itself as the
+remaining components land; it is a coverage floor, not a defect.
+
+Also worth recording from this suite: **"every component on the page is inside a
+covered section" passes**, and its comment explains why it exists — ToggleTip was
+once silently outside coverage in a leftover `.examplePanel` wrapper. That is the
+same failure shape as F-014 and F-018, and it is the one place the library
+defends against it by asserting a *relationship* rather than a count. Good pattern
+to note: our own `<Section>` component makes it structurally hard to fall out.
+
+---
+
+## Phase 3 — Wave 2, the kernel, and the cross-cutting defects
+
+Wave 2 added seven components and the whole remaining kernel. Conformance on the
+shared page at the end of the wave:
+
+| Component | Result | | Component | Result |
+|---|---|---|---|---|
+| Picklist | 27 / 27 | | ChoiceGroup | 8 / 8 |
+| FileUpload | 21 / 21 | | Notice | 7 / 7 |
+| RangeField | 21 / 21 | | MotionRegion | 5 / 5 |
+| RangeScale | 30 / 31 | | ScrollArea | 3 / 3 |
+| AffixField | 15 / 16 | | RangeGroup | 10 / 19 ⚠ |
+| ToggleTip | 11 / 11 | | ThemeSwitch | 14 / 17 ⚠ |
+| ChoiceField | 8 / 8 | | | |
+
+Site-level: `appearance` 8 / 8, `text-spacing` 5 / 6. Kernel: **206 unit tests**,
+up from 35 — `locale`, `dates`, `WheelColumn`, `popup-interaction`, `css-px`,
+plus `Wheel.css` copied verbatim.
+
+---
+
+### F-024 · axe does not test reflow, and a grid item defeats `max-w-full`
+
+**Surface:** the shared kitchensink page, WCAG 1.4.10 Reflow. Found independently
+by three ports.
+
+Reflow requires content to reflow without two-dimensional scrolling down to
+**320 CSS px**. Nothing in this project's toolchain was testing it: axe has no
+reflow rule at all, so a fully green audit — component-scoped *and* page-scoped,
+in both appearances — coexisted with a Level AA failure the whole time.
+
+Measured document overflow at 320 px, bisected by hiding each section in turn:
+
+| Owner | Contribution | Cause |
+|---|---|---|
+| MotionRegion | 169 px | a fixed `w-[28rem]` demo |
+| FileUpload | 65 px | two separate causes, see F-028 and below |
+| RangeScale | 71 px | still under investigation at time of writing |
+
+The mechanism is worth stating precisely, because the obvious fix does not work.
+A grid or flex item defaults to `min-width: auto`, so **a fixed-width child sizes
+the auto track it sits in** — which makes `max-w-full` useless, because `100%`
+then resolves against the item's own fixed width rather than against the
+viewport. `min-w-0` on the track is what lets it shrink.
+
+Two further traps measured along the way:
+
+- The tempting fluid rewrite `w-full max-w-[28rem]` takes overflow to zero at
+  every width **and collapses the track to the caption's width** — the demo
+  measured 142 px at a 1280 px viewport. The working form was
+  `inline-size: min(28rem, calc(100vw - 8rem))`, because viewport units are not
+  circular with track sizing.
+- `min-w-0` is necessary but **not sufficient**: a track cannot go below its
+  content's `min-content`, and a bare `<input type="file">` has a UA
+  `min-content` of **344 px** (its shadow "Choose File / No file chosen" is
+  unshrinkable). That needs `w-full min-w-0` at the call site.
+
+**Decision:** `min-w-0` on `Cell` in the shared chrome, plus a standing viewport
+sweep (`web/tasks/probes/reflow-sweep.cjs`, wired into `npm run verify`) that
+names the innermost offending element rather than just reporting a number. Two
+seconds, and it is the only instrument that sees this class of failure.
+
+**Upstream suggestion:** the library already ships a site-level suite for a
+criterion nobody usually tests (`text-spacing.e2e.test.js` for 1.4.12). Reflow is
+its sibling and belongs beside it — roughly twenty lines, and the two criteria
+interact (1.4.12's own comment notes that text growing sideways must wrap rather
+than widen the page).
+
+---
+
+### F-025 · CSS import order is load-bearing, and a bundler decides it for you
+
+**Surface:** `AggregateKitchensink.tsx`. Found independently by the Picklist and
+ChoiceGroup ports.
+
+Three components style a `.content` element at **identical specificity (0,2,0)**
+— `.Notice .content { display: flex }`, `.ChoiceGroup .content`,
+`.Picklist .content { display: flow-root }` — and the contracts deliberately
+*nest* a Notice inside a ChoiceGroup's and a Picklist's `.content`. Source order
+is therefore the only tie-break, and the loser silently drops `gap` and
+`min-inline-size: 0`.
+
+Measured both ways: ChoiceGroup imported after Notice → the nested
+`.Notice .content` computes `flow-root` and loses its gap; imported before →
+`flex`, `gap 4px`, matching the reference.
+
+The reference resolves this with a hand-ordered `@import` list. We resolve it with
+the module graph, which is **not** a thing a porter chooses deliberately — it
+falls out of import order in one file, and Next's own CSS documentation warns
+that dev and production ordering can differ (checked: they agree here).
+
+**Decision:** keep the aggregate's imports alphabetical, which happens to
+reproduce the reference's outcome for both collisions, and say so in a comment at
+the top of the file with a warning to measure rather than assume if a new
+component adds a `.content` rule.
+
+**Upstream suggestion:** ADR-0019 makes the element lexicon deliberately generic
+(`.content`, `.popup`, `.options`) and relies on `.Component` prefixing to keep
+bare names safe. That works within a component and fails **between** components
+when one nests another — which the contracts require. `.Picklist > .content` is a
+one-character fix that removes the ambiguity entirely, and the ADR's own reasoning
+("a fully-qualified selector is deterministic to read") argues for it.
+
+---
+
+### F-026 · A px type scale makes the library's whole `em` model inert
+
+**Surface:** `design-tokens.css`. Found by the RangeField port, which correctly
+attributed a failing assertion in *its* spec to a defect in **our** token layer.
+
+`cursor-DESIGN.md` specifies the entire scale in px, and we transcribed it
+literally — including `body { font-size: var(--text-body-md) }` at `16px`. That
+pins the root, and the consequence is not local:
+
+| Root font size | Field input | Field box |
+|---|---|---|
+| 16 px | 16 px | 24 px |
+| 32 px | **16 px** | **24 px** |
+| 32 px, with `body { font-size: 1rem }` | 32 px | 48 px |
+
+Two separate things break, not one:
+
+- **The library's central sizing mechanism.** ADR-0025 has components "express
+  relationships, never a scale" — a hint at `0.875em` is the statement
+  *"supporting text is smaller than what it supports"*, designed to survive
+  whatever scale the consumer installs. A px root removes the thing those
+  relationships are relative *to*. The range family's contract asserts "the whole
+  control scales with the root font size", and that assertion was failing.
+- **WCAG 1.4.4 Resize Text.** A px `font-size` on `body` ignores the user's
+  browser font-size preference outright.
+
+**Decision:** the whole scale is `rem`, and `letter-spacing` is `em` so tracking
+stays proportional when type scales. Values are unchanged at a 16 px root, so the
+design renders byte-identically — this cost nothing and bought back both. Spacing
+and radius tokens moved too, for the same reason. Verified live: doubling the root
+now doubles a field's font and its box height exactly, and RangeField went from
+20/21 to **21/21** without its porter touching the component.
+
+The general lesson for anyone consuming this library: **a design system handed
+over in px will silently disable it.** Nothing fails loudly; a contract assertion
+somewhere just stops holding.
+
+---
+
+### F-027 · A component's own suite disables the rule that would catch its defect
+
+**Surface:** `FileUpload.css`, `FileUpload.e2e.test.js`.
+
+`.drop-label { opacity: 0.7 }` measures **3.44:1** on the card and **3.23:1** over
+the dragging tint — both under AA. Dark passes at 4.59:1. axe flags it as two
+serious nodes.
+
+FileUpload's conformance suite **disables `color-contrast` in both of its axe
+runs**, so the suite is structurally blind to a real Level AA failure in the
+component it is auditing. The rule is switched off for a legitimate-sounding
+reason elsewhere in the repo (WCAG 1.4.3 exempts *disabled* components, and axe
+cannot see that exemption) — but here it also hides a live element.
+
+**Decision:** left verbatim, because Phase A forbids editing the copied CSS. Not
+silenced either: `web/tasks/probes/axe-dark.cjs` reports it as a named known
+Phase A defect and counts it separately from new violations, so the rule keeps
+catching regressions. Phase B fix is measured — `opacity: 0.9` clears every
+ground (5.51 / 5.02 / 6.60).
+
+**Upstream suggestion:** narrow the exemption instead of disabling the rule
+globally for a section. Excluding `[data-disabled="true"]` subtrees — which is
+what our page-level probe does — keeps `color-contrast` live everywhere else and
+is the honest expression of the 1.4.3 exception.
+
+---
+
+### F-028 · JSX drops the whitespace text nodes that let an inline row reflow
+
+**Surface:** `FileUpload.tsx`. **The most purely React-specific finding of the
+port.**
+
+The reference's Handlebars partials put each inline span on its own source line.
+That leaves a collapsible whitespace text node between them — which is a
+**soft-wrap opportunity**. JSX siblings emit no text node at all, so a row of
+`white-space: nowrap` spans becomes one unbreakable inline box.
+
+Measured `min-content` of the component root at 320 px:
+
+| State | JSX siblings | with `{" "}` | reference |
+|---|---|---|---|
+| `invalid-size` | **285 px** | **155 px** | 155 px |
+| `invalid-type` | **236 px** | **117 px** | 117 px |
+
+Confirmed independently by injecting real `createTextNode(' ')` at runtime:
+285 → 155 with zero CSS change. The available cell is 238 px at a 320 px viewport,
+so this alone was a 1.4.10 failure.
+
+What makes it nasty is that **nothing can see it**. `toHaveText` matches inside
+the span. `textContent` ignores sibling whitespace. axe has no reflow rule. So
+21/21 plus two clean axe runs coexisted with the defect, and the only reason it
+surfaced at all is that a page-level viewport sweep was added for an unrelated
+component.
+
+**Decision:** emit `{" "}` between the spans. This is **restoring DOM the
+reference actually has**, not a workaround, so it is a legitimate Phase A edit —
+but check it changes no `textContent` assertion first. It is inert in flex
+contexts, where whitespace nodes are discarded anyway.
+
+This one generalises well beyond this library: any port from a text-templating
+language to JSX loses every inter-element whitespace node, and the failure mode
+is a layout that is subtly less flexible than the original with no visible
+difference at desktop width.
+
+---
+
+### F-029 · The reference's kernel unit tests are 100% portable — proven, not estimated
+
+**Surface:** `src/kernel/**/tests/`. **Directly contradicts PORTING.md.**
+
+PORTING.md excludes `*.unit.test.*` from the portable contract:
+
+> These are white-box tests of the *reference implementation* (they call private
+> methods and import the TS class directly). They are **not** the portable
+> contract and carry a TS-adaptation tax for no benefit.
+
+That is right for components and **wrong for the kernel**. Measured per module:
+
+| Module | Tests | Reference test adaptable? |
+|---|---|---|
+| `dates` | 85 (60 reference + 25 added) | **verbatim, zero-character delta** |
+| `WheelColumn` | 37 (19 + 18) | verbatim + a `@vitest-environment` docblock |
+| `popup-interaction` | 23 (9 + 14) | verbatim + docblock |
+| `motion-policy` | 15 | verbatim (earlier port: "the entire delta was the import specifier's quote style") |
+| `theme-preference` | 12 | verbatim |
+| `locale` | 18 (all new) | **no reference test exists** |
+| `css-px` | 8 (all new) | no reference module — six components duplicate the probe |
+
+The claim was proven rather than asserted: all three reference `*.unit.test.ts`
+files were copied in **byte-for-byte** and run — **88 tests passed unmodified**,
+import paths included, because our `kernel/tests/` layout mirrors theirs. The
+evidence is parked in `web/tasks/probes/verbatim-ref-tests/`.
+
+Note the coverage gaps this exposed: `popup-interaction`'s reference test covers
+only `nextTabStop`, leaving the actual trap wiring at **zero** coverage, and
+`locale` has no test at all (the kernel README says "covered via component
+tests").
+
+**Upstream suggestion:** narrow the exclusion to
+`src/partials/components/**/*.unit.test.*`. For pure kernel modules the tests are
+the cheapest possible proof a port is faithful, and PORTING.md elsewhere already
+tells you to "run their conformance tests" for kernel primitives — so the document
+contradicts itself on this point.
+
+---
+
+### F-030 · `WheelColumn.destroy()` strands a module-level lock — a real upstream defect
+
+**Surface:** `src/kernel/js/WheelColumn.ts`. **The most consequential bug found by
+porting.**
+
+`WheelColumn` arbitrates trackpad scrolling between sibling columns through a
+module-level `_activeWheelCol` lock, released in `_commit()` after a 100 ms snap
+window. `destroy()` does not clear it.
+
+So: scroll a wheel column, then close the popup **within that 100 ms window**.
+`_commit()` never runs, the lock keeps pointing at a destroyed instance, and
+**every wheel column in the application ignores trackpad scroll for the rest of
+the page's life.** Keyboard and pointer still work, which is exactly why it would
+survive review — it presents as "the wheel feels broken sometimes".
+
+Fixed in our port with one line in `destroy()`, marked `[PORT FIX]`, with a
+regression test proven to fail without it (36/37) and pass with it (37/37).
+
+Worth noting *why* the port found it and the reference had not: the reference's
+kitchensink mounts its wheels once and never tears them down, while a React port
+destroys and recreates on every unmount — so the framework's lifecycle exercised a
+path the original environment never did.
+
+**Upstream suggestion:** the one-line fix, plus the regression test. This is a
+library defect, not a porting artefact.
+
+---
+
+### F-031 · `<output>` is a live region in the accessibility tree, and the test forbidding it cannot see that
+
+**Surface:** `RangeScale.md`, `RangeScale.e2e.test.js`.
+
+The contract's most emphatic rule is that the readout must **never** be a live
+region — "a live region would say the value twice". The suite guards it with
+`not.toHaveAttribute('aria-live')` and `not.toHaveAttribute('role')`.
+
+Both pass. And CDP reports the element as `role=status, live=polite,
+atomic=true`.
+
+`<output>`'s **implicit** role *is* `status`, which carries an implicit
+`aria-live="polite"`; the component then rewrites its text on every `input`
+event. The defect is in the ARIA mapping, not in the DOM — so a DOM-attribute
+assertion is the one instrument that cannot detect it. axe does not flag it.
+Audible only under a real screen reader, which is exactly what the library's own
+manual checklist exists for.
+
+**Related, and worse, because it is in the reference's own kitchensink:** the
+`_no-output` state authors a static `aria-valuetext="50 %"`. One ArrowRight gives
+`value=51`, `--_rs-p=0.51`, and an accessibility tree reading
+`valuenow:51 valuetext:"50 %"`. The eye sees 51; the screen reader says "50 %"
+forever, because `valuetext` overrides `valuenow`. ADR-0024 warns about exactly
+this channel split and does not warn about the static-`valuetext` route to it.
+
+**Upstream suggestion:** assert the computed accessibility node, not the
+attribute. Playwright can read it; the guard then means what it says.
+
+---
+
+### F-032 · React's synthetic `onChange` is deduplicated, and the specs drive inputs natively
+
+**Surface:** RangeScale, RangeGroup, ChoiceField. Hit by three ports.
+
+React installs its own `value` descriptor on native inputs and deduplicates
+change events. Several specs drive an input the way any framework-agnostic test
+would:
+
+```js
+el.value = '700'
+el.dispatchEvent(new Event('input'))
+```
+
+React never sees those. A `onChange` handler is silently not called, and the
+failure surfaces as a **layout or width-instability bug** rather than as a missing
+event — three or four assertions away from the cause.
+
+A native `addEventListener` is mandatory, not stylistic. The same is true of the
+`wheel` listener for scroll containment: React's `onWheel` delegate is
+**passive**, so `preventDefault()` is a no-op and containment silently fails —
+`{ passive: false }` on a native listener is the only working form.
+
+Related and separate: **a published imperative API cannot be React state.** Specs
+call `root.__rangeScaleInstance.sync()` and read `getComputedStyle` on the very
+next line. There is no version of React state that satisfies that, so the
+imperative shape is forced by the contract rather than chosen — which is worth
+saying plainly, because it looks like an unidiomatic port until you read the spec.
+
+---
+
+### F-033 · `dates` and `locale` are genuinely portable — Node and Chromium ICU agree exactly
+
+**Surface:** `src/kernel/utils/`. A positive finding, deliberately measured
+because the risk was real.
+
+`Intl` output varies by ICU version, and Node's ICU is not the browser's — so a
+kernel whose unit tests run under Node and whose components run in Chromium could
+pass its tests and still render the wrong month name. Checked directly
+(`web/tasks/probes/icu-compare.cjs`): Node 24.13.1 / ICU 78.2 (full) against
+Chromium 147, comparing month names, Monday-first weekday arrays and
+`formatToParts` across `sv-SE`, `en-US`, `en-GB`, `de-DE`, `ja-JP`, `ar-EG` —
+**zero differences**.
+
+The residual risk is named rather than hand-waved: a **small-icu** Node build
+would break the reference's two Swedish string assertions while the browser stays
+correct. ICU-independent invariants were added beside them so a small-icu
+environment fails informatively instead of mysteriously.
+
+---
+
+### F-034 · ADR-0021's statement of FileUpload's debt was made stale by its own PR
+
+**Surface:** `docs/adr/0021-*.md`.
+
+ADR-0021's "Risks to manage" says:
+
+> **FileUpload holds five genuinely hardcoded colours** (not token fallbacks). It
+> is the only component with real debt here.
+
+The FileUpload port went looking for them and found none. Traced to commit
+`13cdd98` — the same squashed PR that *added* ADR-0021 — whose body says
+"FileUpload's five genuinely hardcoded colours (the only real component debt) now
+derive from the seam". The file today has zero unconditioned literals: four `#hex`
+occurrences, all inside `var(--ui-*, …)` fallback slots.
+
+So an immutable ADR describes debt that its own commit had already paid. Not a
+serious defect, but a porter who reads the ADR ledger as current state — which is
+how it is presented — will go looking for something that is not there.
+
+Two genuinely useful things came out of looking:
+
+- **The light-mode fix was a no-op.** `CanvasText`/`Canvas` are pure black/white
+  in light, so `color-mix(CanvasText 6%, Canvas)` computes to **exactly** the
+  `#f0f0f0` literal it replaced. The entire gain was dark-mode reactivity.
+- **The `var(--ui-*, #hex)` fallback path is not AA in dark.** ADR-0021 calls the
+  unsupported-`light-dark()` degradation "graceful". With the seam neutralised:
+  `#c00` → **2.68:1**, `#6e6e6e` → **3.09:1**. Graceful in light only. A consumer
+  on a browser without `light-dark()`, in dark mode, gets sub-AA state colours
+  with nothing failing.
+
+**Upstream suggestion:** ADRs are immutable by design, which is right — but a
+"Superseded / partially resolved" pointer would keep the ledger readable as
+history without it reading as current state.
+
+---
+
+## Phase 4 — The framework-level findings
+
+### F-035 · Next's `async` chunks lose a race the entire e2e suite assumes it wins
+
+**Surface:** every ported component. **The single most generalisable finding of
+the project.** Diagnosed by the RangeGroup port after nine failures that looked
+like a selector collision.
+
+The reference loads its behaviour from `src/js/script.js` via
+`<script type="module" src="/main.js">`. A non-async module script is
+**deferred**, and a deferred script **delays the `load` event** — which is
+exactly when Playwright's `page.goto()` resolves. So upstream, a spec can do an
+ungated `page.evaluate` read immediately after `goto` and be safe every time. The
+specs are correct as written.
+
+Next.js injects **every** client chunk as `<script async>`. An `async` script does
+**not** delay `load`. Measured on the shared page, four runs each:
+
+| Init strategy | instance present |
+|---|---|
+| `useEffect` (hydration) | **86–141 ms after** `goto` resolved |
+| module-scope `attach()` | 54–91 ms after `goto` resolved |
+| inline parser-blocking bootstrap | **before** `goto` resolved, 4/4 |
+
+Every assertion with no preceding auto-retrying `expect()` fails — and it fails
+as an apparent *logic* defect, several assertions away from the cause. The
+isolated route had the same race at ~54 ms; a 200 ms settle in a hand-written
+probe had been hiding it.
+
+**The crucial part: this is not a test-only problem.** For roughly 100 ms after
+`load`, a hydration-only component does not clamp, does not announce its span,
+and cannot arbitrate an overlapping pair. That is a real dead-control window, so
+"add a wait to the spec" would have hidden a genuine defect.
+
+**Decision:** an inline **parser-blocking** bootstrap gated on
+`document.readyState` → `DOMContentLoaded` — after the markup below it is parsed,
+still before `load`, placement-independent. One implementation only: the same
+imported function is serialised with `String(fn)` for the inline script *and*
+called from `useEffect` as a client-navigation safety net, guarding on the
+instance handle exactly as the reference's `attach()` does. This is the technique
+PORTING.md's *Preventing FOUC* section prescribes, applied to behaviour rather
+than paint. Result: RangeGroup 19/19 on the shared page, twice consecutively.
+
+**Upstream suggestion:** the suite's implicit dependency on a deferred script
+delaying `load` is invisible and load-bearing. Either document it in PORTING.md
+("your init must complete before `load`, or gate your reads"), or make the reads
+retry. Any consumer on a framework that ships `async` chunks — which is most of
+them now — hits this on their first component and has no way to know why.
+
+---
+
+### F-036 · Next's client Router Cache can make the cookie and the layout disagree
+
+**Surface:** `layout.tsx` + `ThemeSwitch.tsx`. Found and reproduced by the
+ThemeSwitch port.
+
+F-022 chose the cookie-plus-server-render structure because PORTING.md prefers it
+and it is flash-free by construction. It is — measured below — but it has a
+framework-specific failure mode the reference cannot have.
+
+Reproduced: choose dark → navigate history *forward* to a route whose RSC payload
+was cached **before** the cookie was written → `data-appearance` goes
+`"dark" → null`, the page renders light, and **the cookie still says dark**. A
+reload fixes it. The client Router Cache served a payload rendered under the old
+cookie.
+
+**Decision:** `router.refresh()` after the cookie write. Verified to fix it, and
+verified to preserve focus. Cost measured: **one RSC request, 9,731 bytes** per
+toggle.
+
+Also measured, and worth its own line: **without `path=/` on the cookie the choice
+silently applies only under the path it was set from.** Nothing fails; the
+appearance just stops following the user around the site.
+
+**The flash-free claim, proven rather than asserted.** Production build, cookie
+`dark`, emulated OS **light** (so a flash would be maximally visible), fresh
+context per run, rAF sampling installed before any document script:
+
+| Run | frames sampled | colours seen | wrong-appearance frames |
+|---|---|---|---|
+| 1 | 183 | `rgb(26,26,23)` only | **0** |
+| 2 | 185 | same | **0** |
+| 3 | 183 | same | **0** |
+
+First sample at 17–35 ms is already dark. Same-browser synthetic comparison at a
+120 ms module RTT: server cookie **0** wrong frames, `localStorage` + a
+render-blocking head script **0**, `localStorage` read from a module
+**14–15 frames / ~110–117 ms**. So PORTING.md's ranking is correct, and its
+warning about a module-loaded restore is quantified.
+
+And the `system` path really does cost nothing: **zero** `data-appearance` writes
+across six scenarios (no cookie ± OS flip, cookie dark/light ± flip, `Dark` →
+system), with the instrument sanity-checked by a real click showing two writes.
+
+---
+
+### F-037 · Reflow: the reference's own kitchensink fails far worse than the port
+
+**Surface:** WCAG 1.4.10. **Reframes F-024.**
+
+F-024 recorded that our shared page overflowed horizontally at 320 px and that
+axe cannot see it. The obvious next question is whether the reference does too,
+since we copy its CSS verbatim. Measured against the reference's own dev server
+(`web/tasks/probes/reflow-reference.cjs`):
+
+| Viewport | Reference overflow | Offending elements | Our port |
+|---|---|---|---|
+| 320 px | **737 px** | 857 | ~73 px |
+| 360 px | **697 px** | 742 | ~33 px |
+| 480 px | **582 px** | 501 | 0 px |
+| 768 px | **311 px** | 110 | 0 px |
+
+The reference fails at **every width up to 768 px**. So this is an untested
+upstream criterion, not a defect the port introduced — and the port is an order of
+magnitude better on it.
+
+Being precise about attribution, because the numbers invite an unfair reading: the
+dominant contributors upstream are its demo harness, not its components — the
+interaction-state **tables** (`th` at 181 px each, three abreast) and `div.rail`
+sized to the full viewport. Our kitchensink uses a wrapping flex layout instead of
+tables, which is most of the difference. But some offenders upstream *are*
+component parts (`span.segment`, `span.separator` overflowing their row), and our
+residual failures are likewise a mix: one is ours (F-028's whitespace nodes, now
+fixed) and one is inherited (`.item-error { white-space: nowrap }` with no
+`overflow`, an irreducible 117 px `min-content`, Phase B fix measured).
+
+**Decision:** keep the inherited residual verbatim per the two-phase rule, keep
+the sweep in `npm run verify` so it cannot regress silently, and report the
+comparison rather than either half of it alone.
+
+**Upstream suggestion:** unchanged from F-024 — a reflow sweep belongs beside
+`text-spacing.e2e.test.js`. It is about twenty lines, and it would currently fail
+loudly on the library's own demo page, which is precisely the value.
+
+---
+
+### F-038 · The ThemeSwitch spec hard-codes `localStorage`, which its own contract forbids
+
+**Surface:** `ThemeSwitch.e2e.test.js`. 15 / 17, and both failures are this.
+
+`ThemeSwitch.md` and ADR-0021 are both explicit that the persistence medium is
+the host's choice:
+
+> This reference computes it client-side from `localStorage`; an Astro or Razor
+> consumer reads a cookie and renders `<html data-appearance="dark">`
+> server-side with zero client JS. **Both satisfy the same contract and pass the
+> same e2e assertions.** The persistence medium is deliberately not specified.
+
+The suite reads and writes `localStorage` directly, so a cookie-based host fails
+two assertions. The claim in the `.md` — "pass the same e2e assertions" — is not
+true of the suite as written. Same class as F-011: a mechanism assertion inside a
+suite that declares itself end-state-only.
+
+The port proved a **stronger** version of what the tests were trying to check:
+with **all JavaScript aborted** and only a cookie present, the document still
+carries `data-appearance="dark"` and `data-initialized` is absent. That is the
+restored-before-first-paint property the assertions exist to defend, demonstrated
+in the one configuration where client-side restoration cannot be doing the work.
+
+**Decision:** leave the two failing. A one-line `localStorage` mirror would make
+it 16/17, but it would be a write-only second store existing purely to satisfy a
+test — the same trade rejected in F-011.
+
+**Upstream suggestion:** assert the DOM end-state (`data-appearance` on the root)
+and let the host seed it however it likes — a `page.addInitScript` for the
+localStorage host, a cookie for the server-rendered one.
+
+---
+
+### F-039 · Where React's component model genuinely breaks a contract's composition seam
+
+**Surface:** the range family. Reported jointly by the RangeField/RangeGroup and
+RangeScale ports, which reached it from opposite directions.
+
+The mechanism, stated once: **in the reference, every tier's DOM is authored by
+the consumer and the component only attaches behaviour. In React, every tier's DOM
+is authored by the component.** So reference tiers compose by nesting *markup* —
+free at any arity, with any attribute set — while React tiers can only compose by
+nesting *components*, which forces each tier to fix its children's markup, arity
+and attributes.
+
+Consequences both porters hit independently:
+
+- ADR-0023's "the lane knows nothing about arity" does not survive. `RangeScale.tsx`
+  renders a singular subtree and cannot hold a pair, so RangeGroup writes the lane
+  markup itself.
+- From the other side, RangeScale needs `RangeField.css` for the 24 px thumb
+  geometry (three assertions read the input's `blockSize` *as* the thumb size) but
+  cannot compose `RangeField.tsx`, because that emits `<label>` + `<input>` as one
+  fragment and adds `data-component="RangeField"`, which the reference's RangeScale
+  states deliberately omit. So it imports the stylesheet and inlines the input.
+
+The residue is ~10 duplicated lines. ADR-0023's promotion trigger is *"a third
+component needs the same value↔position conversion"*, and literally counting,
+there are two. But the porters' joint argument is that **the trigger measures the
+wrong thing**: the conversion is four lines of arithmetic that cannot plausibly
+drift. What is duplicated and *can* drift is the **publication protocol** — the
+`--_rs-a`/`--_rs-b`/`--_rs-p` names, the sorted-by-value-not-document-order rule
+(the spec has a dedicated test precisely because it is easy to get wrong),
+`--_rs-p` meaning the last field, and `__rangeScaleInstance = { sync }` having to
+be synchronous.
+
+**Joint upstream recommendation:** promote a kernel module owning the *protocol*
+rather than the maths — `publish(lane, fields)`, `attachLane(lane, fields)`,
+`LANE_VARS` — roughly 25 lines plus a conformance test, called with one field by
+RangeScale and two by RangeGroup. Rewrite ADR-0023's trigger to *"a second
+component writes the lane's published properties or installs its lane handle"*.
+And add one sentence to `RangeScale.md`: in a framework where components own
+their markup, the lane must accept its fields as children.
+
+**A positive finding on the same surface, worth stating because it cuts the other
+way:** the library's anti-DRY stance (ADR-0004) helped decisively. RangeField went
+green before its porter opened RangeGroup, and nothing about the pair could
+regress it — which the porter noted is impossible with the array-valued
+single-component design every mainstream library ships.
+
+---
+
+### F-040 · The suite has vacuous passes, and a green result is not self-validating
+
+**Surface:** the conformance suite as a whole. **This is the finding that
+qualifies every other number in this document.** Found independently by the
+RangeScale and ToggleTip ports.
+
+RangeScale's runner reports **31 passed**, reproducibly, across four runs. Its
+porter reported the substantive figure as **30 / 31** and showed why:
+
+*Crossing a digit boundary* runs immediately after `goto` with no actionability
+round trip, so on the shared page it executes **before the lane attaches**. It
+dispatches an `input` event with no listener present, the readout is therefore
+never rewritten, and the width it measures trivially cannot have changed. The
+assertion passes because nothing happened.
+
+Gated on attachment, it fails — and the underlying defect is real:
+
+| Page | gated on attach | hydrated | readout across 0 / 400 / 990 / 1000 | widths | verdict |
+|---|---|---|---|---|---|
+| `/` | no | **false** | `"400 tkr"` ×4 — never rewritten | 65 | **PASS (vacuous)** |
+| `/` | yes | true | `"0 tkr"`, `"400 tkr"`, `"990 tkr"`, `"1000 tkr"` | 65, 66 | **FAIL** |
+| isolated | either | true | rewritten correctly | 65, 66 | FAIL |
+
+So F-035's hydration window cuts **both** ways: it turns real behaviour into
+apparent logic defects, *and* it turns real defects into passes. The second
+direction is far more dangerous, because nothing prompts you to look.
+
+The ToggleTip port found the same shape from a different angle: two of its eleven
+tests — including both axe runs, which cheerfully report "No accessibility
+violations detected!" — **pass when the component is absent from the page
+entirely.** An axe run scoped to a selector that matches nothing audits nothing
+and succeeds. That is also how F-018's undocumented `#Component` section ids
+stayed invisible for as long as they did.
+
+**What this means for every figure in this document:** a passing count from this
+suite is a *lower bound on failures*, not a statement of conformance. Where a port
+has said "green", it means the runner was green — the two ports that went looking
+found a vacuous pass each, and no port audited all of its own passes for
+vacuity. The honest tally is therefore "204 reported passes, at least one of them
+vacuous and knowingly so".
+
+**Decision:** report it exactly that way, and treat "green" from this suite as
+necessary rather than sufficient — which is what PORTING.md already says about
+appearance ("Tests green is necessary, not sufficient") and turns out to be true
+of behaviour too.
+
+**Upstream suggestions**, in order of value:
+
+1. **Assert the scope exists before auditing.** One line in `scopedCheckA11y`
+   turns every silent no-op axe run into a clear failure. This is the cheapest and
+   highest-value change in the whole list.
+2. **Gate on the readiness attribute the library already defines.** PORTING.md
+   names `data-initialized="true"` as the state attribute tests locate components
+   by. Several specs neither set nor wait on it — RangeScale's is one. A
+   `beforeEach` gate would have made this defect visible instead of invisible.
+3. **Add a positive control to the suites that can support one**, in the spirit of
+   `text-spacing.e2e.test.js`'s planted violation. That file's own comment has the
+   right instinct — *"If it ever passes silently, the exclusions have eaten the
+   suite"* — and it is the only suite in the repo that defends itself this way.
+   Ironically it is also the one whose canary our compliant design system disabled
+   (F-023), so the pattern needs the fix suggested there to be dependable.
+
+---
+
+## Phase 5 — The popup field family
+
+### F-041 · The reference sends a collapsed translation key to `Intl`, so `de-DE` renders English months
+
+**Surface:** `MonthField.ts` (and the family's locale handling). **A real upstream
+defect, and one ADR-0011 claims to have fixed.**
+
+The component collapses a locale tag to a translation key for its UI strings —
+sensible — and then passes **that key**, not the raw tag, to `Intl` for month
+names. Measured in Chromium off the live month wheel:
+
+| `data-locale` | collapsed key | wheel renders | `Intl` on the raw tag |
+|---|---|---|---|
+| `en-GB` | `en` | January…December | June |
+| `sv-SE` | `sv` | januari…december | juni |
+| **`de-DE`** | **`en`** | **January…December** | **Juni** |
+
+`Intl.DateTimeFormat.supportedLocalesOf(['de-DE'])` returns `['de-DE']`, so the
+data is present — only the collapse discards it.
+
+Two things make this a good finding rather than a small bug:
+
+- **ADR-0011 § Decision point 4 states this is already fixed** — "format is now
+  derived from the raw locale tag". MonthField's month *names* were not included
+  in that change. Same shape as F-034: the ADR ledger describes a state the code
+  is not in.
+- **It is invisible in the reference's own kitchensink**, because the only two
+  locales demoed are `en-GB` and `sv-SE`, and for both of those the collapse is
+  name-preserving (`en-GB→en`, `sv-SE→sv`). Any locale whose region matters —
+  which is most of them — silently falls back to English.
+
+Ported verbatim for Phase A with a standing `de-DE` probe cell in the kitchensink
+so the defect is visible rather than described. One-line Phase B fix.
+
+Related, and worth knowing for any SSR consumer: the spec asserts no `Intl`
+output at all (`'Choose month'` is a bundled literal), so the small-ICU risk named
+in F-033 **cannot fail the 28 tests** — but it *would* desync server-rendered
+month names from client-rendered ones, i.e. a hydration mismatch that neither
+runtime's tests can see.
+
+---
+
+### F-042 · Roving tabindex is one-way: the segments become keyboard-unreachable
+
+**Surface:** `TimeField.ts`, `_focusTrigger()`. **Probably the most serious
+accessibility defect found in the library.**
+
+The segmented field uses a roving tabindex so the whole segment group is one tab
+stop. `_focusTrigger()` sets **every** segment to `tabindex="-1"` — and nothing
+ever restores a `0`.
+
+Measured: Tab off the last segment → focus moves to the trigger, segment
+tabindexes read `['-1','-1']`, and Shift+Tab from there lands on the **previous
+TimeField's trigger**. The segments of the field you were just editing are now
+unreachable by keyboard for the rest of the page's life.
+
+That is a WCAG 2.1.1 Keyboard failure — the field's editing functionality has no
+remaining keyboard route — and arguably 2.4.3 Focus Order as well, since Shift+Tab
+skips backwards past a control that should be in the order.
+
+**Neither axe nor the conformance suite can see it.** axe has no rule for a roving
+tabindex that never rovs back; the suite has no test that tabs out and back in.
+This sits directly alongside F-040: the verification model has a blind spot, and
+this is what fell into it.
+
+**Decision:** ported faithfully. A port that silently repairs the reference's
+defects destroys the evidence that is this project's actual deliverable, and
+Phase A's fidelity rule applies to behaviour as much as to CSS. The one exception
+in the tree is F-030's `WheelColumn.destroy()`, and it is a genuine exception
+rather than a precedent: that defect breaks *other components*, so leaving it in
+would have corrupted four other ports' results. This one is contained.
+
+The one-line fix is identified (drop the blanket `setRoving(null)` and restore a
+`0` on the segment that had focus). Whether it is family-wide across all four
+fields needs four measurements rather than one inference; recorded as
+outstanding.
+
+---
+
+### F-043 · An `aria-modal` popup that opens with focus outside itself
+
+**Surface:** `TimeField.ts`. Measured: on open, `activeElement` is `.trigger` and
+`insidePopup` is `false`.
+
+So for a **mouse** user, Escape does nothing — the key handler is inside the
+popup, and focus never entered it. A keyboard user is fine, because their Tab
+lands them inside.
+
+The interesting half is what rescues it: the kernel's `nextTabStop` snap-to-end
+behaviour. The kernel is silently compensating for a case the component never
+handles — which is precisely the kind of coupling the kernel was extracted to
+*prevent*. `popup-interaction.md` presents the trap as containment for focus that
+is already inside; here it is also doing entry.
+
+This also explains why the defect survives review: the suite's tests drive the
+popup by keyboard, so the trap does its work and everything passes.
+
+---
+
+### F-044 · A fourth tier of appearance-awareness, better than the three we had
+
+**Surface:** `TimeField.css`. A positive finding that supersedes part of the
+ScrollArea port's tiering.
+
+The ScrollArea port established three tiers for how a value survives an
+appearance flip: a plain literal (`white`) is wrong in both; a system colour
+(`Canvas`) is right in light but resolves to the UA's `#121212` in dark rather
+than our card `#232320`; only `var(--color-surface-card)` is right in both.
+
+`--_tf-border-color: currentColor` is a fourth and better tier: **appearance-aware
+*and* design-system-aware, with no token at all.** It inherits the host's text
+colour, so it tracks both the scheme and the design system for free, and it costs
+the seam nothing. Picklist's `currentColor` chip border reaches the same result
+from the other direction — the port measured it as structurally unable to drift
+below 1.4.11's 3:1 floor.
+
+**Recommendation to the library:** where a component needs a colour that *should*
+track the host's text colour, `currentColor` beats both a literal and a system
+colour. Several `--_*-border-color: CanvasText` declarations in the family are
+candidates — TimeField's own hover border resolves to pure `#000`/`#fff` against
+our warm ink `#26251e`/`#f2f1ec`, which is a fidelity loss rather than an
+accessibility one (21:1 and 15.76:1 both pass), but it is a loss for no benefit.
+
+---
+
+### F-045 · The kernel's wheel fade has a dark-mode defect that reaches four components
+
+**Surface:** `src/kernel/css/Wheel.css`, `.WheelColumns::after`.
+
+The fade masking the top and bottom of a wheel column blends to the system colour
+`Canvas`. In light that is `#ffffff` — coincidentally *exactly* our card colour,
+so it is pixel-perfect for free. In dark it resolves to the UA's `#121212`
+against our `#232320` popup: a ratio of **1.19**, i.e. a visible dark band at both
+ends of every wheel column.
+
+Because it is in the kernel, it reaches **all four wheel fields at once** —
+measured independently by the MonthField and TimeField ports, which corroborated
+the same numbers.
+
+This is the sharpest illustration of the tiering in F-044: the coincidence that
+`Canvas` equals `#ffffff` in light is what makes the defect invisible until
+someone switches appearance, and no component author did anything wrong. Proposed
+fix is one token: `var(--ui-surface, Canvas)`, which keeps the current behaviour
+as the fallback.
+
+Left verbatim — the kernel is a copied deliverable under the same Phase A rule as
+component CSS.
+
+---
+
+### F-046 · `data-initialized` must be gated on hydration, or it gates nothing
+
+**Surface:** every `'use client'` component. Measured by the MonthField port,
+and it refines F-010.
+
+F-010 established that the init-gated CSS goes and the attribute stays. What it
+did not settle is *when* the attribute should appear.
+
+Rendering `data-initialized="true"` server-side makes the specs'
+`beforeEach` wait — `page.locator('...[data-initialized="true"]').waitFor()` —
+resolve **instantly**, gating nothing. Gated on hydration instead, it becomes a
+true readiness barrier for every test in the suite.
+
+Given F-035 (Next's `async` chunks mean hydration lands after `load`) and F-040
+(a spec reading state before attachment can produce a *vacuous pass*, not merely a
+spurious failure), this is the difference between a suite that is measuring the
+component and a suite that is measuring nothing.
+
+Measured dead-control windows: MonthField 68 ms, RangeGroup ~100 ms, ScrollArea
+6–11 ms in production.
+
+**And one component has no window at all, for a documented reason.** TimeField's
+input-mode store has a server snapshot of `null`, and the stylesheet's default
+branch shows the **native `<input type="time">`** — ADR-0006's coarse-pointer
+fallback. So before hydration the field is fully usable, and the `<script async>`
+race degrades to the native control rather than to a dead one. That is the
+progressive-enhancement story working exactly as designed, and it is the strongest
+argument in the library for keeping a native fallback in the markup rather than
+rendering the enhanced form directly.
+
+---
+
+### F-047 · Paint attributes belong in SSR; behaviour gates must not — one rule, two halves
+
+**Surface:** every `'use client'` component. Measured by the WeekField port, and
+it completes F-046.
+
+F-046 established that `data-initialized` must be gated on hydration or the
+suite's own `beforeEach` gate resolves instantly and gates nothing. WeekField
+found the necessary other half: **not every `data-*` can be withheld.**
+
+`data-input-mode` is a *paint* attribute — WeekField's stylesheet defaults to
+`.overlay { display: none }`, so withholding it until hydration flashes a raw
+native input. It has to be in the server markup.
+
+So the rule is a distinction, not a blanket:
+
+| Attribute kind | Where it belongs | Failure if you get it wrong |
+|---|---|---|
+| **Paint** — CSS keys off it to decide what is visible | server markup | a flash of the wrong control |
+| **Behaviour gate** — tests and code read it to mean "handlers are attached" | after hydration | the suite's readiness gate becomes a no-op (F-040) |
+
+`data-initialized` is the second kind; `data-input-mode` is the first. ADR-0002
+puts them in one namespace and ADR-0009 says the contract is the DOM end-state
+without distinguishing *when* each part of that end-state may appear — which is
+exactly the distinction a server-rendered port needs.
+
+Measured dead-control windows across the family: WeekField 90–95 ms, MonthField
+68 ms, RangeGroup ~100 ms, ScrollArea 6–11 ms (production). TimeField has none, for
+the documented reason in F-046.
+
+**Upstream suggestion:** say this in PORTING.md. It is one sentence — *"an
+attribute the CSS paints from must be in your server markup; an attribute meaning
+'initialised' must not be"* — and it is currently something each porter has to
+derive from a flash or a vacuous pass.
+
+---
+
+### F-048 · Locale: one project-level answer for all five fields
+
+**Surface:** `locale.md`, and the family's `readLocale` / `registerLocale` API.
+Raised as an open question by the MonthField, TimeField and WeekField ports
+independently, so it is answered here once rather than three times.
+
+The reference offers three ways in, and two of them do not survive a server
+render:
+
+- **`readLocale()` walks up from the element to read `<html lang>`.** A client-only
+  DOM read that determines rendered text is a hydration mismatch by construction:
+  the server renders with one locale, the client re-derives another, React
+  complains, and the ToggleTip port already measured that a hydration mismatch
+  kills interactivity for the **whole page**, not just the component.
+- **`registerLocale()` is a published imperative API** for adding translations at
+  runtime. As with `__rangeScaleInstance.sync()` (F-032), there is no version of
+  React state that satisfies an imperative call whose effect must be visible
+  synchronously to the next line of a test.
+- **`data-locale` on the element** works unchanged, and is what all three ports
+  used.
+
+**Decision, applying to every field:** the locale arrives as a **prop**, rendered
+into `data-locale` on the server. `readLocale`'s `<html lang>` walk is not ported.
+`registerLocale` is not ported; the equivalent in a React tree is a translations
+prop or a module-level registry populated at import time, before any render.
+
+This is squarely inside what ADR-0009 permits — the contract is the DOM
+end-state, and `data-locale` on the root *is* that end-state — so nothing is lost
+except a convenience that only a client-only runtime can offer. Worth noting the
+irony: `readLocale` exists so an author does not have to repeat the locale per
+instance, and a server render makes repeating it free.
+
+**Upstream suggestion:** `locale.md` should say that `readLocale` is client-only
+by construction and name `data-locale` as the portable path. It currently presents
+the two as equivalent conveniences.
+
+Related, and the reason this matters more than it looks: F-041's `Intl` defect
+means the locale that reaches `Intl` is not always the one the author set. A
+consumer wiring locale through a prop has one place to check that; a consumer
+relying on an ancestor `lang` attribute has none.
+
+---
+
+### F-049 · The same suite scores differently against `next dev` and a production build, with no code difference
+
+**Surface:** the whole conformance suite. **A correction to my own reported
+numbers, and a methodology finding.** Diagnosed by the ToggleTip port and
+independently corroborated by the Picklist port from the geometry side.
+
+I reported regressions in ToggleTip (11→6), Picklist (27→23), RangeField (21→20)
+and RangeScale. Measured against a production build, all of them are green:
+
+| Component | `next dev` | `next build && next start` |
+|---|---|---|
+| ToggleTip | 6 / 5 | **11 / 11** |
+| Picklist | 23 / 4 | **27 / 27** |
+| RangeField | 20 / 1 | **21 / 21** |
+| RangeScale | 28 / 3 | 30 / 1 *(its porter's own honest figure)* |
+
+No code changed between the two. The regressions were mine to report and mine to
+retract.
+
+**The mechanism.** MonthField and TimeField do not render at their final height:
+their server HTML is not the end state, so each instance *reveals* on hydration
+(`div.overlay 0→30`, `div.segments 0→24`, `button.trigger 0→18`,
+`input.native 24→1`). Across 33 instances the document grows **+224 px**, and both
+ports measured the same numbers independently:
+
+```
+after goto resolves : scrollHeight 30180   .Picklist[data-id="single"] top 13817.5
++250 ms             : scrollHeight 30404   top 13929.5     → +224 doc, +112 shift
+```
+
+Playwright computes a click point and *then* moves the mouse. In dev the shift
+lands at t ≈ 330–410 ms — inside that gesture. The trigger is pushed 212 px below
+the aim; `mousedown` still reports the button (Chrome hit-tests before the frame
+commits); `mouseup` lands on a `Block` heading; so `click` is dispatched on their
+common ancestor `section.kitchensink-section`. **The button never receives a
+click.** In production the same shift completes at t = 66 ms, before Playwright's
+first action.
+
+Section order on `/` is alphabetical, which is why the affected components were
+exactly the ones *below* MonthField and TimeField.
+
+**What makes this bad rather than merely annoying: the failure messages accuse
+the wrong component, and they accuse it of its own thesis.** Picklist's read
+"chips wrap when they must not" and "the label does not toggle its input" — the
+chip mechanism's whole point — when the cause is another component's hydration
+reveal 13,000 px up the page. And the Picklist port proved the accusation false on
+its own terms: `.options` computes `flex-wrap: nowrap`, and a nowrap flex row
+*cannot* produce two rows, so that assertion can only fail by measuring across a
+shift.
+
+**Three more corrections I owe, all mine:**
+
+1. I claimed the failures "reproduce on the isolated route, so it is not a
+   shared-page interaction". They did not. `ToggleTip`, `Picklist`, `RangeField`
+   and `RangeScale` are among the nine specs of F-019 that hard-code
+   `page.goto('/')`, so `TARGET_PATH` is inert for them — both of my runs hit the
+   aggregate page. The conclusion had no basis.
+2. My `min-w-0` bisection (Picklist 4 failures → 3) was noise from a flaky
+   gesture, not a real contribution. The reflow-versus-no-wrap tension I drew from
+   it is demoted to an observation with no evidence it costs a test.
+3. My first tally was additionally contaminated by another agent running
+   Playwright concurrently against the same submodule install, which produces a
+   bogus `test.beforeEach() … No tests found` runner error rather than a clean
+   failure.
+
+**Decisions:**
+
+- **Conformance is measured against a production build.** `next dev` is for
+  development; it is not a valid substrate for this suite, and every figure in
+  this report that is not explicitly labelled otherwise should be read as
+  production.
+- **Run the suite sequentially.** Concurrent runs from one shared submodule
+  install are not safe.
+- **The layout shift is a real defect in its own right**, not just a test
+  artefact: +112 px per instance on hydration is a Cumulative Layout Shift
+  problem, and CLS is a Core Web Vitals metric that no test in this project
+  measures. Routed to the MonthField and TimeField ports — the fix is to render
+  at final height or reserve it.
+
+**Upstream suggestion**, from the Picklist port and worth acting on: the geometry
+assertions take two separate `boundingBox()` calls and compare them, which is a
+race in the *assertion* regardless of environment. Moving both reads inside one
+`page.evaluate()` makes them atomic and costs nothing.
+
+---
+
+### F-050 · An unscoped test selector that works only because `<template>` hides closed popups
+
+**Surface:** `WeekField`, `TimeField`, `MonthField`, `DateField` specs — the three
+`popup-interaction` tests in each, 12 occurrences. **Not a kernel defect.** My
+first diagnosis said it was; that was wrong, and the real cause is more
+interesting.
+
+The symptom: WeekField is **31/31** on its own route and **28/3** on the shared
+page, measured against production so F-049's artefact is excluded. The three
+failures are exactly the kernel's surface — Tab trap, Shift+Tab wrap, wheel
+`defaultPrevented` — so a kernel collision was the obvious hypothesis, especially
+after F-030 found module-level shared state in `WheelColumn`.
+
+It is not. Look at what the tests actually do:
+
+```js
+await page.locator(`${WF} .trigger`).click()          // correctly scoped
+await expect(page.locator(`${WF} .popup`)).toBeVisible()   // correctly scoped
+const inside = await page.evaluate(() =>
+  document.querySelector('.popup')?.contains(document.activeElement) ?? false,
+)                                                      // NOT scoped — document-wide
+```
+
+The click and the visibility check are scoped to the component. The assertion is
+not: `document.querySelector('.popup')` returns the **first `.popup` in the
+document**. The wheel test is the same shape — it dispatches its event on that
+first popup, which has no trap registered because it is closed.
+
+**Why it is correct upstream, and this is the whole finding.** All five popup
+fields author a `<template data-template="…-popup">` and clone its content at open
+time (`this._popupTemplate.content.cloneNode(true)`). A `<template>`'s content
+lives in a **separate document fragment**, so a closed popup is *not in the
+document at all* — `document.querySelector('.popup')` can only ever find the open
+one. The unscoped selector is not sloppy upstream; it is load-bearing on a
+mechanism nobody wrote down.
+
+**Why it breaks in React.** React cannot render into a `<template>`'s content — it
+appends children to the `<template>` *element* instead, which the DateField port
+discovered the hard way (`.popup` becomes query-visible while closed and *"calendar
+does not exist in DOM when closed"* fails). So every React port must either
+conditionally render the popup or keep it in the document. Ours conditionally
+renders the four fields' popups — but **ToggleTip has no template**, so its 12
+closed popups sit in the document permanently. Measured on the aggregate page:
+
+```
+popupsInDocument: 12      inTemplates: 0
+firstPopupOwner: null     firstPopupHidden: "true"
+```
+
+All twelve belong to ToggleTip (no `[data-component]` ancestor — its root is a
+`<toggle-tip>` custom element). So `document.querySelector('.popup')` returns a
+**closed ToggleTip popup**, and all four popup fields fail their three trap tests
+on any page that also renders a ToggleTip.
+
+**Decision:** nothing to fix in the port. The kernel is correct — the trap
+demonstrably works, which is why the same tests pass on a page with one popup
+owner. The four fields keep their conditional rendering, because rendering a
+closed popup into the document is what fails the *other* assertion.
+
+**Upstream suggestion:** scope the assertion. `${WF} .popup` is already computed
+two lines above; passing the selector into the `evaluate` is a one-line change per
+occurrence, twelve in total, and it makes the tests say what they mean. Worth
+noting the general lesson too: **`page.evaluate` is the place scoping discipline
+gets lost**, because the locator API's scoping does not follow you across the
+boundary. Every one of these tests is scoped correctly right up until it steps
+into the browser.
+
+And a note for the porting guide: the `<template>`-clone mechanism is not
+mentioned in PORTING.md or in any component `.md`, yet it determines what a
+document-wide query can see. A porter on any framework that cannot populate a
+`<template>` inherits a changed DOM invariant that four suites silently depend on.
+
+---
+
+## Final verified result
+
+Measured on a **clean production build**, sequentially, on the aggregate page —
+the only substrate that gives trustworthy numbers (F-049), with no concurrent
+runner (F-049 again) and no stale server (the failure that shipped a visibly
+broken page while the suite was green).
+
+**365 passed / 7 failed** across all 18 components plus the two site-level suites.
+
+| Component | | Component | |
+|---|---|---|---|
+| DateField | **43 / 43** | RangeGroup | **19 / 19** |
+| TimeField | **32 / 32** | ToggleTip | **11 / 11** |
+| RangeScale | **31 / 31** | ChoiceField | **8 / 8** |
+| DateTimeField | **30 / 30** | ChoiceGroup | **8 / 8** |
+| MonthField | **28 / 28** | Notice | **7 / 7** |
+| Picklist | **27 / 27** | MotionRegion | **5 / 5** |
+| FileUpload | **21 / 21** | ScrollArea | **3 / 3** |
+| RangeField | **21 / 21** | AffixField | 15 / 1 |
+| appearance | **8 / 8** | ThemeSwitch | 15 / 2 |
+| | | WeekField | 28 / 3 |
+| | | text-spacing | 5 / 1 |
+
+Fourteen of eighteen components are fully green. All seven failures are
+classified and none is a defect in the port:
+
+| Failures | Cause | Entry |
+|---|---|---|
+| AffixField ×1 | a byte-identical `style` attribute, unreachable from React — and a *mechanism* assertion in a suite that declares itself end-state-only | F-011 |
+| ThemeSwitch ×2 | the spec hard-codes `localStorage`, which its own `.md` and ADR-0021 both say is the host's choice | F-038 |
+| WeekField ×3 | an unscoped `document.querySelector('.popup')`, correct upstream only because `<template>` hides closed popups | F-050 |
+| text-spacing ×1 | the suite's own canary cannot fire against a design system that already renders at `line-height: 1.5` | F-023 |
+
+Alongside: **206 kernel unit tests**, zero WCAG 2 AA violations across the whole
+page in **both appearances** (bar one inherited Phase A defect with a measured
+fix, F-027), zero horizontal overflow from 320 to 1280 px, and a functional smoke
+test covering asset resolution, applied design tokens, hydration and live
+interaction — the instrument whose absence let a green suite coexist with an
+unstyled page.
+
+### What the numbers do and do not say
+
+They say the library ports. They do **not** say the port is verified, because
+F-040 established that this suite has vacuous passes: two ports went looking and
+each found one, and no port audited all of its own passes for vacuity. Read
+"365 passed" as a lower bound on failures rather than a statement of conformance
+— which is the same thing PORTING.md says about appearance, and which turned out
+to be true of behaviour too.
+
+---
+
+## Per-component findings index
+
+The entries above are the **project-level** findings: things that affect the port
+as a whole, or that a future porter of this library would want warned about
+regardless of which component they start with.
+
+Each component's own detail — its measurements, its contract disagreements, its
+Phase B candidates — lives in a fragment beside this file. They are deliberately
+not merged: the fragments are long because the measurements are in them, and a
+reader looking for "what did porting `X` teach us" should not have to read
+everything else first.
+
+| Fragment | Entries | Notes |
+|---|---|---|
+| [`findings/DateField.md`](findings/DateField.md) | 17 | The flagship: 43/43. The `[PORT FIX]` leap-day desync, the `<template>` rendering trap (F-050), axe measuring the wrong ground under the wheel band, why it is the one field immune to F-042 |
+| [`findings/FileUpload.md`](findings/FileUpload.md) | 13 | JSX whitespace nodes (F-028), the stale ADR-0021 debt claim (F-034), the `.drop-label` defect its own suite cannot see (F-027), the native-input intrinsic width |
+| [`findings/RangeScale.md`](findings/RangeScale.md) | 13 | The `<output>` live-region mapping (F-031), the static-`aria-valuetext` channel split, the vacuous pass (F-040), the `1ch` tabular-figure gap |
+| [`findings/TimeField.md`](findings/TimeField.md) | 13 | The one-way roving tabindex measured across all four fields (F-042), the `aria-modal` popup that opens with focus outside itself (F-043), the fourth appearance tier (F-044), and a withdrawn finding corrected by an RTL measurement |
+| [`findings/kernel.md`](findings/kernel.md) | 13 | The `WheelColumn.destroy()` defect (F-030), per-module test portability proved byte-for-byte (F-029), the Node-vs-Chromium ICU comparison (F-033), `resolveCssPx`'s promotion |
+| [`findings/MonthField.md`](findings/MonthField.md) | 12 | The `Intl` collapsed-key defect that ADR-0011 claims to have fixed (F-041), seven contract points the suite never asserts, `data-initialized` gating (F-046) |
+| [`findings/ToggleTip.md`](findings/ToggleTip.md) | 12 | The `<p>`-wrapper parser bug in the reference's own demo, the entrance fade contradicting the docs, the dev-vs-production CLS diagnosis (F-049), portal vs Popover API and the ADR-0012/0019 conflict |
+| [`findings/MotionRegion.md`](findings/MotionRegion.md) | 11 | The SSR reduced-motion window and the latent WCAG 2.3.3 defect in the upstream contract; the reflow measurement that started F-024 |
+| [`findings/Picklist.md`](findings/Picklist.md) | 11 | The chip mechanism ThemeSwitch reuses, the `.content` collision (F-025), the `CanvasText` selected-chip bypass, and an independent corroboration of F-049 from the geometry side |
+| [`findings/RangeGroup.md`](findings/RangeGroup.md) | 11 | The `async`-chunk race and its bootstrap fix (F-035), the composition-seam argument (F-039), and the consolidated "one mechanism, four failure modes" entry |
+| [`findings/WeekField.md`](findings/WeekField.md) | 10 | ISO-week verification in the browser (week 1 in the previous December, 53-week years, the Dec↔Jan wrap), and the paint-versus-behaviour attribute split (F-047) |
+| [`findings/ThemeSwitch.md`](findings/ThemeSwitch.md) | 9 | The Router Cache disagreement and the 0-wrong-frames cold-load measurement (F-036), the `localStorage` assertions (F-038), ADR-0021's lock-in test |
+| [`findings/ChoiceField.md`](findings/ChoiceField.md) | 7 | React's controlled-input trap, measured; the undocumented element-order constraint |
+| [`findings/ChoiceGroup.md`](findings/ChoiceGroup.md) | 7 | The `.content` collision from the other side; what the two Choice components could and could not share |
+| [`findings/Notice.md`](findings/Notice.md) | 7 | `data-icon` as the library's one inverted boolean; the derived-tint contrast result corroborating F-021 |
+| [`findings/ScrollArea.md`](findings/ScrollArea.md) | 7 | The focus-ring contrast defect axe structurally cannot see, the enhancement-window measurements in frames, the three tiers of appearance-awareness |
+| [`findings/RangeField.md`](findings/RangeField.md) | 5 | The px-scale defect that turned out to be ours (F-026); the anti-DRY result |
+
+**178 fragment entries across 17 fragments, plus 50 project-level entries — 228 findings in total.**
+
+### How to read a finding
+
+Every entry names the **surface** it was found on, carries the **evidence** as a
+measurement rather than an impression, and ends in either a **Decision** (settled,
+with the reasoning) or an **Open question** (needs a call from the project owner).
+Positive findings are included deliberately — "the `1.125ch` calibration survived
+a typeface change" (F-013) and "Node and Chromium ICU agree exactly" (F-033) were
+as much work to establish as any defect, and a report that only lists problems
+misrepresents the library.
+
+Entries are append-only. Where a later finding reverses an earlier one it says so
+explicitly — F-020 supersedes F-002, F-021 supersedes half of F-005, F-037
+reframes F-024, and F-040 qualifies every pass count in the document.
+
+---

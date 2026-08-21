@@ -1,0 +1,419 @@
+/* Root — tokens + root-level props only. Every part is a flat, fully-qualified
+   `.DateTimeField .element` rule below (ADR-0019). */
+.DateTimeField {
+  position: relative;
+  display: inline-block;
+  /* [PORT] `overflow: hidden` dropped — half of the runtime-only init gate.
+     PORTING.md says a framework rendering formed markup never needs the gate,
+     and leaving it in CLIPS THE POPUP. The `data-initialized` ATTRIBUTE is
+     still emitted (it is a test target); only these two CSS rules are gone.
+     Findings F-010. */
+  /* Public API */
+  --_dtf-calendar-width: 18rem;
+  --_dtf-calendar-gap: 1.5rem;
+  --_dtf-site-max-width: var(--MAX--WIDTH--SITE, 100rem);
+  --_dtf-site-padding: var(--SITE--PADDING, 1rem);
+  /* Field-family height contract — every field's bordered box is min 2.5rem tall */
+  --_dtf-field-min-block-size: 2.5rem;
+  /* Design tokens — segments */
+  --_dtf-segments-border-color: currentColor;
+  --_dtf-segments-border-color-hover: CanvasText;
+  --_dtf-segments-bg-hover: var(--ui-hover);
+  --_dtf-segments-border-color-invalid: var(--ui-destructive, #c00);
+  --_dtf-segments-color-muted: var(--ui-muted-foreground);
+  --_dtf-trigger-bg-hover: var(--ui-hover);
+  --_dtf-trigger-bg-active: var(--ui-hover);
+  /* Design tokens — calendar (shared popover surface) */
+  --_dtf-calendar-bg: var(--ui-surface);
+  --_dtf-calendar-color: var(--ui-surface-foreground);
+  --_dtf-calendar-color-muted: var(--ui-muted-foreground);
+  --_dtf-calendar-border-color: var(--ui-border);
+  --_dtf-calendar-radius: var(--ui-radius);
+  --_dtf-calendar-shadow: var(--ui-shadow);
+  --_dtf-calendar-link-color: var(--ui-primary);
+  /* Internal */
+  --_dtf-rail-max-width: calc(var(--_dtf-site-max-width) + var(--_dtf-calendar-width));
+  --_dtf-arrow-size: 0.75rem;
+  --_dtf-arrow-corner-radius: 0.25rem;
+}
+
+/* ── Native / overlay fallback ─────────────────────────────────────────── */
+.DateTimeField .native { display: block; }
+.DateTimeField .overlay { display: none; }
+
+/* Custom mode (fine pointer): native is a hidden value carrier, overlay is the UI */
+.DateTimeField[data-input-mode="custom"] .native {
+  position: absolute;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+}
+
+/* Display mode (coarse pointer): overlay is decorative, native overlays it
+   transparently and fires the platform picker on tap */
+.DateTimeField[data-input-mode="display"] .native {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.DateTimeField[data-input-mode="custom"] .overlay,
+.DateTimeField[data-input-mode="display"] .overlay {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  min-block-size: var(--_dtf-field-min-block-size);
+  border: 1px solid var(--_dtf-segments-border-color);
+  padding-inline: 0.5rem;
+  padding-block: 0.25rem;
+  gap: 0.125rem;
+  border-radius: 4px;
+}
+
+.DateTimeField[data-input-mode="display"] .overlay {
+  pointer-events: none;
+}
+
+.DateTimeField[data-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.DateTimeField[data-disabled="true"] * {
+  pointer-events: none;
+}
+
+/* ── Segments ──────────────────────────────────────────────────────────── */
+.DateTimeField .segments {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+}
+
+.DateTimeField .segment {
+  font-variant-numeric: tabular-nums;
+  min-inline-size: 2ch;
+  text-align: center;
+  outline: none;
+  border-radius: 2px;
+  cursor: default;
+}
+.DateTimeField .segment[data-focused="true"] {
+  background-color: var(--ui-primary);
+  color: var(--ui-primary-foreground);
+}
+.DateTimeField .segment[data-placeholder="true"] {
+  color: var(--_dtf-segments-color-muted);
+}
+
+.DateTimeField .separator {
+  user-select: none;
+  color: var(--_dtf-segments-color-muted);
+}
+
+.DateTimeField .overlay:hover,
+.DateTimeField[data-test-state="hover"] .overlay {
+  border-color: var(--_dtf-segments-border-color-hover);
+  background-color: var(--_dtf-segments-bg-hover);
+}
+
+.DateTimeField .overlay:focus-within,
+.DateTimeField[data-test-state="focus"] .overlay {
+  outline: 2px solid;
+  outline-offset: 1px;
+}
+
+.DateTimeField[data-invalid="true"] .overlay {
+  border-color: var(--_dtf-segments-border-color-invalid);
+}
+
+/* ── Trigger ───────────────────────────────────────────────────────────── */
+.DateTimeField .trigger {
+  margin-inline-start: 0.25rem;
+  background: none;
+  border: none;
+  padding: 0.25rem;
+  cursor: pointer;
+  border-radius: 2px;
+  vertical-align: middle;
+}
+.DateTimeField .trigger svg {
+  /* block — an inline svg reserves baseline descender space below the icon */
+  display: block;
+}
+.DateTimeField .trigger:hover,
+.DateTimeField[data-test-state="hover"] .trigger {
+  background-color: var(--_dtf-trigger-bg-hover);
+}
+.DateTimeField .trigger:active,
+.DateTimeField[data-test-state="active"] .trigger {
+  background-color: var(--_dtf-trigger-bg-active);
+}
+.DateTimeField .trigger:focus-visible {
+  outline: 2px solid;
+  outline-offset: 2px;
+}
+
+/* ── Announce (SR-only) ────────────────────────────────────────────────── */
+.DateTimeField .announce {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ── Popup surface ─────────────────────────────────────────────────────── */
+.DateTimeField .popup {
+  position: absolute;
+  background: var(--_dtf-calendar-bg);
+  color: var(--_dtf-calendar-color);
+  border: 1px solid var(--_dtf-calendar-border-color);
+  padding: var(--ui-surface-padding);
+  font-size: 1rem;
+  z-index: 100;
+  border-radius: var(--_dtf-calendar-radius);
+  box-shadow: var(--_dtf-calendar-shadow);
+}
+
+.DateTimeField .popup .calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-block-end: 0.5rem;
+  gap: 0.5rem;
+}
+.DateTimeField .popup .calendar-header button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 2px;
+  font-size: 1rem;
+  line-height: 1;
+}
+.DateTimeField .popup .calendar-header button:focus-visible {
+  outline: 2px solid;
+  outline-offset: 2px;
+}
+.DateTimeField .popup .calendar-header span {
+  font-weight: normal;
+  flex: 1;
+  text-align: center;
+}
+
+.DateTimeField .popup .calendar-grid {
+  width: 100%;
+  border-collapse: collapse;
+}
+.DateTimeField .popup .calendar-grid th {
+  border: 0;
+  padding: 0;
+  padding-block-end: 0.25rem;
+  text-align: center;
+  font-weight: normal;
+  color: var(--_dtf-calendar-color-muted);
+  min-inline-size: 2rem;
+}
+.DateTimeField .popup .calendar-grid td {
+  border: 0;
+  padding: 0;
+}
+.DateTimeField .popup .calendar-grid td button {
+  display: block;
+  inline-size: 2rem;
+  block-size: 2rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  border-radius: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.DateTimeField .popup .calendar-grid td button:focus-visible {
+  outline: 2px solid;
+  outline-offset: 2px;
+}
+.DateTimeField .popup .calendar-grid td[data-today="true"] button {
+  font-weight: bold;
+}
+.DateTimeField .popup .calendar-grid td button[aria-pressed="true"] {
+  background-color: var(--ui-primary);
+  color: var(--ui-primary-foreground);
+}
+.DateTimeField .popup .calendar-grid td[data-disabled="true"] button {
+  color: var(--_dtf-calendar-color-muted);
+  cursor: not-allowed;
+}
+.DateTimeField .popup .calendar-grid td[data-outside-month="true"] button {
+  color: var(--_dtf-calendar-color-muted);
+}
+
+.DateTimeField .popup .calendar-footer {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem;
+  border-top: 1px solid var(--_dtf-calendar-border-color);
+}
+.DateTimeField .popup .calendar-footer button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--_dtf-calendar-link-color);
+  font: inherit;
+  padding: 0.25rem 0.5rem;
+  border-radius: 2px;
+}
+.DateTimeField .popup .calendar-footer button:focus-visible {
+  outline: 2px solid;
+  outline-offset: 2px;
+}
+.DateTimeField .popup .calendar-footer button:disabled {
+  color: var(--_dtf-calendar-color-muted);
+  cursor: not-allowed;
+}
+
+/* ── Panels (deterministic boolean switch) ─────────────────────────────── */
+/* Exactly one [data-panel] sibling carries data-active="true"; header, footer
+   and the time-columns are always-visible chrome. */
+.DateTimeField .popup [data-panel][data-active="false"] {
+  display: none;
+}
+.DateTimeField .popup [data-panel="calendar"][data-active="true"] {
+  display: block;
+}
+/* Month/year picker — two wheels (look from shared Wheel.css) */
+.DateTimeField .popup [data-panel="picker"][data-active="true"] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  overflow: hidden;
+  height: 16rem;
+}
+/* Wider hosts than the time digits so locale month names fit */
+.DateTimeField .popup .year-month-picker .Wheel[data-picker="month"] { width: 8rem; }
+.DateTimeField .popup .year-month-picker .Wheel[data-picker="year"] { width: 5rem; }
+
+/* Month/year picker trigger — padded + hover to read as interactive.
+   The label stays default text colour; only the chevron is accent-coloured. */
+.DateTimeField .popup .month-year-trigger {
+  padding-inline: 0.5rem;
+  border-radius: 4px;
+}
+.DateTimeField .popup .month-year-trigger:hover {
+  background-color: var(--ui-hover);
+}
+.DateTimeField .popup .month-year-trigger::after {
+  content: '›';
+  display: inline-block;
+  margin-inline-start: 0.3rem;
+  color: var(--ui-primary);
+  transform: rotate(90deg);
+}
+.DateTimeField .popup .month-year-trigger[aria-expanded="true"]::after {
+  transform: rotate(-90deg);
+}
+
+/* ── Initialisation gate ───────────────────────────────────────────────── */
+/* [PORT] Dropped with the `overflow: hidden` above — see the note there. */
+
+/* ── Slide rail ────────────────────────────────────────────────────────── */
+.DateTimeField .rail {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(100vw, var(--_dtf-rail-max-width));
+  height: 0;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ── Calendar bubble positioning ───────────────────────────────────────── */
+.DateTimeField .popup {
+  left: var(--_dtf-popup-offset, 50%);
+  transform: translateX(-50%);
+  min-inline-size: var(--_dtf-calendar-width);
+  pointer-events: auto;
+}
+.DateTimeField[data-direction="bottom"] .popup {
+  top: var(--_dtf-calendar-gap);
+}
+.DateTimeField[data-direction="top"] .popup {
+  bottom: var(--_dtf-calendar-gap);
+}
+
+/* ── Arrow ─────────────────────────────────────────────────────────────── */
+.DateTimeField .arrow {
+  position: absolute;
+  width: var(--_dtf-arrow-size);
+  height: var(--_dtf-arrow-size);
+  background-color: var(--_dtf-calendar-bg);
+  left: 50%;
+}
+.DateTimeField[data-direction="top"] .arrow {
+  bottom: calc(var(--_dtf-arrow-size) * -0.5);
+  transform: translateX(calc(-50% + var(--_dtf-arrow-offset, 0px))) rotate(45deg);
+  border-end-end-radius: var(--_dtf-arrow-corner-radius);
+}
+.DateTimeField[data-direction="bottom"] .arrow {
+  top: calc(var(--_dtf-arrow-size) * -0.5);
+  transform: translateX(calc(-50% + var(--_dtf-arrow-offset, 0px))) rotate(45deg);
+  border-start-start-radius: var(--_dtf-arrow-corner-radius);
+}
+
+/* ── Time columns ──────────────────────────────────────────────────────── */
+.DateTimeField .popup .calendar-inner {
+  display: flex;
+  gap: 0;
+}
+.DateTimeField .popup .calendar-left {
+  flex: 1;
+}
+.DateTimeField .popup .time-columns {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding-inline-start: 0.5rem;
+  margin-inline-start: 0.5rem;
+  border-left: 1px solid var(--_dtf-calendar-border-color);
+}
+
+/* Wheels (hour/minute/second) get their look from the shared Wheel.css */
+
+/* AM/PM 2-state toggle (shown only in 12h locales) */
+.DateTimeField .popup .ampm {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.DateTimeField .popup .ampm[hidden] {
+  display: none;
+}
+.DateTimeField .popup .ampm-option {
+  background: none;
+  border: 1px solid var(--_dtf-calendar-border-color);
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+  font: inherit;
+}
+.DateTimeField .popup .ampm-option:hover {
+  background-color: var(--ui-hover);
+}
+.DateTimeField .popup .ampm-option:focus-visible {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: 1px;
+}
+.DateTimeField .popup .ampm-option[aria-pressed="true"] {
+  background-color: var(--ui-primary);
+  color: var(--ui-primary-foreground);
+  border-color: var(--ui-primary);
+  font-weight: bold;
+}

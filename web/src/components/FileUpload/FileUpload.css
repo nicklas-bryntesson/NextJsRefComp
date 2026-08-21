@@ -1,0 +1,189 @@
+/* src/partials/components/FileUpload/FileUpload.css */
+/* Root carries tokens + root props only; every part is a flat, fully-qualified
+   `.FileUpload .element` rule below (ADR-0019). */
+
+.FileUpload {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.5rem;
+
+  /* Design tokens */
+  --_fu-border-color: currentColor;
+  --_fu-border-radius: 4px;
+  --_fu-trigger-bg: Canvas;
+  /* Mixed against CanvasText rather than fixed greys, so the hover and active
+     tints follow the appearance instead of staying light on a dark page. */
+  --_fu-trigger-bg-hover: color-mix(in srgb, CanvasText 6%, Canvas);
+  --_fu-trigger-bg-active: color-mix(in srgb, CanvasText 12%, Canvas);
+  --_fu-error-color: var(--ui-destructive, #c00);
+  --_fu-drop-zone-border-color: var(--ui-primary, #0070f3);
+  --_fu-drop-zone-bg: color-mix(in srgb, var(--ui-primary, #0070f3) 8%, Canvas);
+}
+
+/* Hidden native input — zero-sized, never display:none so input.click() works */
+.FileUpload .input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* ── Drop-zone: input spans full root, captures native drag-and-drop ──────── */
+.FileUpload[data-drop-zone="true"] {
+  border: 2px dashed var(--_fu-border-color);
+  border-radius: var(--_fu-border-radius);
+  padding: 1rem;
+  min-height: 6rem;
+  align-items: center;
+  justify-content: center;
+}
+
+.FileUpload[data-drop-zone="true"] .input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  pointer-events: all;
+}
+
+/* The file container and trigger must sit above the full-coverage input so
+   that remove buttons and the trigger remain clickable over the drop zone.
+   Both single- (.selected) and multiple-mode (.list) containers need raising —
+   otherwise a click on a single-mode file's remove button lands on the input
+   behind it and reopens the file picker. */
+.FileUpload[data-drop-zone="true"] .list,
+.FileUpload[data-drop-zone="true"] .selected,
+.FileUpload[data-drop-zone="true"] .trigger {
+  position: relative;
+  z-index: 1;
+}
+
+/* Visible drop hint (injected by JS in drop-zone mode). pointer-events: none
+   so drags and clicks pass through to the full-coverage input behind it. */
+.FileUpload[data-drop-zone="true"] .drop-label {
+  font-size: 0.875rem;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.FileUpload[data-drop-zone="true"][data-dragging-over="true"] {
+  border-color: var(--_fu-drop-zone-border-color);
+  background: var(--_fu-drop-zone-bg);
+}
+
+/* ── Label ────────────────────────────────────────────────────────────────── */
+.FileUpload .label {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+/* ── File list ────────────────────────────────────────────────────────────── */
+.FileUpload .list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.FileUpload .item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.5rem;
+  border: 1px solid var(--_fu-border-color);
+  border-radius: var(--_fu-border-radius);
+  font-size: 0.875rem;
+}
+
+.FileUpload[data-has-errors="true"] .item[data-status="invalid-type"],
+.FileUpload[data-has-errors="true"] .item[data-status="invalid-size"] {
+  border-color: var(--_fu-error-color);
+  color: var(--_fu-error-color);
+}
+
+.FileUpload .item-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.FileUpload .item-size {
+  color: var(--ui-muted-foreground, #6e6e6e);
+  white-space: nowrap;
+}
+
+.FileUpload .item-error {
+  font-size: 0.75rem;
+  color: var(--_fu-error-color);
+  white-space: nowrap;
+}
+
+.FileUpload .item-remove {
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 0.125rem 0.25rem;
+  line-height: 1;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.FileUpload .item-remove:hover,
+.FileUpload[data-test-state="hover"] .item-remove {
+  background: var(--_fu-trigger-bg-hover);
+}
+
+.FileUpload .item-remove:focus-visible,
+.FileUpload[data-test-state="focus"] .item-remove {
+  outline: 2px solid currentColor;
+  outline-offset: 1px;
+}
+
+/* ── Trigger ──────────────────────────────────────────────────────────────── */
+.FileUpload .trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--_fu-border-color);
+  border-radius: var(--_fu-border-radius);
+  background: var(--_fu-trigger-bg);
+  cursor: pointer;
+  font-size: 0.875rem;
+  align-self: flex-start;
+}
+
+.FileUpload .trigger:hover,
+.FileUpload[data-test-state="hover"] .trigger {
+  background: var(--_fu-trigger-bg-hover);
+}
+
+.FileUpload .trigger:focus-visible,
+.FileUpload[data-test-state="focus"] .trigger {
+  outline: 2px solid currentColor;
+  outline-offset: 1px;
+}
+
+.FileUpload .trigger:active,
+.FileUpload[data-test-state="active"] .trigger {
+  background: var(--_fu-trigger-bg-active);
+}
+
+/* ── Disabled ─────────────────────────────────────────────────────────────── */
+.FileUpload[data-disabled="true"] {
+  opacity: 0.5;
+}
+.FileUpload[data-disabled="true"] * {
+  pointer-events: none;
+}
+.FileUpload[data-disabled="true"] .trigger {
+  cursor: not-allowed;
+}

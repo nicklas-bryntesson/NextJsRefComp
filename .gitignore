@@ -1,0 +1,8 @@
+.DS_Store
+
+# The submodule's own install and test artifacts. The submodule must stay clean
+# (PORTING.md exit criteria), and it has its own .gitignore covering these — this
+# is belt-and-braces for the parent repo's status output.
+reference-components/node_modules/
+reference-components/test-results/
+reference-components/playwright-report/

@@ -1,0 +1,3 @@
+[submodule "reference-components"]
+	path = reference-components
+	url = https://github.com/nicklas-bryntesson/reference-components.git

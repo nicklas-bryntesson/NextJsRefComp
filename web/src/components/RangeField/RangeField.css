@@ -1,0 +1,217 @@
+/* src/partials/components/RangeField/RangeField.css */
+/*
+ * RangeField — a styled native `<input type="range">`. Nothing else.
+ *
+ * SELF-CONTAINED AND STATELESS: it draws a track and a thumb, which is exactly
+ * what a native range has. The browser positions the thumb from `value`, so
+ * there is nothing to keep in sync and NO JAVASCRIPT — not "no JS for now", but
+ * nothing that could need any.
+ *
+ * NO FILL HERE, deliberately. A coloured portion running up to the thumb is not
+ * part of a native range; it is a second thing drawn on the same lane, and its
+ * length depends on `value`, which CSS cannot read. Anything position-dependent
+ * therefore belongs to RangeScale, the tier that owns the coordinate system and
+ * the one line of JS. Ticks, value bubbles, reference bands and a second thumb
+ * are there for the same reason — a range input has exactly TWO addressable
+ * insides, the track pseudo-element and the thumb pseudo-element.
+ *
+ * UNITS ARE RELATIVE, so the control scales with the text — a reader who raises
+ * their font size gets a bigger thumb, not a bigger label around the same dot.
+ * `em` follows the LOCAL font size, matching ChoiceField. The only px in this
+ * file are the two places a spec states a physical minimum (the WCAG 2.5.8 24px
+ * target floor) and a hairline that must not vanish; every other length is `em`
+ * or derived from one with calc().
+ *
+ * --_rf-thumb is the shared geometry constant. The thumb's CENTRE travels from
+ * --_rf-thumb/2 to 100% − --_rf-thumb/2, never to the track's edges, so anything
+ * RangeScale draws in this lane positions as
+ *   thumb/2 + p × (100% − thumb)
+ * and never p × 100%. The naive version is off by up to HALF A THUMB, and the
+ * error changes sign along the track. Because the inset is expressed in the same
+ * unit as the thumb, the two can never drift apart. RangeScale states the maths
+ * once; RangeField only has to publish the constant it depends on.
+ *
+ * -webkit- AND -moz- CAN NEVER SHARE A RULE: one unrecognised selector discards
+ * the whole declaration block, so a combined selector list styles nothing in any
+ * engine. Verified in Chrome, which drops every -moz- rule from the parsed
+ * stylesheet; Firefox does the mirror image. Do not "tidy" them into one list.
+ *
+ * BUT: only declarations that cannot be a custom property need duplicating.
+ * Every state — focus, invalid, hover, active — is a variable set on the ELEMENT
+ * in a single rule, because custom properties inherit into the pseudo-elements.
+ * That is why there are four state rules, not eight.
+ *
+ * Part names follow CSS Forms L1 / Open UI: track = the lane, thumb = the handle.
+ */
+
+.RangeField {
+  /* ── Public API ──────────────────────────────────────────────────────── */
+  --_rf-thumb: 1.5em;                /* the shared geometry constant — 24px at 16px */
+  --_rf-thumb-scale: 1;              /* interaction growth — transform, NOT size */
+  --_rf-track: 0.5em;
+  --_rf-ring-width: 0.125em;         /* thumb border, and the focus ring */
+  --_rf-radius: 1e5px;               /* "as round as it gets", not a magic 99 */
+  --_rf-track-color: color-mix(in oklab, currentColor 20%, transparent);
+  --_rf-thumb-color: currentColor;
+  --_rf-thumb-ring: Canvas;          /* so the handle reads against the track */
+  --_rf-thumb-outline: none;         /* the focus ring — set on the ELEMENT, see below */
+  --_rf-target-floor: 24px;          /* WCAG 2.5.8 is stated in CSS px; see below */
+  --_rf-invalid-color: var(--ui-destructive, #c0362c);
+
+  -webkit-appearance: none;
+  appearance: none;
+  inline-size: 100%;
+  background: transparent;           /* the track is the pseudo-element, not this */
+  margin: 0;
+  cursor: pointer;
+
+  /* REQUIRED for the em lengths above to mean anything. A form control does not
+     inherit the document's font: the UA gives it its own (~13px in Chrome), so
+     `em` would resolve against that and the control would stop following the
+     reader's text size entirely. Verified: without this line, raising the root
+     font size changed nothing and the 24px floor swallowed the thumb. */
+  font: inherit;
+
+  /* WCAG 2.5.8: the target is the FIELD, not the handle. The success criterion is
+     written in CSS px, so the floor is the one length here that is NOT relative —
+     a relative floor would dip under 24px as soon as the root font shrinks. The
+     thumb itself is relative and passes on its own at any normal text size. */
+  block-size: max(var(--_rf-thumb), var(--_rf-target-floor));
+}
+
+.RangeField:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Track ────────────────────────────────────────────────────────────────
+   One flat colour. Orientation needs no special case: the pseudo-element
+   inherits the input's writing-mode, so `block-size` is the thickness in both. */
+.RangeField::-webkit-slider-runnable-track {
+  block-size: var(--_rf-track);
+  border-radius: var(--_rf-radius);
+  background: var(--_rf-track-color);
+}
+.RangeField::-moz-range-track {
+  block-size: var(--_rf-track);
+  border-radius: var(--_rf-radius);
+  background: var(--_rf-track-color);
+}
+
+/* ── Thumb ────────────────────────────────────────────────────────────────
+   box-sizing + the same --_rf-thumb in both engines, or the inset only
+   matches in one of them. */
+.RangeField::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  inline-size: var(--_rf-thumb);
+  block-size: var(--_rf-thumb);
+  margin-block-start: calc((var(--_rf-track) - var(--_rf-thumb)) / 2);  /* centre on the track */
+  border-radius: 50%;
+  border: var(--_rf-ring-width) solid var(--_rf-thumb-ring);
+  background: var(--_rf-thumb-color);
+  outline: var(--_rf-thumb-outline);
+  outline-offset: var(--_rf-ring-width);
+  /* Growth on interaction is a TRANSFORM, never a size change: --_rf-thumb feeds
+     the input's own block-size, so growing it would relayout the page by a few
+     pixels every time someone grabs the handle. transform does not participate
+     in layout, so the box stays put. */
+  transform: scale(var(--_rf-thumb-scale));
+}
+.RangeField::-moz-range-thumb {
+  box-sizing: border-box;
+  inline-size: var(--_rf-thumb);
+  block-size: var(--_rf-thumb);
+  border-radius: 50%;
+  border: var(--_rf-ring-width) solid var(--_rf-thumb-ring);
+  background: var(--_rf-thumb-color);
+  outline: var(--_rf-thumb-outline);
+  outline-offset: var(--_rf-ring-width);
+  transform: scale(var(--_rf-thumb-scale));
+}
+
+/* ── Focus, invalid, interaction states ───────────────────────────────────
+   All custom properties on the element — one rule per state instead of a
+   -webkit-/-moz- pair. The ring belongs on the THUMB, not the input: on the
+   input it draws a rectangle around the whole lane, which is not what is
+   focused. `outline` (not box-shadow) so it survives forced-colors. */
+.RangeField:focus-visible {
+  outline: none;                                   /* moved to the thumb */
+  --_rf-thumb-outline: var(--_rf-ring-width) solid currentColor;
+}
+
+/* Pair with aria-invalid="true" in the markup. */
+.RangeField[data-invalid="true"] {
+  --_rf-track-color: color-mix(in oklab, var(--_rf-invalid-color) 30%, transparent);
+  --_rf-thumb-color: var(--_rf-invalid-color);
+}
+
+/* Simulated states for the kitchensink, written in pairs with the real
+   pseudo-classes: data-test-state sits on the root and CSS projects it down. */
+.RangeField:hover,
+.RangeField[data-test-state="hover"] {
+  --_rf-thumb-color: color-mix(in oklab, currentColor 80%, Canvas);
+}
+
+.RangeField[data-test-state="focus"] {
+  --_rf-thumb-outline: var(--_rf-ring-width) solid currentColor;
+}
+
+.RangeField:active,
+.RangeField[data-test-state="active"] {
+  --_rf-thumb-scale: 1.1;
+}
+
+/* ── Forced colors (Windows High Contrast) — REQUIRED ─────────────────────
+   Forced-colors paints native controls for you, but we told the browser to stop
+   drawing, so the job comes back to us. Without this block the custom track is
+   overpainted or invisible. This is the item that is always forgotten. */
+@media (forced-colors: active) {
+  .RangeField { forced-color-adjust: none; }
+
+  .RangeField::-webkit-slider-runnable-track {
+    background: ButtonFace;
+    border: 1px solid ButtonText;   /* a hairline: px so it cannot round to zero */
+  }
+  .RangeField::-moz-range-track {
+    background: ButtonFace;
+    border: 1px solid ButtonText;   /* a hairline: px so it cannot round to zero */
+  }
+
+  .RangeField::-webkit-slider-thumb {
+    background: ButtonText;
+    border-color: ButtonFace;
+  }
+  .RangeField::-moz-range-thumb {
+    background: ButtonText;
+    border-color: ButtonFace;
+  }
+
+  .RangeField:focus-visible { --_rf-thumb-outline: var(--_rf-ring-width) solid Highlight; }
+}
+
+/* ── Vertical ─────────────────────────────────────────────────────────────
+   writing-mode, NEVER rotation: a rotate(-90deg) leaves the element in its
+   horizontal layout box, rotates the hit area, and does not remap the arrow
+   keys. Native vertical does — Up increases.
+
+   PHYSICAL width/height here, deliberately: logical sizing follows the
+   element's OWN writing-mode, so inline-size would mean HEIGHT inside a
+   vertical input — shipping a thumb-thin slider in a lane that looks correct.
+
+   Default recipe is min at the BOTTOM (the convention for volume and mixer
+   controls). In vertical writing-mode the value follows the inline axis, and
+   `direction` reverses it. Measured in Chrome; re-measure when porting.
+
+   With no fill to anchor, that is the whole vertical story — a flat track needs
+   no per-orientation geometry. */
+.RangeField[data-orientation="vertical"] {
+  writing-mode: vertical-rl;
+  direction: rtl;                                  /* min at the bottom */
+  width: max(var(--_rf-thumb), var(--_rf-target-floor));
+  height: 12em;
+}
+
+.RangeField[data-orientation="vertical"][data-min="top"] {
+  direction: ltr;
+}

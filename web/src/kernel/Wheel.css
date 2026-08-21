@@ -1,0 +1,97 @@
+/* Shared 3D wheel / spinner — driven by src/kernel/js/WheelColumn.ts.
+   Used by DateField, DateTimeField, TimeField and MonthField. The host element
+   carries .Wheel; WheelColumn injects .ring / .option / .band. Every part is a
+   flat, fully-qualified `.Wheel .element` rule (ADR-0019). */
+
+.Wheel {
+  /* Geometry token read by WheelColumn (readRowHeight) */
+  --_wheel-row-height: 38px;
+  --_wheel-rows: 5;
+  --_wheel-color: var(--ui-surface-foreground);
+  --_wheel-color-selected: var(--ui-primary);
+
+  position: relative;
+  width: 64px;
+  height: calc(var(--_wheel-row-height) * var(--_wheel-rows));
+  overflow: hidden;
+  perspective: 700px;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+  flex-shrink: 0;
+  outline: none;
+}
+
+.Wheel:active { cursor: grabbing; }
+
+.Wheel:focus-visible {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: -2px;
+}
+
+.Wheel .ring {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.Wheel .option {
+  position: absolute;
+  left: 0; right: 0;
+  top: 50%;
+  height: var(--_wheel-row-height);
+  margin-top: calc(var(--_wheel-row-height) / -2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+  backface-visibility: hidden;
+  will-change: opacity, transform;
+  color: var(--_wheel-color);
+  cursor: pointer;
+}
+
+.Wheel .option[aria-selected="true"] {
+  color: var(--_wheel-color-selected);
+  font-weight: bold;
+}
+
+/* Center band — moved to the full-width .WheelColumns container below.
+   WheelColumn still injects this element; hide the per-column version. */
+.Wheel .band {
+  display: none;
+}
+
+/* A row of wheel columns. Draws the single full-width selection band + fade
+   that spans all columns, matching the native picker (see .Wheel). */
+.WheelColumns {
+  position: relative;
+  --_wheel-row-height: 38px; /* keep in sync with .Wheel */
+}
+.WheelColumns::before { /* full-width selection band, behind the numbers */
+  content: "";
+  position: absolute;
+  left: 0; right: 0;
+  top: 50%;
+  height: var(--_wheel-row-height);
+  transform: translateY(-50%);
+  background: var(--ui-hover);
+  border-radius: 9px;
+  z-index: 0;
+  pointer-events: none;
+}
+.WheelColumns::after { /* full-width top+bottom fade toward the popover surface, above the numbers */
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(
+    Canvas,
+    transparent var(--_wheel-row-height),
+    transparent calc(100% - var(--_wheel-row-height)),
+    Canvas
+  );
+}

@@ -1,0 +1,197 @@
+/* ================================================================
+   ToggleTip — fully self-contained
+   No Tailwind, no framework reset, no external dependencies
+
+   The component root is the custom element `toggle-tip`, so every part is a
+   flat, fully-qualified `toggle-tip .element` rule (ADR-0019).
+   ================================================================ */
+
+/* ── Public API (theme layer) ──────────────────────────────────── */
+:root {
+  --_toggletip-gap: 0.75rem;
+  --_toggletip-content-width: 20rem;
+  --_toggletip-padding: 1.5rem;
+  --_toggletip-border-radius: var(--ui-radius);
+  --_toggletip-button-width: 1.5rem;
+  --_toggletip-button-color: CanvasText;
+  --_toggletip-surface-color: Canvas;
+  --_toggletip-text-color: CanvasText;
+  --_toggletip-border-color: var(--ui-border);
+  --_toggletip-site-max-width: 100rem;
+  --_toggletip-site-padding: var(--SITE--PADDING, 1rem);
+}
+
+/* ── Component shell ───────────────────────────────────────────── */
+toggle-tip {
+  /* Connect public → internal with fallbacks */
+  --_tt-gap: var(--_toggletip-gap, 0.75rem);
+  --_tt-content-width: var(--_toggletip-content-width, 20rem);
+  --_tt-padding: var(--_toggletip-padding, 1.5rem);
+  --_tt-border-radius: var(--_toggletip-border-radius, 1rem);
+  --_tt-button-width: var(--_toggletip-button-width, 1.5rem);
+  --_tt-button-color: var(--_toggletip-button-color, CanvasText);
+  --_tt-surface-color: var(--_toggletip-surface-color, Canvas);
+  --_tt-text-color: var(--_toggletip-text-color, CanvasText);
+  --_tt-border-color: var(--_toggletip-border-color, var(--ui-border));
+  --_tt-site-max-width: var(--_toggletip-site-max-width, 100rem);
+  --_tt-site-padding: var(--_toggletip-site-padding, 1rem);
+
+  /* Derived */
+  --_tt-rail-max-width: calc(var(--_tt-site-max-width) + var(--_tt-content-width));
+  --_tt-arrow-size: calc(var(--_tt-button-width) / 2);
+  --_tt-arrow-corner-radius: calc(var(--_tt-border-radius) / 4);
+
+  /* JS-set — initialized to safe defaults */
+  --_tt-popup-offset: 50%;
+  --_tt-arrow-offset: 0px;
+
+  /* Layout */
+  display: inline-block;
+  position: relative;
+  width: var(--_tt-button-width);
+  height: var(--_tt-button-width);
+  /* PORTING.md-sanctioned edit — the init gate is dropped.
+     The reference shipped `overflow: hidden` here plus `toggle-tip > * { opacity: 0 }`,
+     flipped by `toggle-tip[initialized]`, to hide unstyled content until its
+     vanilla JS had built the DOM. React renders formed markup, so the gate has
+     nothing to hide — and leaving `overflow: hidden` in CLIPS THE POPUP, which is
+     exactly the trap ADR-0012 warns about (the reference only escapes it because
+     `[initialized]` flips it back to `visible`). Four rules removed:
+       toggle-tip                { overflow: hidden }
+       toggle-tip > *            { opacity: 0 }
+       toggle-tip[initialized]   { overflow: visible }
+       toggle-tip[initialized] > * { opacity: 1 }
+     The `initialized` ATTRIBUTE is still rendered — it is contract, not runtime. */
+  vertical-align: middle;
+}
+
+/* ── Button ────────────────────────────────────────────────────── */
+toggle-tip button {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-block;
+  position: absolute;
+  inset: 0;
+  width: var(--_tt-button-width);
+  height: var(--_tt-button-width);
+  cursor: pointer;
+  color: var(--_tt-button-color);
+}
+
+/* Enlarged hit area */
+toggle-tip button::after {
+  --_click-area: 2rem;
+  --_offset: calc((var(--_tt-button-width) - var(--_click-area)) / 2);
+  position: absolute;
+  content: "";
+  width: var(--_click-area);
+  height: var(--_click-area);
+  inset: var(--_offset);
+}
+
+toggle-tip button .icon {
+  display: block;
+  width: var(--_tt-button-width);
+  height: var(--_tt-button-width);
+}
+
+/* ── Slide rail ────────────────────────────────────────────────── */
+/*
+ * Centered on the trigger button's vertical midpoint.
+ * left: 50% + transform: translateX(-50%) aligns rail center = trigger center.
+ * top: 50% = button center (toggle-tip height = button width).
+ * Width is capped at site max-width + content-width so it never exceeds
+ * what makes sense for the layout.
+ *
+ * Note: physical properties (left, top, bottom) are used intentionally here.
+ * The slider-rail model is left-to-right by design; RTL is not in scope.
+ */
+toggle-tip .rail {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(100vw, var(--_tt-rail-max-width));
+  height: 0;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ── Bubble ────────────────────────────────────────────────────── */
+toggle-tip .popup {
+  position: absolute;
+  left: var(--_tt-popup-offset);
+  transform: translateX(-50%);
+  inline-size: var(--_tt-content-width);
+  max-inline-size: calc(100vw - var(--_tt-site-padding) * 2);
+  min-inline-size: 20ch;
+  block-size: max-content;
+  pointer-events: auto;
+  padding-inline: var(--_tt-padding);
+  padding-block: var(--_tt-padding);
+  border-radius: var(--_tt-border-radius);
+  border: 1px solid var(--_tt-border-color);
+  background-color: var(--_tt-surface-color);
+  color: var(--_tt-text-color);
+  font: inherit;
+  font-size: 1rem;
+  box-shadow: var(--ui-shadow);
+}
+
+/* Force all descendant text to use the bubble's colour, not the page default */
+toggle-tip .popup * {
+  color: inherit;
+}
+
+toggle-tip .popup[aria-hidden="true"] {
+  display: none;
+}
+
+toggle-tip .popup[aria-hidden="false"] {
+  display: block;
+  transition: opacity 0.15s;
+
+  @starting-style {
+    opacity: 0;
+  }
+}
+
+/* ── Title ─────────────────────────────────────────────────────── */
+toggle-tip .title {
+  display: block;
+  font-weight: bold;
+  margin-block-end: 1rem;
+  padding-block-end: 1rem;
+  border-block-end: 1px solid var(--_tt-border-color);
+}
+
+/* ── Arrow ─────────────────────────────────────────────────────── */
+toggle-tip .arrow {
+  position: absolute;
+  width: var(--_tt-arrow-size);
+  height: var(--_tt-arrow-size);
+  background-color: var(--_tt-surface-color);
+  left: 50%;
+}
+
+/* ── Direction: top (bubble above trigger) ─────────────────────── */
+toggle-tip[data-direction="top"] .popup {
+  bottom: var(--_tt-gap);
+}
+
+toggle-tip[data-direction="top"] .arrow {
+  bottom: calc(var(--_tt-arrow-size) * -0.5);
+  transform: translateX(calc(-50% + var(--_tt-arrow-offset))) rotate(45deg);
+  border-end-end-radius: var(--_tt-arrow-corner-radius);
+}
+
+/* ── Direction: bottom (bubble below trigger) ──────────────────── */
+toggle-tip[data-direction="bottom"] .popup {
+  top: var(--_tt-gap);
+}
+
+toggle-tip[data-direction="bottom"] .arrow {
+  top: calc(var(--_tt-arrow-size) * -0.5);
+  transform: translateX(calc(-50% + var(--_tt-arrow-offset))) rotate(45deg);
+  border-start-start-radius: var(--_tt-arrow-corner-radius);
+}
