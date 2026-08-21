@@ -9,6 +9,9 @@ where an accessibility contract library survives the trip and where it does not.
 plus 178 per-component ones in [`findings/`](findings/). The code is the
 apparatus; the findings are the result.
 
+Proposals written back *for* the library — in its own ADR format, outside the
+pristine submodule — are in [`upstream/`](upstream/).
+
 ## Deploying to Vercel
 
 **Set the project's Root Directory to `web`.** The Next.js app lives there, not at

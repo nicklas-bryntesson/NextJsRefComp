@@ -1904,6 +1904,24 @@ document-wide query can see. A porter on any framework that cannot populate a
 
 ---
 
+## Proposals written for upstream
+
+Where a finding implies a change to the library rather than to this port, the
+artifact lives in [`upstream/`](upstream/) — written in the library's own format,
+outside the submodule, because PORTING.md requires the submodule to stay pristine.
+
+- [`upstream/0026-part-identity-is-a-data-attribute-not-a-class.md`](upstream/0026-part-identity-is-a-data-attribute-not-a-class.md)
+  — the one finding that rose to a direction decision. Part identity moves from
+  `lowercase-kebab` class names to `data-part`; class names carry styling only.
+  It completes ADR-0019's swap map (currently nearly-true), and it is what makes
+  the library compatible with CSS Modules, scoped-style hashing and shadow DOM —
+  the last of which the planned Web Components port needs regardless.
+- [`upstream/README.md`](upstream/README.md) also ranks the seven bug-level
+  upstream changes worth doing first. Per the library's own ADR rules those are
+  commit messages, not ADRs.
+
+---
+
 ## Final verified result
 
 Measured on a **clean production build**, sequentially, on the aggregate page —
