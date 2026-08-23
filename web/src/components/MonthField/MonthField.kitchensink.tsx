@@ -142,9 +142,11 @@ export function MonthFieldKitchensink() {
       {/* ADR-0011: demos default to English and localization is shown
           DELIBERATELY. For MonthField the axis that differs is the language of
           the month names. `de-DE` is our addition, not the reference's — it is
-          the probe for findings/MonthField.md: the reference feeds Intl the
-          COLLAPSED translation key, so a locale with no bundled strings renders
-          English month names. Open the picker on each to see it. */}
+          the F-041 regression cell: `de-DE` collapses to the `en` translation
+          key, so it is the only demo locale that can tell a raw tag reaching
+          `Intl` apart from the collapsed key reaching it (en-GB→en and sv-SE→sv
+          both preserve the language). Fixed upstream in 3c7df5b — the wheel now
+          reads Januar…Dezember while the UI strings stay English. */}
       <Block title="Localization — month-name language">
         <Cell caption="en-GB → en">
           <Field dataId="mf-locale-en-gb" label="Month (en-GB)" locale="en-GB" value="2026-06" />
@@ -152,7 +154,7 @@ export function MonthFieldKitchensink() {
         <Cell caption="sv-SE → sv">
           <Field dataId="mf-locale-sv-se" label="Month (sv-SE)" locale="sv-SE" value="2026-06" />
         </Cell>
-        <Cell caption="de-DE → en (measured divergence)">
+        <Cell caption="de-DE → en strings, German month names">
           <Field dataId="mf-locale-de-de" label="Month (de-DE)" locale="de-DE" value="2026-06" />
         </Cell>
       </Block>

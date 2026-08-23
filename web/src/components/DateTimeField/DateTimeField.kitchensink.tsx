@@ -24,6 +24,26 @@ import { DateTimeField } from "./DateTimeField";
 const RANGE = { min: "1900-01-01T00:00", max: "2100-12-31T23:59" };
 const FILLED = "2026-05-27T14:35";
 
+/* The live demo authors a REAL range, which the reference's own demo does not:
+   its `data-min` is 1900, so nothing is ever out of range and the disabled path
+   was never rendered anywhere. Upstream's #56 test therefore injects
+   `data-min="<current-year>-<current-month>-15T00:00"` by rewriting the served
+   HTML — a technique that is inert against this port, because `min`/`max` are
+   PROPS here (the documented prop → `data-*` direction), so an attribute written
+   into the HTML after the fact is never read. Authoring the prop is the exact
+   equivalent of upstream's consumer-authored attribute, so the state is demoed
+   instead of injected.
+
+   The 15th is upstream's own choice and the reason is worth keeping: it always
+   has in-month days both before and after it, so any displayed month contains
+   both a disabled and an enabled day. Evaluated on the server; every route in
+   this app is server-rendered on demand, so it tracks the request date rather
+   than freezing at build time. */
+function fifteenthOfThisMonth(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-15T00:00`;
+}
+
 export function DateTimeFieldKitchensink() {
   return (
     <Section id="datetimefield" title="DateTimeField">
@@ -111,19 +131,25 @@ export function DateTimeFieldKitchensink() {
         <Cell caption="sv-SE (24h, Y/M/D)">
           <DateTimeField id="dtf-sv" label="Datum och tid (sv-SE)" locale="sv-SE" defaultValue={FILLED} />
         </Cell>
-        {/* Standing probe for F-041: `de-DE` collapses to the `en` translation
-            key and the reference passes THAT key to `Intl`, so the month wheel
-            and the calendar header render English month names even though
-            `supportedLocalesOf(['de-DE'])` returns `['de-DE']`. Ported
-            verbatim; this cell makes the defect visible rather than described. */}
-        <Cell caption="de-DE (F-041 probe — English months)">
+        {/* F-041 regression cell, fixed upstream in 3c7df5b. `de-DE` collapses
+            to the `en` translation key, so it is the only demo locale where a raw
+            tag reaching `Intl` is distinguishable from the collapsed key reaching
+            it. The month wheel and calendar header now read German; the UI
+            strings stay English because no `de` bundle is registered. */}
+        <Cell caption="de-DE — German month names, English UI strings">
           <DateTimeField id="dtf-de" label="Datum und Uhrzeit (de-DE)" locale="de-DE" defaultValue={FILLED} />
         </Cell>
       </Block>
 
       <Block title="Live demo (e2e target)">
         <Cell caption='data-id="meeting-time"'>
-          <DateTimeField id="meeting-time" label="Meeting time" locale="en-GB" {...RANGE} />
+          <DateTimeField
+            id="meeting-time"
+            label="Meeting time"
+            locale="en-GB"
+            min={fifteenthOfThisMonth()}
+            max={RANGE.max}
+          />
         </Cell>
       </Block>
 

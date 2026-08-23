@@ -439,3 +439,130 @@ one runtime only. Cheap guard for a real deployment: assert
 `Intl.DateTimeFormat.supportedLocalesOf(['sv-SE']).length === 1` at build time,
 or ship `full-icu`. Worth naming in PORTING.md for anyone server-rendering a
 locale-aware component.
+
+---
+
+### F-NEW · Upstream fixed F-041 exactly the way the port's analysis said it should — two named values, and the raw tag is the only one `Intl` ever sees
+
+**Surface:** upstream `3c7df5b` — *"fix(fields): give `Intl` the locale tag, not the
+translation key (#53)"* — and its port into `DateField.tsx`, `DateTimeField.tsx`,
+`MonthField.tsx`, `WeekField.tsx`. **Closes F-041.**
+
+**Did it separate the two concerns the way F-041 argued?** Yes, and it named them.
+The fix is the mechanical one F-041 predicted — the collapsed key stops reaching
+`Intl` — but upstream also promoted the rule to `.claude/philosophy.md`:
+
+```ts
+this.localeTag = readLocale(el)                                  // → Intl
+this.locale    = resolveLocale(this.localeTag, X.translations)   // → this.t
+```
+
+with the reasoning F-041 used: *"falling back to English for a string we wrote is
+correct; falling back to English for a name ICU already knows is a bug."* No new
+ADR, deliberately — the commit message argues it **completes ADR-0011 § 4**
+rather than deciding anything new, which is the same reading F-041 took of the ADR
+ledger describing a state the code was not in (cf. F-034).
+
+Three things it got right that F-041 did not know:
+
+- **Wider than reported.** F-041 measured MonthField. The collapsed key was
+  reaching `Intl` at **twenty call sites across all four calendar fields**;
+  `MonthField` and `WeekField` had no `localeTag` field at all. `TimeField`
+  needed no change — it already passed the raw tag to `is12hLocale`.
+- **One English string survives on purpose.** WeekField's `Wk` column head and
+  the row label's `Week 23` stay English under `de-DE`, because they are strings
+  *we* wrote with no `de` bundle registered. Upstream calls this out explicitly:
+  the two channels working as designed, "now visible instead of
+  indistinguishable from the bug." Measured below — it holds in the port too.
+- **The demo set was the root cause, not the code.** Upstream's own conclusion:
+  *"a demo set that agrees with the bug is not coverage"* — `en-GB→en` and
+  `sv-SE→sv` are the two locales where the collapse is name-preserving, so the
+  only two locales demoed were the only two that could not expose it. F-041 said
+  the same thing; upstream turned it into a standing rule (*"if a rule has a
+  region-sensitive half, one demo has to exercise the region"*).
+
+**Re-measured in Chromium against a production build, popups open, after the
+port's fix** (`Intl.DateTimeFormat.supportedLocalesOf(['de-DE'])` → `['de-DE']`;
+ICU gives `Januar…Dezember` / `Mo Di Mi Do Fr Sa So`):
+
+| Instance | before (F-041) | after |
+|---|---|---|
+| `mf-locale-de-de` month wheel | `February…October` | **`Februar März April Mai Juni Juli August September Oktober`** |
+| `mf-locale-sv-se` month wheel | `februari…oktober` | `februari…oktober` (unchanged) |
+| `df-locale-de-de` weekday heads / month label | `Mon…Sun` / `June 1990` | **`Mo Di Mi Do Fr Sa So`** / **`Juni 1990`** |
+| `dtf-de` weekday heads / month label | `Mon…Sun` / `May 2026` | **`Mo Di Mi Do Fr Sa So`** / **`Mai 2026`** |
+| `wf-locale-de-de` heads / month label / row label | `Wk Mon…Sun` / `June 2026` / `Week 23, 1 June – 7 June` | **`Wk` `Mo Di Mi Do Fr Sa So`** / **`Juni 2026`** / **`Week 23, 1. Juni – 7. Juni`** |
+
+The `en-GB` and `sv-SE` cells are byte-identical before and after, which is the
+point: the fix is invisible for every locale the reference demoed. And the
+WeekField row shows both channels in one string — `Week` and `Wk` ours and
+English, `1. Juni` ICU's and German.
+
+Ported as three `localeTag` introductions (`MonthField.Cfg.localeTag`,
+`WeekField`'s `buildWeekRows(localeTag, …)`, plus the existing `localeTag` in
+`DateField`/`DateTimeField` extended to the name call sites) and a `de-DE` demo
+cell added where one was missing — `df-locale-de-de` and `wf-locale-de-de`;
+MonthField and DateTimeField already carried one as F-041's standing probe.
+
+**The small-ICU footnote from F-041 needs updating.** F-041 said the spec asserts
+no `Intl` output at all, so the small-ICU risk (F-033) could not fail a test. The
+new `de-DE` tests change half of that: they *do* assert ICU output, and
+MonthField's carries an in-page guard — `expect(expected).not.toBe('October')` —
+which fails loudly on a small-ICU **browser**. That is a genuine improvement over
+what F-041 measured. But the half F-041 actually worried about is untouched: the
+expectation is computed in the page from the *same* runtime that rendered the
+value, so a small-ICU **server** paired with a full-ICU browser still desyncs the
+server-rendered month `aria-valuetext` (`June 2026`) from the client's
+(`Juni 2026`) with every de-DE test green. One runtime cannot see a two-runtime
+mismatch, and these tests still only ever look at one.
+
+---
+
+### F-NEW · Upstream's `de-DE` regression test is not portable: it rewrites `data-locale` in the served HTML, which a prop-driven port never reads
+
+**Surface:** the four new `de-DE` e2e tests in `3c7df5b`. **A test-harness
+portability defect, and a direct consequence of F-048.** Worth an upstream note.
+
+Each new test installs a route interceptor and rewrites the document:
+
+```js
+const body = (await r.text()).replace(/data-locale="[^"]*"/g, `data-locale="${locale}"`)
+```
+
+That works because in the reference the DOM **is** the source of truth:
+`readLocale(el)` reads the attribute at `attach()` time, so rewriting the served
+HTML genuinely changes the component's locale. Per F-048 our port inverts that
+direction — locale arrives as a **prop** and `data-locale` is a *rendered
+output*, because `readLocale`'s client-only DOM read would determine rendered
+text and the ToggleTip port measured that a hydration mismatch kills
+interactivity page-wide. So the rewrite lands on the attribute and nothing reads
+it back: the props travel in the RSC flight payload, where the quotes are escaped
+(`data-locale=\"en-GB\"`) and the regex does not match anyway.
+
+Measured, against a production build with the fix in place:
+
+| Run | DateField | DateTimeField | MonthField | WeekField |
+|---|---|---|---|---|
+| default target (`birthdate`, `meeting-time`, `meeting-month`, `meeting-week` — all `locale="en-GB"`) | 48 / 1 | 37 / 1 | 33 / 1 | 36 / 1 |
+| same test, `TARGET_ID` pointed at the `de-DE` demo cell | **1 / 0** | **1 / 0** | **1 / 0** | **1 / 0** |
+
+The single failure in each default run is the new `de-DE` test, and it fails for
+the harness reason only: it opens an `en-GB` instance and is surprised to find
+English in it. Pointed at a `de-DE` instance through the suite's own documented
+`TARGET_ID` seam, all four pass — so the component-side fix is complete and the
+gap is entirely *where the test gets its locale from*.
+
+**Decision:** do not port the rewrite, and do not add a client-side
+`data-locale` read to satisfy it. Reading the attribute back would reintroduce
+exactly the client-only-DOM-read-determines-text pattern F-048 rejected, to buy
+nothing but a test technique. The port instead does what upstream's own
+philosophy note asks for — *one demo has to exercise the region* — and ships a
+`de-DE` cell in all four kitchensinks.
+
+**Upstream suggestion:** make the `de-DE` expectation select a `de-DE` **demo
+instance by `data-id`** instead of rewriting the response. It is strictly
+stronger even for the reference (it proves the kitchensink now exercises the
+region, which was the actual root cause), it needs no route interception, and it
+is the only form a framework port can honour — a port where the locale is a prop
+cannot be steered by a response rewrite. As it stands, `3c7df5b`'s regression
+test asserts the fix only for runtimes that read the DOM at init.

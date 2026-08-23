@@ -162,6 +162,19 @@ export function WeekFieldKitchensink() {
             defaultValue="2026-W27"
           />
         </Cell>
+        {/* F-041 regression cell. `de-DE` collapses to the `en` translation key,
+            so it is the only demo locale where a raw tag reaching `Intl` is
+            distinguishable from the collapsed key reaching it. Weekday heads and
+            the month label come out German; the "Wk" column head stays English
+            ON PURPOSE — that one is a string we wrote, with no `de` bundle. */}
+        <Cell caption="de-DE — German weekday names, English &quot;Wk&quot;">
+          <WeekField
+            id="wf-locale-de-de"
+            label="Woche (de-DE)"
+            locale="de-DE"
+            defaultValue="2026-W27"
+          />
+        </Cell>
       </Block>
 
       {/* The browser's built-in control, for comparison. Firefox and desktop

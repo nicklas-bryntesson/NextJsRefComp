@@ -8,16 +8,17 @@
                       Defaults to the host --content-offset so content lines up
                       with the page gutter while scrolling edge-to-edge.
      --_sc-fade-color  colour of the edge fades — MUST match the surface behind
-                      the ScrollArea. Defaults to `Canvas`, i.e. the page
-                      surface in whichever appearance is active. A fixed colour
-                      here is a light-mode assumption: a `white` default faded
-                      to white over a dark page, which is the one thing a fade
-                      cannot get wrong.
+                      the ScrollArea. Defaults to the theming seam's surface,
+                      falling back to `Canvas` (the page). A fixed colour here is
+                      a light-mode assumption: a `white` default faded to white
+                      over a dark page, which is the one thing a fade cannot get
+                      wrong. Naming `Canvas` directly is the same assumption one
+                      step out — correct only while the surface IS the page.
      --_sc-fade-size   width of each fade (default: --_sc-offset). */
 
 .ScrollArea {
   --_sc-offset: var(--content-offset, 1rem);
-  --_sc-fade-color: Canvas;
+  --_sc-fade-color: var(--ui-surface, Canvas);
   --_sc-fade-size: var(--_sc-offset);
 
   --_sb-height: 4px;

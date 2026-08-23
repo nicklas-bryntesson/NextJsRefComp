@@ -11,8 +11,14 @@
  * No assertion was rewritten, weakened or dropped.
  *
  * `[ADDED]` blocks below cover claims WheelColumn.md makes that the reference
- * suite does not exercise, plus a regression for the cross-column wheel-lock
- * leak fixed in our port. See findings/kernel.md.
+ * suite does not exercise. See findings/kernel.md.
+ *
+ * Upstream `52356b8` added four describe blocks of its own — the module-level
+ * wheel lock across a mid-scroll teardown, tapping an option through the
+ * pointer flow, and the spinbutton's published value. They are ported below
+ * under their upstream names; our own cross-column lock block predates them and
+ * is kept because it asserts the min-delta inertia gate, which upstream does
+ * not.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import WheelColumn, { type WheelColumnOptions } from '../WheelColumn'
@@ -36,6 +42,12 @@ function makeWheel(opts: Partial<WheelColumnOptions> = {}): {
   const onChange = vi.fn()
   const wheel = new WheelColumn(el, { min: 0, max: 11, value: 0, onChange, ...opts })
   return { el, wheel, onChange }
+}
+
+/* jsdom implements no pointer capture; the handlers only need it not to throw. */
+function stubPointerCapture(el: HTMLElement): void {
+  ;(el as unknown as { setPointerCapture: () => void }).setPointerCapture = () => {}
+  ;(el as unknown as { releasePointerCapture: () => void }).releasePointerCapture = () => {}
 }
 
 beforeEach(() => {
@@ -357,11 +369,12 @@ describe('[ADDED] WheelColumn — cross-column wheel lock', () => {
     b.wheel.destroy()
   })
 
-  it('[PORT FIX] releases the lock on destroy, so the next popup still scrolls', () => {
-    // Reference behaviour: destroy() clears _wheelTimer, so the snap and hence
-    // _commit never run, and _activeWheelCol stays pointing at the dead
+  it('releases the lock on destroy, so the next popup still scrolls', () => {
+    // Pre-52356b8 behaviour: destroy() clears _wheelTimer, so the snap and
+    // hence _commit never run, and _activeWheelCol stays pointing at the dead
     // instance — every wheel column in the app then ignores trackpad scroll for
-    // the rest of the page's life. Our destroy() releases the lock.
+    // the rest of the page's life. Found by this port (F-030) and fixed
+    // upstream independently; destroy() releases the lock.
     const a = makeWheel({ value: 0 })
     a.el.dispatchEvent(wheelEvent(120))
     a.wheel.destroy() // popup closed mid-scroll (Escape within 100 ms)
@@ -381,11 +394,18 @@ describe('[ADDED] WheelColumn — cross-column wheel lock', () => {
 })
 
 describe('[ADDED] WheelColumn — destroy', () => {
-  it('unbinds click as well as wheel', () => {
+  it('unbinds the tap gesture as well as wheel', () => {
+    // Was 'unbinds click as well as wheel'. There is no click listener any more
+    // (upstream 52356b8 — pointer capture retargets the compatibility mouse
+    // events, so a click handler on .Wheel can never see an option). The claim
+    // the test was making is still real, so it is driven through the pointer
+    // flow that now carries taps.
     const { el, wheel, onChange } = makeWheel({ value: 0, format: v => String(v) })
+    stubPointerCapture(el)
     wheel.destroy()
     const opt = el.querySelector<HTMLElement>('.option[data-value="1"]')!
-    opt.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    opt.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, clientY: 100 }))
+    el.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, clientY: 100 }))
     expect(onChange).not.toHaveBeenCalled()
   })
 
@@ -402,5 +422,163 @@ describe('[ADDED] WheelColumn — destroy', () => {
     const { el, wheel } = makeWheel()
     wheel.destroy()
     expect(el.querySelector('.ring')).not.toBeNull()
+  })
+})
+
+/* ── Ported from upstream 52356b8 ─────────────────────────────────────────────
+ * Three defects behind one gesture surface. This port had independently found
+ * and fixed only the first; the other two it never surfaced. Ported here
+ * verbatim in intent — only the shared pointer-capture stub is factored out,
+ * because this file already needed one.
+ */
+
+describe('WheelColumn — the module-level wheel lock', () => {
+  // The lock lives at module scope so that trackpad inertia arriving on a
+  // neighbouring column is ignored. That makes tearing a column down mid-scroll
+  // a shared-state hazard: the owner is named globally, and the only release on
+  // the happy path runs when the column snaps to rest.
+  function scroll(el: HTMLElement, deltaY: number): void {
+    el.dispatchEvent(new WheelEvent('wheel', { deltaY, bubbles: true, cancelable: true }))
+  }
+
+  it('lets a surviving column scroll after the owner is destroyed mid-scroll', () => {
+    const a = makeWheel()
+    const b = makeWheel()
+
+    scroll(a.el, 120)           // a claims the lock; its snap timer has not fired
+    expect(a.wheel.pos).not.toBe(0)
+
+    a.wheel.destroy()           // popup closes while the trackpad still coasts
+
+    const before = b.wheel.pos
+    scroll(b.el, 120)
+    expect(b.wheel.pos).not.toBe(before)
+
+    b.wheel.destroy()
+  })
+
+  it('still ignores inertia bleeding onto a neighbour while the owner lives', () => {
+    // The guard the fix must not weaken: an undestroyed owner keeps the lock.
+    const a = makeWheel()
+    const b = makeWheel()
+
+    scroll(a.el, 120)
+    const before = b.wheel.pos
+    scroll(b.el, 120)
+    expect(b.wheel.pos).toBe(before)
+
+    a.wheel.destroy()
+    b.wheel.destroy()
+  })
+})
+
+describe('WheelColumn — tapping an option', () => {
+  // Pointer capture retargets the compatibility mouse events, so `click` always
+  // arrived with `.Wheel` as its target and tapping a number never selected it
+  // with a real mouse. The tap is resolved in the pointer flow instead.
+  function press(el: HTMLElement, target: Element, y: number): void {
+    stubPointerCapture(el)
+    target.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, clientY: y }))
+  }
+  function release(el: HTMLElement, y: number, type = 'pointerup'): void {
+    el.dispatchEvent(new MouseEvent(type, { bubbles: true, clientY: y }))
+  }
+
+  function optionOtherThan(el: HTMLElement, value: number | null): HTMLElement {
+    const options = [...el.querySelectorAll<HTMLElement>('.option')]
+    const other = options.find(o => o.dataset.value && Number(o.dataset.value) !== value)
+    if (!other) throw new Error('no other option rendered')
+    return other
+  }
+
+  it('selects the option a stationary press landed on', () => {
+    const { el, wheel } = makeWheel({ min: 0, max: 11, value: 0 })
+    const option = optionOtherThan(el, wheel.value)
+    const expected = Number(option.dataset.value)
+
+    press(el, option, 100)
+    release(el, 100)
+
+    expect(wheel.value).toBe(expected)
+    wheel.destroy()
+  })
+
+  it('does not select when the press was a drag', () => {
+    const { el, wheel } = makeWheel({ min: 0, max: 11, value: 0 })
+    const option = optionOtherThan(el, wheel.value)
+
+    const pressed = Number(option.dataset.value)   // before the re-render
+    press(el, option, 100)
+    el.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientY: 40 }))
+    release(el, 40)
+
+    // Whatever the drag landed on, it is not "the option I pressed at y=100".
+    expect(wheel.value).not.toBe(pressed)
+    wheel.destroy()
+  })
+
+  it('does not select when the gesture is cancelled', () => {
+    const { el, wheel } = makeWheel({ min: 0, max: 11, value: 0 })
+    const before = wheel.value
+    const option = optionOtherThan(el, before)
+
+    press(el, option, 100)
+    release(el, 100, 'pointercancel')
+
+    expect(wheel.value).toBe(before)
+    wheel.destroy()
+  })
+
+  it('ignores a press that landed outside any option', () => {
+    const { el, wheel } = makeWheel({ min: 0, max: 11, value: 0 })
+    const before = wheel.value
+
+    press(el, el, 100)
+    release(el, 100)
+
+    expect(wheel.value).toBe(before)
+    wheel.destroy()
+  })
+})
+
+describe('WheelColumn — the spinbutton cannot lag its own value', () => {
+  // render() publishes aria-valuenow / aria-valuetext out of the committed
+  // value, so it has to run AFTER the commit. Rendering first published the
+  // previous value every time the wheel came to rest: absent on the first
+  // gesture from an empty column, one step behind from then on. The wheel moved
+  // and the host field updated, so only the accessible value was wrong —
+  // invisible on screen, which is why it survived to the port.
+  //
+  // This has to be driven through a gesture. setValue() assigns the value
+  // before rendering on its own, so it cannot see the defect.
+  function tap(el: HTMLElement, target: Element): void {
+    stubPointerCapture(el)
+    target.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, clientY: 100 }))
+    el.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, clientY: 100 }))
+  }
+
+  it('publishes a value after the first gesture on an empty column', () => {
+    const { el, wheel } = makeWheel({ min: 0, max: 11, value: null })
+    expect(el.hasAttribute('aria-valuenow')).toBe(false)
+
+    const option = [...el.querySelectorAll<HTMLElement>('.option')].find(o => o.dataset.value)!
+    // Read it now: the slots are recycled, so this element carries a different
+    // value once the gesture has re-rendered the column.
+    const expected = option.dataset.value
+    tap(el, option)
+
+    expect(el.getAttribute('aria-valuenow')).toBe(expected)
+    expect(el.getAttribute('aria-valuetext')).not.toBe('--')
+    wheel.destroy()
+  })
+
+  it('agrees with its own value after a gesture, not with the one before', () => {
+    const { el, wheel } = makeWheel({ min: 0, max: 11, value: 0 })
+    const options = [...el.querySelectorAll<HTMLElement>('.option')].filter(o => o.dataset.value)
+    for (const option of options.slice(0, 3)) {
+      tap(el, option)
+      expect(el.getAttribute('aria-valuenow')).toBe(String(wheel.value))
+    }
+    wheel.destroy()
   })
 })

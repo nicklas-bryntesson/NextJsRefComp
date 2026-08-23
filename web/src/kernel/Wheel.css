@@ -83,15 +83,21 @@
   pointer-events: none;
 }
 .WheelColumns::after { /* full-width top+bottom fade toward the popover surface, above the numbers */
+  /* The fade has to END in the colour actually behind the wheel, so it reads as
+     the numbers dissolving rather than as a band. That colour is the host's, not
+     ours: `Canvas` is only right for a popover left at the page surface. Ported
+     into a design system that gives its popovers their own colour, a hardcoded
+     `Canvas` faded to near-black over a lighter panel — a visible edge on all
+     four wheel fields at once, because this file is the kernel. */
   content: "";
   position: absolute;
   inset: 0;
   z-index: 2;
   pointer-events: none;
   background: linear-gradient(
-    Canvas,
+    var(--ui-surface, Canvas),
     transparent var(--_wheel-row-height),
     transparent calc(100% - var(--_wheel-row-height)),
-    Canvas
+    var(--ui-surface, Canvas)
   );
 }

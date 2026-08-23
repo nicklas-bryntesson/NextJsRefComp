@@ -154,7 +154,8 @@ type BufferText = { seg: MonthSegmentType; text: string };
 type DispatchMode = "silent" | "auto" | "force";
 
 interface Cfg {
-  locale: string;
+  /** RAW locale tag — the only value `Intl` may receive (F-041 / upstream 3c7df5b). */
+  localeTag: string;
   minISO?: string;
   maxISO?: string;
   minYear: number;
@@ -228,11 +229,11 @@ function isoOf(val: Val): string {
 function valueText(type: MonthSegmentType, value: number, val: Val, cfg: Cfg): string {
   if (type === "month") {
     const nameYear = val.year ?? new Date().getFullYear();
-    const name = getMonthName(nameYear, value, cfg.locale);
+    const name = getMonthName(nameYear, value, cfg.localeTag);
     return val.year == null ? name : `${name} ${val.year}`;
   }
   if (val.month == null) return String(value);
-  return `${getMonthName(value, val.month, cfg.locale)} ${value}`;
+  return `${getMonthName(value, val.month, cfg.localeTag)} ${value}`;
 }
 
 /* ── Imperative helpers — outside the component, taking values as parameters ──
@@ -380,17 +381,17 @@ export function MonthField({
   const localeKey = resolveLocale(locale, strings);
   const t = strings[localeKey];
 
-  /* NOTE (measured — see findings/MonthField.md): the reference passes the
-     COLLAPSED translation key to `Intl`, not the raw tag, so `de-DE` → `en`
-     renders English month names in a German field. ADR-0011 says format must be
-     derived from the raw locale tag and only UI strings from the collapsed key.
-     Kept verbatim for Phase A: identical output for every locale the reference
-     kitchensink authors (en-GB→en, sv-SE→sv). */
+  /* F-041, fixed upstream in 3c7df5b: the two values are NOT interchangeable.
+     `localeKey` (COLLAPSED — `de-DE` → `en`, because there is no `de` bundle)
+     indexes our own strings and nothing else; the RAW tag is what `Intl` needs
+     to produce German month names. Falling back to English for a string we
+     wrote is correct; falling back for a name ICU already knows is the bug.
+     ADR-0011 § 4 had already decided this rule and left the names behind. */
   const currentYear = new Date().getFullYear();
   const parsedMin = min ? parseMonthISO(min) : null;
   const parsedMax = max ? parseMonthISO(max) : null;
   const cfg: Cfg = {
-    locale: localeKey,
+    localeTag: locale,
     minISO: min || undefined,
     maxISO: max || undefined,
     minYear: parsedMin ? parsedMin.year : currentYear - YEAR_SPAN,
@@ -402,7 +403,12 @@ export function MonthField({
   const [val, setValRender] = useState<Val>(initial);
   const [bufferText, setBufferText] = useState<BufferText | null>(null);
   const [focused, setFocused] = useState<MonthSegmentType | null>(null);
-  const [roving, setRoving] = useState<MonthSegmentType | "none">("month");
+  /* Roving tabindex: the ONE segment that is a tab stop. It follows focus and is
+     never cleared — upstream 07bac06 (#52) deleted the `Tab` interception and
+     `_focusTrigger()`, so the segment being edited keeps the `0` and Shift+Tab
+     from the trigger returns into it. A roving tabindex has to rove back or the
+     group becomes keyboard-unreachable (WCAG 2.1.1). */
+  const [roving, setRoving] = useState<MonthSegmentType>("month");
   const [open, setOpen] = useState(false);
   const [announce, setAnnounce] = useState("");
 
@@ -451,7 +457,7 @@ export function MonthField({
       const parsed = parseMonthISO(iso);
       setAnnounce(
         parsed
-          ? `${getMonthName(parsed.year, parsed.month, cfgRef.current.locale)} ${parsed.year}`
+          ? `${getMonthName(parsed.year, parsed.month, cfgRef.current.localeTag)} ${parsed.year}`
           : iso,
       );
       if (announceTimerRef.current) clearTimeout(announceTimerRef.current);
@@ -473,12 +479,6 @@ export function MonthField({
     if (!next) return;
     setRoving(next);
     focusEl(segRefs.current[next]);
-  }
-
-  function focusTrigger() {
-    setRoving("none");
-    setFocused(null);
-    focusEl(triggerRef.current);
   }
 
   /* ── Digit buffer ────────────────────────────────────────────────────────── */
@@ -565,14 +565,6 @@ export function MonthField({
       case "ArrowRight":
         e.preventDefault();
         moveSegmentFocus(type, 1);
-        break;
-      case "Tab":
-        /* Tab from the LAST segment moves to the trigger; Shift+Tab from the
-           first is left to the browser and exits the field. */
-        if (!e.shiftKey && type === "year") {
-          e.preventDefault();
-          focusTrigger();
-        }
         break;
       case "Backspace":
         e.preventDefault();
@@ -684,7 +676,7 @@ export function MonthField({
           getMonthName(
             valRef.current.year ?? new Date().getFullYear(),
             v,
-            cfgRef.current.locale,
+            cfgRef.current.localeTag,
           ),
         onChange: (m) => setSegment("month", m, "auto"),
       }),

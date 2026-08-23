@@ -649,3 +649,196 @@ are the checks that see the shared chrome, which no component-scoped run can
 Prediction from the F-050 finding above: because this spec scopes its
 `page.evaluate` selectors correctly, DateTimeField should score the **same** on
 `/` as on its isolated route, unlike its four siblings.
+
+---
+
+### F-NEW · Both upstream fixes land, and the check this port proposed found less than the port did — but it is general
+
+**Surface:** submodule `99ff470` → `c2d12c2`; `DateTimeField.tsx`,
+`DateTimeField.kitchensink.tsx`. Supersedes nothing; it **closes** the dead-CSS
+finding above ("The stylesheet styles two `td` attributes this component's JS
+never sets") and the `.calendar-footer-clear` note in the three-footer-buttons
+finding, both of which were recorded as faithful reproductions of upstream
+defects. Upstream fixed both, so the faithful port is now the fixed one.
+
+**What changed here.** Two edits, no CSS change at all — exactly the Phase B fix
+the earlier finding predicted ("two attributes on the `td` and no CSS change").
+`DateTimeField.css` was re-checked against the submodule after both commits:
+neither touched it, and `diff` still shows only the two sanctioned init-gate
+hunks (F-010).
+
+| Upstream | Our equivalent |
+|---|---|
+| `f7ab857` (#56) — `_renderMonth()` sets `td.dataset.today` and `td.dataset.disabled` | `data-today={cell.isToday ? "true" : undefined}` and `data-disabled={cell.isDisabled ? "true" : undefined}` on the `<td>` |
+| `c2d12c2` (#57) — new `_updateClearButton()`, called from `_openCalendar` and the select tail, sets `clearBtn.disabled = this.native.value === ''` | `disabled={nativeValue === ""}` on `.calendar-footer-clear` |
+
+The second row is the more interesting port. Upstream needed a new private
+method and two call sites because the button's `disabled` is imperative state
+that has to be re-pushed whenever the value changes; in React the same
+requirement is a single derived expression on the element and there is no method,
+no call site and nothing to forget to call. It is also **character-for-character
+what our DateField port already had** (`disabled={nativeValue === ""}`,
+`DateField.tsx:1306`), which is the point: the sibling divergence the earlier
+finding described existed in the reference and the port inherited it, and closing
+it required copying our own sibling rather than translating anything new.
+
+The port already computed both bits of state (`cell.isToday`, `cell.isDisabled`
+in `buildMonth`) — they were feeding the roving rule and the click guard. So the
+whole of #56, in this port, was **reflecting two booleans that were already in
+hand onto the element that the stylesheet reads.** That is worth saying plainly:
+the defect was never a missing computation, in either codebase.
+
+#### The dead-CSS check the port proposed is now upstream. It is general, and it found less than reading did.
+
+`tests/dead-attribute-selectors.unit.test.ts` is the port's suggestion
+implemented, and it is a **general check, not a one-off**: it enumerates every
+directory under `src/partials/components`, skips the two parked ones, and emits
+one `it()` per component that has a `.css`. So all eighteen are covered, and
+`.claude/philosophy.md` gained a rule section ("If CSS selects on it, something
+has to write it"). That answers the question the earlier finding left open —
+the other seventeen are in scope, not just this one.
+
+But the honest accounting of what it *caught* is smaller than the idea suggests,
+and upstream states this in the file rather than letting a green run imply more:
+
+- **It found exactly what this port had already found by reading, minus half.**
+  Of the two dead rules, the static check catches `data-today` and **would not
+  have caught `td[data-disabled="true"]`**, because DateTimeField writes
+  `data-disabled` on its own root — the *name* was present while the `<td>` rule
+  was dead. It reads attribute names, not the elements they sit on; separating
+  those needs dataflow. So the whole library passing says "no component styles a
+  name nobody writes", which is strictly weaker than "no rule is dead".
+- **The form the port proposed was tried and rejected.** The port's wording was
+  "reachable from the DOM the component renders" — i.e. runtime. Upstream built
+  that first: it flagged **81 of 193 selectors**, almost all mutually exclusive
+  states that cannot coexist on one instance (`data-direction="top"` and
+  `="bottom"`) or platform-absent modes (`data-input-mode="display"` is
+  touch-only). Inverting the question from *is it on the page* to *who writes it*
+  removes the blind spot entirely. **The idea was right and the implementation the
+  port suggested was wrong**, which is the more useful half of the lesson: a
+  reachability check over mutually exclusive enum states is unfixable without an
+  allowlist, and a provenance check needs none.
+- **Scope had to be "component plus its composers".** Per-component flagged
+  RangeGroup's `data-fields`/`data-on-top` on the RangeScale it composes;
+  repo-wide would have *excused this very bug*, because DateField writes
+  `data-today` somewhere in the tree. Both failure modes are real and the correct
+  scope is neither.
+
+**Open question for the project owner.** This check runs over the *submodule's*
+sources and therefore says nothing about our ports — our `.tsx` and our copied
+`.css` are not in its input. Its regexes would port almost unchanged: the
+`(data-[a-z0-9-]+)\s*=` branch already matches JSX (`data-today={…}`), and the
+`dataset.x` branch is simply unused in a declarative port. Run against
+`web/src/components/`, it would have flagged this component's dead `data-today`
+read too. It is a repo-level static file check rather than a white-box unit test
+of a reference implementation, so CLAUDE.md rule 4 ("do not port `*.unit.test.*`")
+arguably does not aim at it — but the rule is stated absolutely, so the exception
+is the owner's call, not a porter's.
+
+#### `#57`'s `Clear` failure was an exposed pre-existing gap, not a new requirement — and it is a third instance of the F-040 theme
+
+The commit title ("check attribute values not just names") invites the reading
+that our port emitted `disabled` with the wrong *value* and slipped past a
+name-only assertion. **It did not, and the value-level check is not what found
+this.** Reading the commit in full separates three independent parts, and the
+`Clear` failure belongs to the first:
+
+1. `expectEveryPopupButtonReachable` — tab-stop *membership*, new helper in
+   `e2e-helpers/target.js`. **This is what found the Clear bug**, via its
+   companion test.
+2. The `Clear is disabled while there is nothing to clear` test, added to all
+   five popup fields — and the `_updateClearButton()` fix for the one field that
+   failed it.
+3. A value-level extension of #56's dead-selector check (does anything write
+   *that value*, and read JS selectors as well as CSS). Groundwork for a future
+   `data-part` move. Unrelated to `Clear`.
+
+So the requirement was **not new**. The proof is in upstream's own code before
+the fix: `_calendarTabStops()` already filtered on `!clearBtn.disabled`. The
+*reader* of the state shipped; the *writer* never existed. Our port reproduced
+both halves faithfully — `calendarTabStops` filters on `!b.disabled`
+(`DateTimeField.tsx:1647`) while the button carried a comment saying "Never
+disabled — the reference gives this button no disabled logic". A filter whose
+predicate can never be false is a no-op that reads like a safeguard.
+
+**That makes it structurally identical to the dead CSS in #56** — a read with no
+write — and the second instance of that exact shape inside this one component.
+It is also a third instance of the **F-040 theme**, "a check that passes while
+checking less than it appears to", now with three distinct mechanisms:
+
+| Instance | The thing that checked nothing | Found by |
+|---|---|---|
+| F-040 · RangeScale | an assertion running before attach, on a readout nothing rewrote | this project (RangeScale port) |
+| F-040 · ToggleTip | `checkA11y` scoped to a selector matching nothing | this project (ToggleTip port) |
+| the dead `td` CSS (#56) | a stylesheet rule keyed on an attribute nothing writes | this project (DateTimeField port, by reading) |
+| **`Clear` (#57)** | **a tab-stop filter on a `disabled` state nothing ever set** | **the library**, via a new membership test |
+
+The first three were found by reading or by suspecting a pass. The fourth needed
+a *new kind of test*, and that is the part worth generalising: containment and
+membership are different properties, and the suite had spent this whole port
+proving the first while asserting nothing about the second. Upstream measured the
+gap by mutation testing — 10 of 44 broken class selectors survived the entire
+suite, the tab-stop lookups being the largest cluster — which is a technique this
+project has not used and which found what four independent ports' worth of
+reading did not.
+
+#### A test that injects markup is inert against a port that takes props — so the state has to be demoed
+
+#56's disabled-day test does not author a range; it rewrites the served HTML,
+inserting `data-min="<this-year>-<this-month>-15T00:00"` next to every
+`data-component="DateTimeField"`, because no kitchensink instance authors a range
+(the reference's live demo uses `1900-01-01`, so nothing is ever out of range and
+the disabled path had never been rendered anywhere).
+
+**That technique does not survive the port.** `min`/`max` are props here and the
+component reflects them *outward* to `data-min`/`data-max`; nothing reads the
+attribute back. An attribute injected into the HTML after the fact lands in the
+DOM as a duplicate and changes no behaviour, so the test would have failed with
+zero disabled cells while the component was correct. The equivalent of upstream's
+consumer-authored attribute is the prop, so `meeting-time` now authors
+`min={fifteenthOfThisMonth()}` — computed on the server, and every route in this
+app is `ƒ` (server-rendered on demand), so it tracks the request date rather than
+freezing at build time. The 15th is upstream's own choice, kept for its reason:
+it always has in-month days on both sides, so any displayed month contains a
+disabled day and an enabled one.
+
+Generalisable: **any upstream test that reaches into markup to set up state
+tests the vanilla library's consumer-authoring channel, which in React is props.**
+Those tests need a demo state, not a route interceptor — and the interceptor
+failing looks exactly like a component defect.
+
+#### Two harness traps hit while verifying this, one of them new
+
+- **The documented concurrency guard deadlocks.** CLAUDE.md says check
+  `ps aux | grep "[p]laywright test"` / `pgrep -f "playwright test"` is empty.
+  With several agents active, that pattern **matches other agents' wait loops**,
+  whose own command lines contain the string `playwright test` — five such
+  processes were live with no runner at all. Every waiter therefore waits for
+  every other waiter, forever; one of my runs was killed at its timeout having
+  never started. Guard on the runner binary instead:
+  `pgrep -fl "\.bin/playwright"`, which matched nothing at the same moment. This
+  is F-049's advice failing on its own terms, and it is a one-word fix.
+- **The `EADDRINUSE` trap reproduced exactly as documented, and cost a run.**
+  `pkill -f "next start"` did **not** stop the server: after `npm start` execs,
+  the listener's command line is `next-server (v16.3.1)`, which that pattern does
+  not match. The new server died with
+  `Error: listen EADDRINUSE: address already in use :::3200` while a stale one
+  kept answering from a `.next` I had just overwritten under it — and the run
+  came back **35 passed / 3 failed**, the three being my target tests' neighbours
+  (`passes axe accessibility audit`, `root has data-initialized`) plus the known
+  locale one. Both extra failures were artefacts; killing by listener PID
+  (`lsof -nP -iTCP:3200 -sTCP:LISTEN -t`) and re-running gave 37/1 twice. Worth
+  adding to the playbook: `pkill -f "next start"` is not a reliable stop for a
+  Next production server, and reading the log is not sufficient protection if you
+  only read it for `Ready in`.
+
+**Result.** DateTimeField **34 passed / 4 failed → 37 passed / 1 failed**,
+reproduced on two consecutive clean runs against a production build on `:3200`.
+The one remaining failure is `de-DE renders German weekday names, not English
+ones`, which is F-041's locale defect and another agent's work; the `Intl` path
+was not touched. DateField re-checked at **48 passed / 1 failed**, its documented
+baseline, with the same single locale failure — no regression in the component
+upstream aligned this one to. (One intermediate DateField run showed a second
+failure, `calendar is removed on outside click`; it did not reproduce and is
+flake.) `build`, `lint` and `test:unit` (214 tests) all clean;
+`git -C reference-components status --short` empty.

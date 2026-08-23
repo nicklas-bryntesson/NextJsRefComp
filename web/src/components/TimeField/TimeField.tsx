@@ -420,9 +420,12 @@ export function TimeField({
   const [open, setOpen] = useState(false);
   const [direction, setDirection] = useState<PopupDirection | null>(null);
   const [focused, setFocused] = useState<SegmentType | null>(null);
-  /** Roving tabindex: the ONE segment that is a tab stop. `null` = none, which is
-   *  the state `_focusTrigger()` leaves behind after Tab off the last segment. */
-  const [roving, setRoving] = useState<SegmentType | null>(segmentTypes[0]);
+  /** Roving tabindex: the ONE segment that is a tab stop. It follows focus and is
+   *  never cleared — upstream 07bac06 (#52) deleted the `Tab` interception and
+   *  `_focusTrigger()`, so the segment you were editing keeps the `0` and
+   *  Shift+Tab from the trigger returns into it. A roving tabindex has to rove
+   *  back or the group becomes keyboard-unreachable (WCAG 2.1.1). */
+  const [roving, setRoving] = useState<SegmentType>(segmentTypes[0]);
   const [buffer, setBufferState] = useState<{ type: SegmentType; text: string } | null>(null);
   const [announce, setAnnounce] = useState("");
 
@@ -544,7 +547,6 @@ export function TimeField({
   function handleSegmentKeyDown(e: ReactKeyboardEvent<HTMLSpanElement>, type: SegmentType) {
     if (disabled) return;
     const isFirst = segmentTypes[0] === type;
-    const isLast = segmentTypes[segmentTypes.length - 1] === type;
 
     switch (e.key) {
       case "ArrowUp":
@@ -562,17 +564,6 @@ export function TimeField({
       case "ArrowRight":
         e.preventDefault();
         moveFocus(type, 1);
-        return;
-      case "Tab":
-        /* Roving tabindex: the segment group is ONE tab stop. Tab off the last
-           segment goes to the trigger; Shift+Tab off the first leaves the field
-           entirely (browser default, deliberately not intercepted). */
-        if (!e.shiftKey && isLast) {
-          e.preventDefault();
-          setRoving(null);
-          setFocused(null);
-          triggerRef.current?.focus();
-        }
         return;
       case "Backspace": {
         e.preventDefault();

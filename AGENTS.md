@@ -291,8 +291,19 @@ Both constraints are load-bearing, and each one already cost a wrong conclusion:
   See F-049.
 - **Concurrent runs from the submodule's single Playwright install** produce a
   bogus `did not expect test.beforeEach() … No tests found` runner error rather
-  than a clean failure. Always check `ps aux | grep "[p]laywright test"` is empty
-  before trusting a number.
+  than a clean failure. Always check the runner is idle before trusting a number —
+  and note `pgrep -f "playwright test"` **matches its own compound command
+  string**, so it self-reports busy. Call it standalone.
+- **`pkill -f "next start"` does not match the server.** The running process is
+  named `next-server`. That pattern is a silent no-op, the restart hits
+  `EADDRINUSE`, `next start` never binds, and the OLD server keeps answering
+  `200` from a `.next` that later builds have overwritten — unstyled page, dead
+  JS, stale HTML, and a `500` on the globals CSS chunk. **This produced three
+  wrong reports in this project**, including one where a human opened the page and
+  found it visibly broken while the suite was green. Kill by port
+  (`lsof -ti:3200 | xargs kill -9`), and **read the server log for `Ready in`
+  before testing** — `curl` returning `200` proves only that *something* is
+  listening.
 
 And remember F-019: `TARGET_PATH` is **inert** for the nine specs that hard-code
 `page.goto('/')`, so "I reproduced it on the isolated route" is not a valid

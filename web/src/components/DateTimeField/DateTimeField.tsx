@@ -419,12 +419,14 @@ export function DateTimeField({
   testState,
   className,
 }: DateTimeFieldProps) {
-  /* Two locales, exactly as the reference: the RAW tag drives `Intl` (hour cycle
-     + segment order), the COLLAPSED key picks the UI strings — and, faithfully
-     to the reference, also the month/weekday names. That is F-041: `de-DE`
-     collapses to `en` and renders English months even though
-     `supportedLocalesOf(['de-DE'])` returns `['de-DE']`. Left verbatim, with a
-     standing `de-DE` probe cell in the kitchensink. */
+  /* Two locales off one attribute, and they are NOT interchangeable (upstream
+     3c7df5b, F-041):
+       - `localeTag` — the raw tag. Everything `Intl` touches gets this: hour
+         cycle, segment order, month names, weekday names, date-time labels.
+       - `locale`    — the COLLAPSED translation key (`de-DE` → `en`, no `de`
+         bundle). It indexes our own strings and nothing else.
+     F-041 was `de-DE` collapsing to `en` and rendering English month names even
+     though `supportedLocalesOf(['de-DE'])` returns `['de-DE']`. */
   const localeTag = localeTagProp;
   const locale = resolveLocale(localeTag, TRANSLATIONS);
   const t = TRANSLATIONS[locale] ?? TRANSLATIONS.en;
@@ -530,7 +532,7 @@ export function DateTimeField({
   /* ── Value commit ───────────────────────────────────────────────────────── */
 
   const announceFor = (dt: Date) =>
-    `${t.announceSelected} ${dt.toLocaleString(locale, {
+    `${t.announceSelected} ${dt.toLocaleString(localeTag, {
       dateStyle: "long",
       timeStyle: showSeconds ? "medium" : "short",
     })}`;
@@ -1122,7 +1124,7 @@ export function DateTimeField({
       min: 0, max: 11,
       value: displayedRef.current.m,
       loop: true,
-      format: (v) => getMonthName(displayedRef.current.y, v, locale),
+      format: (v) => getMonthName(displayedRef.current.y, v, localeTag),
       onChange: (m) => applyPickerDate(displayedRef.current.y, m),
     });
     const year = new WheelColumn(yearHost, {
@@ -1164,7 +1166,7 @@ export function DateTimeField({
     if (type === "ampm") return vals.ampm === 0 ? t.am : t.pm;
     const v = vals[type];
     if (v == null) return PLACEHOLDER[type];
-    if (type === "month") return getMonthName(vals.year ?? MONTH_NAME_ANCHOR_YEAR, v - 1, locale);
+    if (type === "month") return getMonthName(vals.year ?? MONTH_NAME_ANCHOR_YEAR, v - 1, localeTag);
     if (type === "day" || type === "year") return String(v);
     return String(v).padStart(2, "0");
   };
@@ -1187,8 +1189,8 @@ export function DateTimeField({
     return separator;
   };
 
-  const weekdayShort = open ? getWeekdayNames(locale) : [];
-  const monthLabel = open ? `${getMonthName(displayed.y, displayed.m, locale)} ${displayed.y}` : "";
+  const weekdayShort = open ? getWeekdayNames(localeTag) : [];
+  const monthLabel = open ? `${getMonthName(displayed.y, displayed.m, localeTag)} ${displayed.y}` : "";
 
   /* ── Markup ─────────────────────────────────────────────────────────────── */
 
@@ -1425,17 +1427,23 @@ export function DateTimeField({
                         {weeks.map((week, wi) => (
                           <tr key={wi}>
                             {week.map((cell) => (
-                              /* Faithful to the reference: `data-outside-month`
-                                 and `aria-disabled` on the `td`, `aria-pressed`
-                                 on the button. The stylesheet ALSO styles
-                                 `td[data-today="true"]` and
-                                 `td[data-disabled="true"]`, which this
-                                 component's JS never sets while DateField's
-                                 does — dead CSS, recorded rather than fixed
-                                 (findings/DateTimeField.md). */
+                              /* `data-outside-month` and `aria-disabled` on the
+                                 `td`, `aria-pressed` on the button — plus
+                                 `data-today` and `data-disabled`, which the
+                                 stylesheet styles
+                                 (`td[data-today="true"] button` bold,
+                                 `td[data-disabled="true"] button` muted) and
+                                 upstream's `_renderMonth()` never set, so today
+                                 was not bold and an out-of-range day looked
+                                 ordinary. The aria half was already right, which
+                                 is why no axe or keyboard test could see it.
+                                 Fixed upstream in f7ab857 (#56); DateField and
+                                 WeekField set both. */
                               <td
                                 key={cell.iso}
                                 data-outside-month={cell.outside ? "true" : undefined}
+                                data-today={cell.isToday ? "true" : undefined}
+                                data-disabled={cell.isDisabled ? "true" : undefined}
                                 aria-disabled={cell.isDisabled ? "true" : undefined}
                               >
                                 <button
@@ -1554,12 +1562,16 @@ export function DateTimeField({
               </div>
 
               <div className="calendar-footer">
-                {/* Never disabled — the reference gives this button no disabled
-                    logic (DateField disables it when empty), and the suite
-                    clicks it directly. */}
+                {/* Actionable only when there is something to clear.
+                    `calendarTabStops` already filters on `!b.disabled`, so the
+                    code expected this state to exist while nothing produced it —
+                    Clear sat enabled on an empty field offering an action that
+                    does nothing, while the other four fields in the family
+                    disable it. Fixed upstream in c2d12c2 (#57). */}
                 <button
                   type="button"
                   className="calendar-footer-clear"
+                  disabled={nativeValue === ""}
                   onClick={() => {
                     clearAll();
                     closePopup(true);

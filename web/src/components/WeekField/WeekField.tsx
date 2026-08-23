@@ -272,7 +272,8 @@ function isWeekDisabled(iso: string, minISO?: string, maxISO?: string): boolean 
 function buildWeekRows(
   viewYear: number,
   viewMonth: number,
-  locale: string,
+  /** RAW locale tag — `Intl` must never receive the collapsed translation key. */
+  localeTag: string,
   t: TranslationStrings,
   selectedISO: string | null,
   minISO: string | undefined,
@@ -309,10 +310,10 @@ function buildWeekRows(
 
     const sunday = new Date(monday);
     sunday.setDate(monday.getDate() + 6);
-    const range = `${monday.toLocaleDateString(locale, {
+    const range = `${monday.toLocaleDateString(localeTag, {
       day: "numeric",
       month: "long",
-    })} – ${sunday.toLocaleDateString(locale, { day: "numeric", month: "long" })}`;
+    })} – ${sunday.toLocaleDateString(localeTag, { day: "numeric", month: "long" })}`;
     const suffixes = `${selected ? `, ${t.selected}` : ""}${
       disabled ? `, ${t.notAvailable}` : ""
     }`;
@@ -468,8 +469,16 @@ export function WeekField({
      a client-only read and would make the first render differ from the server's.
      The prop IS the `data-locale` attribute, so `resolveLocale` alone is the
      server-safe half of the same resolution and the fallback chain terminates at
-     "en" exactly as ADR-0011 wants for demos. */
-  const locale = resolveLocale(localeProp ?? "en", TRANSLATIONS);
+     "en" exactly as ADR-0011 wants for demos.
+
+     Two values, never interchangeable (upstream 3c7df5b, F-041):
+       - `localeTag` — the raw tag as authored. Every `Intl` call gets this:
+         weekday names, month name, the row's date range.
+       - `locale`    — the COLLAPSED translation key (`de-DE` → `en`, no `de`
+         bundle) and nothing but our own strings. So "Wk" stays English under
+         `de-DE` on purpose: it is a string we wrote, not a name ICU knows. */
+  const localeTag = localeProp ?? "en";
+  const locale = resolveLocale(localeTag, TRANSLATIONS);
   const t = TRANSLATIONS[locale];
 
   const inputMode = useSyncExternalStore(
@@ -518,11 +527,12 @@ export function WeekField({
   );
   const bufferTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  /* Roving tabindex across the two segments — the pair is ONE tab stop.
-     `null` = the field has been left via Tab (the reference sets every segment
-     to `tabindex="-1"` in `_focusTrigger()`), so the segments stop being a tab
-     stop until focused again. */
-  const [segTab, setSegTab] = useState<SegmentType | null>("week");
+  /* Roving tabindex across the two segments — the pair is ONE tab stop. It
+     follows focus and is never cleared: upstream 07bac06 (#52) deleted the `Tab`
+     interception and `_focusTrigger()`, so the segment being edited keeps the
+     `0` and Shift+Tab from the trigger returns into it. A roving tabindex has to
+     rove back or the group becomes keyboard-unreachable (WCAG 2.1.1). */
+  const [segTab, setSegTab] = useState<SegmentType>("week");
   const [focusedSegment, setFocusedSegment] = useState<SegmentType | null>(null);
 
   const [open, setOpen] = useState(false);
@@ -717,16 +727,6 @@ export function WeekField({
         event.preventDefault();
         if (type === "week") focusSegment("year");
         return;
-      case "Tab":
-        /* The two segments are ONE tab stop. Tab off the last segment goes to
-           the trigger; Shift+Tab off the first leaves the field entirely. */
-        if (!event.shiftKey && type === "year") {
-          event.preventDefault();
-          setSegTab(null);
-          setFocusedSegment(null);
-          triggerRef.current?.focus();
-        }
-        return;
       case "Backspace": {
         event.preventDefault();
         flushBuffer();
@@ -843,10 +843,10 @@ export function WeekField({
 
   const today = new Date();
   const todayISO = formatWeekISO(getISOWeekYear(today), getISOWeek(today));
-  const weekdayNames = getWeekdayNames(locale);
+  const weekdayNames = getWeekdayNames(localeTag);
 
   const rows = open
-    ? buildWeekRows(view.year, view.month, locale, t, nativeISO || null, minISO, maxISO, today)
+    ? buildWeekRows(view.year, view.month, localeTag, t, nativeISO || null, minISO, maxISO, today)
     : [];
   /* The roving row: an explicit arrow-navigation target when it is still in the
      visible grid, otherwise recomputed — which is also what a month change does
@@ -1170,7 +1170,7 @@ export function WeekField({
                     {"‹"}
                   </button>
                   <span className="calendar-month-year" id={monthLabelId}>
-                    {`${getMonthName(view.year, view.month, locale)} ${view.year}`}
+                    {`${getMonthName(view.year, view.month, localeTag)} ${view.year}`}
                   </span>
                   <button
                     type="button"
@@ -1194,7 +1194,7 @@ export function WeekField({
                           <th
                             key={short + i}
                             scope="col"
-                            aria-label={new Intl.DateTimeFormat(locale, {
+                            aria-label={new Intl.DateTimeFormat(localeTag, {
                               weekday: "long",
                             }).format(anchor)}
                           >

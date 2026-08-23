@@ -21,13 +21,17 @@ SUB="$ROOT/reference-components"
 PORT="${PORT:-3200}"
 BASE="http://localhost:$PORT"
 
-COMPONENTS=(AffixField ChoiceField ChoiceGroup DateField FileUpload MonthField
-            MotionRegion Notice Picklist RangeField RangeGroup RangeScale
-            ScrollArea ThemeSwitch TimeField ToggleTip WeekField)
+COMPONENTS=(AffixField ChoiceField ChoiceGroup DateField DateTimeField FileUpload
+            MonthField MotionRegion Notice Picklist RangeField RangeGroup
+            RangeScale ScrollArea ThemeSwitch TimeField ToggleTip WeekField)
 SITE=(appearance text-spacing)
 
-if pgrep -f "playwright test" >/dev/null 2>&1; then
-  echo "refusing to run: another playwright process is active (see header)" >&2
+# Match the RUNNER, not the pattern. `pgrep -f "playwright test"` also matches
+# every shell that merely mentions it — a wait loop, another agent's guard, this
+# script's own command line — so with several agents active it self-blocks and
+# every waiter waits for every other waiter. Match the binary instead.
+if pgrep -fl "\.bin/playwright" >/dev/null 2>&1; then
+  echo "refusing to run: a playwright runner is active (see header)" >&2
   exit 1
 fi
 
@@ -36,7 +40,7 @@ echo "building…"
 
 started=""
 if ! curl -s -o /dev/null "$BASE/" 2>/dev/null; then
-  echo "starting production server on :$PORT…"
+  echo "starting production server on port ${PORT}"
   ( cd "$WEB" && PORT="$PORT" npm run start >/tmp/conformance-prod.log 2>&1 & )
   started=1
   for _ in $(seq 1 60); do curl -s -o /dev/null "$BASE/" 2>/dev/null && break; sleep 1; done
@@ -67,5 +71,15 @@ echo "submodule cleanliness:"
 git -C "$SUB" status --short | sed 's/^/  /' || true
 git -C "$SUB" status --short | grep -q . && echo "  ** NOT CLEAN **" || echo "  clean"
 
-[ -n "$started" ] && { echo; echo "stopping production server"; pkill -f "next start" >/dev/null 2>&1; }
+# NOTE: `pkill -f "next start"` does NOT match — the running process is named
+# `next-server`, so that pattern is a silent no-op. A restart then hits
+# EADDRINUSE, `next start` never binds, and the OLD server keeps answering 200
+# from a .next that later builds have overwritten: unstyled page, dead JS, stale
+# HTML. That exact trap produced three wrong reports in this project before the
+# cause was found. Kill by port, and verify.
+[ -n "$started" ] && {
+  echo; echo "stopping production server"
+  pkill -f "next-server" >/dev/null 2>&1
+  pid=$(lsof -ti:"$PORT" 2>/dev/null) && [ -n "$pid" ] && kill -9 $pid >/dev/null 2>&1
+}
 exit 0

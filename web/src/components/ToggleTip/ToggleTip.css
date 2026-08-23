@@ -14,7 +14,7 @@
   --_toggletip-border-radius: var(--ui-radius);
   --_toggletip-button-width: 1.5rem;
   --_toggletip-button-color: CanvasText;
-  --_toggletip-surface-color: Canvas;
+  --_toggletip-surface-color: var(--ui-surface, Canvas);
   --_toggletip-text-color: CanvasText;
   --_toggletip-border-color: var(--ui-border);
   --_toggletip-site-max-width: 100rem;

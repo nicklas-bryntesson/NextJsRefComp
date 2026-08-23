@@ -101,8 +101,11 @@ export function DateFieldKitchensink() {
         </Cell>
       </Block>
 
-      {/* Same date, three locales — proves segment ORDER comes from the raw BCP
-          47 tag via Intl, not from a hardcoded table. */}
+      {/* Same date, four locales — proves segment ORDER comes from the raw BCP
+          47 tag via Intl, not from a hardcoded table. `de-DE` is the F-041
+          regression cell: it collapses to the `en` translation key, so it is the
+          only demo locale that can tell a raw tag reaching `Intl` apart from a
+          collapsed key reaching it (en-GB→en and sv-SE→sv cannot). */}
       <Block title="Localization">
         <Cell caption="en-GB">
           <DateField id="df-locale-en-gb" label="Date (en-GB — D/M/Y)" locale="en-GB" defaultValue={FILLED} {...RANGE} />
@@ -112,6 +115,9 @@ export function DateFieldKitchensink() {
         </Cell>
         <Cell caption="sv-SE">
           <DateField id="df-locale-sv-se" label="Date (sv-SE — Y/M/D)" locale="sv-SE" defaultValue={FILLED} {...RANGE} />
+        </Cell>
+        <Cell caption="de-DE — German weekday/month names, English UI strings">
+          <DateField id="df-locale-de-de" label="Datum (de-DE — T/M/J)" locale="de-DE" defaultValue={FILLED} {...RANGE} />
         </Cell>
       </Block>
 

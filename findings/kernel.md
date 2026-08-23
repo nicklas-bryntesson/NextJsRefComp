@@ -638,3 +638,152 @@ Consumer checklist distilled from the above:
 5. Call `resolveCssPx(componentRoot, …)`, never with `document.body`.
 6. `setValue()` for prop→wheel sync, `stepBy()` for keyboard — the first does
    not fire `onChange`, the second does.
+
+---
+
+### F-NEW · The kernel loop ran backwards: upstream found two `WheelColumn` defects this port never surfaced
+
+**Surface:** `web/src/kernel/WheelColumn.ts`, against upstream `52356b8`
+("three WheelColumn defects and a fade that named the wrong ground").
+
+F-030 and F-050 were the port finding library defects. This is the first entry in
+the other direction — the library finding **port drift** — and it is worth stating
+without softening it. Of the three defects upstream fixed, this port had found
+**one**. The other two had been sitting in our tree since the port landed, and our
+kernel conformance suite (206 tests, all green) did not see either.
+
+**Defect 1 — the stranded wheel lock.** Ours (F-030), independently derived. See
+the next entry for the equivalence check.
+
+**Defect 2 — tapping an option never worked with a mouse.** `_onPointerDown`
+calls `setPointerCapture`, and capture *retargets the compatibility mouse events*:
+`mousedown`, `mouseup` and `click` all arrive with `.Wheel` as `event.target`, never
+with an `.option`. The `click` handler asked for `closest('.option')`, got `null`,
+and returned. Tapping a number on a wheel column was inert with any mouse or
+trackpad, and worked only on touch, where no compatibility events are produced.
+
+*Why this port did not surface it.* Three reasons compound, and all three are
+generalisable:
+
+1. **The behaviour is unreachable from jsdom.** Pointer capture retargeting is a
+   real-browser behaviour that jsdom does not implement at all — our test file
+   already stubs `setPointerCapture` to a no-op so the handlers do not throw. A
+   unit test that dispatches `click` directly on an `.option` therefore *passes*,
+   because the stub cannot produce the retargeting that is the entire defect. We
+   had exactly such a test (`'unbinds click as well as wheel'`), and it was
+   green against broken code.
+2. **The e2e contract did not cover it either.** Before `52356b8` no wheel-field
+   spec clicked an option. Our port was green on the published contract, which
+   is the standard this project holds itself to, and the standard was silent.
+3. **Nothing on screen is wrong.** Keyboard, drag and trackpad all work. The
+   failure is "tapping a number does nothing", which reads as intentional in a
+   drag-to-select control.
+
+**Defect 3 — the spinbutton published the previous value.** `render()` writes
+`aria-valuenow` / `aria-valuetext` out of `_currentValue`; `_commit()` is what
+sets `_currentValue`. Both the snap branch in `_startMomentum` and the
+reduced-motion branch of `_animateTo` called `render()` **before** `_commit()`, so
+every gesture published the value from *before* the gesture: no `aria-valuenow`
+at all on the first gesture from an empty field, and one step stale forever after.
+The wheel moved and the host field took the correct value — only the accessible
+value lied.
+
+*Why this port did not surface it.* This one is the sharper lesson. Our suite
+already asserted the right property, twice — `'reflects the new value in
+aria-valuenow'` and `'reflects the initial value in aria-valuenow +
+aria-valuetext'`. Both drive it through `setValue()` and the constructor, and
+**both of those paths set `_currentValue` before rendering on their own**, so
+neither can reach the defective ordering. The only way in is a *gesture*. The
+port had ARIA coverage that looked complete and tested the two code paths that
+were already correct. Coverage of an attribute is not coverage of the paths that
+write it.
+
+Note also that the rule was written down in the file we ported — `setValue()`
+carries the comment *"Set the value BEFORE rendering so aria-valuenow /
+aria-valuetext reflect it"* — and violated two methods away. A porter
+transliterating faithfully inherits the violation along with the comment, which is
+the drift mechanism in its purest form: **a verbatim-shaped port reproduces
+upstream's bugs with perfect fidelity, and its own test suite is the only thing
+that can catch them.** Ours could not, for the reasons above.
+
+**Decision:** all three fixes now transliterated, staying as close to upstream's
+shape as the port allows (`TAP_SLOP_PX = 4`, `_dragTravel` / `_downOption`, no
+`click` listener, `_selectOption()` returning `boolean`, commit-then-render in
+both branches). Upstream's four new unit describe blocks are ported verbatim in
+intent into `web/src/kernel/tests/WheelColumn.test.ts`. Kernel conformance
+206 → **214**.
+
+One of our own tests had to change rather than merely being added to:
+`'unbinds click as well as wheel'` no longer described real behaviour, because
+there is no `click` listener any more. The claim it made is still real, so it is
+now driven through the pointer flow and renamed. That is the honest form of the
+update — a test asserting a removed mechanism is not evidence of anything.
+
+---
+
+### F-NEW · Our `[PORT FIX]` and upstream's lock fix were the same fix, independently derived
+
+**Surface:** `WheelColumn.destroy()`, ours vs upstream `52356b8`.
+
+F-030 recorded a one-line `[PORT FIX]`. Upstream's fix is:
+
+```ts
+if (_activeWheelCol === this) _activeWheelCol = null
+```
+
+Ours is `releaseWheelLock(this)`, whose body is *character-for-character that
+condition* — the indirection exists only because assigning `this` to a module
+variable trips `@typescript-eslint/no-this-alias` under our config. Same
+predicate, same guard (release only a lock this instance still holds, so a
+teardown cannot steal a neighbour's), same position in `destroy()`: after the
+`_wheelTimer` clear and before `_abortController.abort()`.
+
+So it is the same fix, not merely a fix with the same effect. Two independent
+derivations converging on an identical guard in an identical place is the
+strongest available evidence that F-030 was a genuine library defect and not a
+porting artefact — which is what F-030 claimed and could not then prove.
+
+**Decision:** the `[PORT FIX]` marker and its comment are removed and upstream's
+comment adopted, so there is one implementation with one rationale. The port now
+carries **no** behavioural deviation from the reference. The regression test
+stays — it still describes real behaviour, and it asserts something upstream's
+own version does not: our block also pins the `WHEEL_MIN_DELTA` inertia gate.
+
+---
+
+### F-NEW · Re-copying `Wheel.css` closes F-045: the dark band is gone, measured
+
+**Surface:** `web/src/kernel/Wheel.css`, `.WheelColumns::after`.
+
+F-045 measured the kernel's wheel fade blending to the bare system colour
+`Canvas` and proposed exactly `var(--ui-surface, Canvas)`. Upstream `52356b8`
+landed that, so `Wheel.css` was re-copied from the submodule and verified
+byte-identical with `diff`. The only delta before the copy was the fix itself —
+no init-gate exception had been taken in this file, so nothing had to be
+re-applied afterwards.
+
+Measured on `/kitchen-sink/timefield` against the production build, popup open,
+in both appearances (`data-appearance` on `<html>`; probe modelled on
+`web/tasks/probes/axe-dark.cjs`):
+
+| appearance | `Canvas` resolves to | `--ui-surface` | `.popup` background | fade-end vs popup |
+|---|---|---|---|---|
+| light | `rgb(255,255,255)` | `rgb(255,255,255)` | `rgb(255,255,255)` | **1.000 — identical** |
+| dark  | `rgb(18,18,18)` | `rgb(35,35,32)` | `rgb(35,35,32)` | **1.000 — identical** |
+
+Before the re-copy the dark fade ended at the UA's `#121212` against a `#232320`
+popup — the 1.19 ratio F-045 reported, i.e. a visible dark band at both ends of
+every wheel column, on all four wheel fields at once. It is gone in dark and
+unchanged in light, where the coincidence `Canvas == #ffffff == our card` had
+been masking the defect all along.
+
+**This is also the correct reading of Phase A's "copy verbatim" rule.** Verbatim
+means *tracking* upstream, not *freezing* a snapshot. A frozen copy would have
+kept the band after upstream had already fixed it, and would have made the port
+diverge in order to obey a rule whose purpose is preventing divergence. Re-copy
+on a submodule bump; the `diff` check is the same check either way.
+
+Note the fix reached three declarations upstream, not one — ScrollArea's edge
+fade and ToggleTip's bubble surface had the same defect. Those are component CSS
+and belong to their ports, not to the kernel; flagging here so the next `cp`
+picks them up.

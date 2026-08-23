@@ -370,10 +370,14 @@ export function DateField({
   labelField,
   className,
 }: DateFieldProps) {
-  /* Raw tag drives Intl segment ORDER (en-GB is D/M/Y, en-US is M/D/Y); the
-     collapsed key picks the UI strings AND — faithfully to the reference — the
-     month/weekday formatting. See findings/DateField.md for why that loses
-     regional formatting. */
+  /* Two locales off one attribute, and they are NOT interchangeable (upstream
+     3c7df5b, F-041):
+       - `localeTag` — the raw tag as authored. Everything `Intl` touches gets
+         this: segment order, month names, weekday names, date labels.
+       - `locale`    — the COLLAPSED translation key (`de-DE` → `en`, because no
+         `de` bundle exists). It indexes our own strings and nothing else.
+     Falling back to English for a string we wrote is correct; falling back to
+     English for a name ICU already knows is the bug F-041 measured. */
   const localeTag = localeTagProp;
   const locale = resolveLocale(localeTag, TRANSLATIONS);
   const t = TRANSLATIONS[locale] ?? TRANSLATIONS.en;
@@ -467,7 +471,7 @@ export function DateField({
   /* ── Value commit ───────────────────────────────────────────────────────── */
 
   const announceFor = (d: Date) =>
-    `${t.announceSelected} ${d.toLocaleDateString(locale, { dateStyle: "long" })}`;
+    `${t.announceSelected} ${d.toLocaleDateString(localeTag, { dateStyle: "long" })}`;
 
   /** Port of `_applyDate()` — calendar / wheel commit. */
   const applyDate = (d: Date) => {
@@ -952,7 +956,7 @@ export function DateField({
       max: 11,
       value: displayedRef.current.m,
       loop: true,
-      format: (v) => getMonthName(displayedRef.current.y, v, locale),
+      format: (v) => getMonthName(displayedRef.current.y, v, localeTag),
       onChange: (m) => applyPickerDate(displayedRef.current.y, m),
     });
     const year = new WheelColumn(yearHost, {
@@ -1003,21 +1007,21 @@ export function DateField({
     const v = segValues[type];
     if (v == null) return PLACEHOLDER[type];
     if (type === "month") {
-      return getMonthName(segValues.year ?? MONTH_NAME_ANCHOR_YEAR, v - 1, locale);
+      return getMonthName(segValues.year ?? MONTH_NAME_ANCHOR_YEAR, v - 1, localeTag);
     }
     return String(v);
   };
 
-  const weekdayShort = open ? getWeekdayNames(locale) : [];
+  const weekdayShort = open ? getWeekdayNames(localeTag) : [];
   const weekdayLong = open
     ? Array.from({ length: 7 }, (_, i) => {
         const anchor = new Date(2024, 0, 1 + i);
-        return new Intl.DateTimeFormat(locale, { weekday: "long" }).format(anchor);
+        return new Intl.DateTimeFormat(localeTag, { weekday: "long" }).format(anchor);
       })
     : [];
 
   const todayDisabled = isDayDisabled(new Date(), min, max);
-  const monthLabel = open ? `${getMonthName(displayed.y, displayed.m, locale)} ${displayed.y}` : "";
+  const monthLabel = open ? `${getMonthName(displayed.y, displayed.m, localeTag)} ${displayed.y}` : "";
 
   /* ── Markup ─────────────────────────────────────────────────────────────── */
 
@@ -1239,7 +1243,7 @@ export function DateField({
                                 tabIndex={cell.iso === rovingISO ? 0 : -1}
                                 data-date={cell.iso}
                                 aria-label={
-                                  cell.date.toLocaleDateString(locale, { dateStyle: "long" }) +
+                                  cell.date.toLocaleDateString(localeTag, { dateStyle: "long" }) +
                                   (cell.isToday ? `, ${t.today}` : "") +
                                   (cell.isSelected ? `, ${t.selected}` : "") +
                                   (cell.isDisabled ? `, ${t.notAvailable}` : "")

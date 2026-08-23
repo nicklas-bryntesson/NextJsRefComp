@@ -585,3 +585,80 @@ and `_native-disabled` both say "Tid" while every other state says "Time"), whic
 contradicts ADR-0011. The port uses "Time". Trivial, but it is the same
 doc-vs-demo drift as the `sv-SE` finding above, so the two are probably one
 cleanup.
+
+---
+
+### F-NEW · The deliberate divergence closes: upstream deleted the interception rather than repairing it
+
+**Surface:** `TimeField.tsx`, `MonthField.tsx`, `WeekField.tsx`. This entry closes
+F-042 — the one-way roving tabindex, this port's most serious accessibility
+finding and the one place where we shipped a WCAG 2.1.1 failure on purpose.
+
+The full loop is worth recording because it is the only one in this project that
+ran end to end: the port reproduced the defect faithfully, measured it across all
+four fields, reported it with the evidence, upstream fixed it
+(`07bac06` — "fix(fields): a roving tabindex has to rove back", #52), hardened
+the verification model behind it (`c2d12c2`, #57), and the suite then flagged the
+**port** as behind. Six tests, two per broken field.
+
+**Upstream's fix does not match the remedy F-042 proposed, and its shape is
+better.** F-042 identified a one-line repair: keep the interception, drop the
+blanket clear, and restore `tabindex="0"` on the segment that had focus. Upstream
+instead **deleted the interception entirely** — `_focusTrigger()` and the
+`case 'Tab'` both go, 43 lines out and no lines in — on the observation that the
+interception only ever reproduced what the browser already does. The trigger is
+the next tabbable in DOM order, and `_setSegmentFocused` has already left the
+focused segment at `tabindex="0"`, so native Tab lands on the trigger *and*
+leaves the roving state intact. The interception added nothing except the
+destruction of that state on the way through.
+
+So the mechanism differs: our remedy would have kept a hand-maintained invariant
+(remember to restore the `0`); upstream's removes the thing that had to remember.
+The port's diagnosis was right and its patch was one abstraction level too low —
+it treated the blanket clear as the bug when the bug was intercepting `Tab` at
+all. Worth generalising: when a ported handler's only job is to re-implement a
+browser default, the fix is usually deletion, not correction.
+
+**The port's DateField prediction held.** F-042's family-breadth question was
+recorded as needing four measurements rather than one inference, and the
+DateField fragment predicted that field's immunity *structurally* — no
+`case 'Tab'` in its segment key handler, so the browser moves focus and the
+roving `0` survives. Upstream measured all five fields independently and got the
+same split: TimeField, MonthField and WeekField broken; DateField and
+DateTimeField correct, for exactly that reason. A structural prediction that
+held, not a lucky pass — the distinction F-040 asks us to keep making. Upstream's
+commit message makes the same point from the other side: "no inference would have
+produced that", i.e. the split had to be measured, but *given* the mechanism the
+immunity was derivable.
+
+**The port applied upstream's shape, not its own.** In all three components the
+`case "Tab"` branch is gone; `TimeField`'s `setRoving(null)` /
+`MonthField`'s `focusTrigger()` / `WeekField`'s `setSegTab(null)` are gone with
+it, and the roving state's type narrowed from `SegmentType | null` (resp.
+`MonthSegmentType | "none"`) to the non-nullable segment type, because the
+"no tab stop anywhere" state is now unreachable by construction. React makes the
+remaining half free: the segment's `onFocus` already sets the roving state, so
+"the tab stop follows focus" needs no code, only the absence of code that fights
+it.
+
+Measured against production on `:3200`, per-field before → after:
+
+| Field | Before | After | Remaining failure |
+|---|---|---|---|
+| TimeField | 35 / 4 | **39 / 0** | — (its two wheel failures were a kernel defect, fixed in parallel — not by this change) |
+| MonthField | 31 / 3 | **33 / 1** | `de-DE` month names (locale, not this fix) |
+| WeekField | 34 / 3 | **36 / 1** | `de-DE` weekday names (locale) |
+| DateField | 48 / 1 | **48 / 1** | `de-DE` weekday names (locale) |
+
+Each field's total is unchanged — `07bac06` and `c2d12c2` added five tests per
+field and the submodule bump had already brought them in — and all fifteen of the
+new tests pass unmodified — including the composite-widget exclusion,
+which is the property our calendar grid and wheel columns had to satisfy. Six
+roving failures removed, no new ones. DateField was not touched, as predicted and
+as required.
+
+**Decision:** this is the one case where diverging from Phase A fidelity is not a
+divergence at all — the reference itself moved, and we followed it. F-042 stands
+as written; this entry records that the defect it documented no longer exists
+upstream and no longer exists here, and that the *reported* fix and the *shipped*
+fix were different, with the shipped one being the better shape.

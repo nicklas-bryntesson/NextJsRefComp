@@ -1904,6 +1904,266 @@ document-wide query can see. A porter on any framework that cannot populate a
 
 ---
 
+## Phase 6 — The loop closes: upstream fixes, and the port catching up
+
+Six of this port's findings landed upstream within two days, and two PRs were
+opened from this repo. Bumping the submodule from `99ff470` to `c2d12c2` then
+turned the port red in a specific and intended way: **15 failures, every one of
+them an upstream fix the port had not applied**, not a regression. That commit was
+kept separate so the drift exists in history rather than vanishing into the commit
+that repairs it.
+
+What follows are findings from applying them — which turned out to be more
+interesting than "applied".
+
+---
+
+### F-051 · The port's diagnosis was right and its patch was one level too low
+
+**Surface:** `_focusTrigger()` in TimeField, MonthField, WeekField.
+**Corrects F-042's proposed remedy.**
+
+F-042 measured the defect correctly: the roving tabindex was one-way, segments
+became keyboard-unreachable after Tab-out, WCAG 2.1.1. It also proposed a
+one-line fix — keep the `Tab` interception, restore `tabindex="0"` on the segment
+that had focus.
+
+Upstream fixed it the other way: **`07bac06` deletes the `Tab` handling
+entirely.** `_focusTrigger()` and `case 'Tab'` both go from all three fields —
+43 lines out, none in. The reasoning is that the interception only reproduced what
+the browser already does: the trigger is the next tabbable in DOM order, and
+`_setSegmentFocused` has already left the focused segment at `tabindex="0"`. The
+handler's whole contribution was destroying the roving state on its way through.
+
+So the port treated the blanket clear as the bug, when the bug was **intercepting
+`Tab` at all**. The fix converges the three broken fields onto the two that were
+already correct, rather than adding a hand-maintained invariant to all five.
+
+**The generalisable rule**, and it is worth carrying to the next port: *when a
+ported handler's only job is to re-implement a browser default, the fix is
+deletion, not correction.* React makes the other half free — each segment's
+`onFocus` already sets the roving state, so "the tab stop follows focus" needs no
+code, only the absence of code fighting it.
+
+Result: TimeField **39 / 0**, MonthField 33 / 1, WeekField 36 / 1 (the remaining
+one each is the `Intl` locale fix, a different agent's work). All 15 of upstream's
+new tests pass unmodified, including the composite-widget exclusion the calendar
+grid and wheel columns had to satisfy — and note upstream added *tab-stop
+membership* tests on top of the two roving ones, because containment is not
+membership.
+
+**The prediction held.** F-042 derived DateField's immunity structurally — it has
+no `case 'Tab'`, so the browser moves focus and the roving `0` survives — and
+flagged that family breadth needed four measurements rather than one inference.
+Upstream measured all five independently and got exactly that split. Its own
+commit message puts it from the other side: *"no inference would have produced
+that"*. Both are true, and the distinction matters: the **split** had to be
+measured, but given the mechanism the **immunity** was derivable.
+
+---
+
+### F-052 · `pkill -f "next start"` does not match the server, and the failure is silent
+
+**Surface:** the project's own tooling. **The root cause of three wrong reports in
+this document.**
+
+The running Next production server is named `next-server`, not `next start`. So
+`pkill -f "next start"` matches nothing and exits successfully. A restart then
+hits `EADDRINUSE`, `next start` never binds — and the **old** server keeps
+answering `200` from a `.next` that later builds have overwritten.
+
+The observable result: an unstyled page (a `500` on the globals CSS chunk, whose
+file was replaced under the running process), dead client JS from stale chunks,
+and HTML from a build before the newest components were mounted. Every symptom
+looks like an application defect.
+
+It cost this project three wrong reports, the worst of which was reporting a set
+of "regressions" that did not exist, and being corrected by a human opening the
+page and finding it visibly broken while the suite was green.
+
+**Decision:** kill by port (`lsof -ti:$PORT | xargs kill -9`) and **read the
+server log for `Ready in` before testing**. `curl` returning `200` proves only
+that *something* is listening — which is exactly the trap. Both are now in
+`web/scripts/conformance.sh` and in the playbook.
+
+Related, found the same way: `pgrep -f "playwright test"` **matches its own
+compound command string**, so a guard written inline self-reports busy. Call it
+standalone.
+
+Neither of these is about the library. They are recorded because this project's
+sharpest recurring theme is that the measuring apparatus fails more quietly than
+the thing being measured, and these are two more instances.
+
+---
+
+### F-053 · Upstream found two `WheelColumn` defects this port structurally could not see
+
+**Surface:** `src/kernel/js/WheelColumn.ts`, upstream `52356b8`. **The first time
+in this project the loop runs the other way** — the library finding port drift
+rather than the port finding library defects.
+
+`52356b8` fixed three defects. This port had found **one** (F-030, the stranded
+module-level lock). The other two, and why we were blind to each:
+
+**Tapping a wheel option never worked with a mouse.** `setPointerCapture`
+retargets the compatibility mouse events, so `mousedown`/`mouseup`/`click` all
+arrive with `.Wheel` as the target; the `click` handler's `closest('.option')`
+found nothing and returned silently. It worked on touch only.
+
+We could not see it because **our own jsdom stub for `setPointerCapture` erases
+the retargeting that *is* the bug.** The test double removed the mechanism under
+test. That is worth stating plainly: a stub written to make a DOM API available
+can also make a defect in that API unreachable, and nothing about the test looks
+wrong.
+
+**The spinbutton published the previous value.** The snap and reduced-motion paths
+called `render()` before `_commit()`, and `render()` writes
+`aria-valuenow`/`aria-valuetext` out of `_currentValue`. So there was no
+`aria-valuenow` at all on the first gesture from an empty field, and one step
+stale for every gesture after.
+
+We had two `aria-valuenow` assertions and both passed — because both drive the
+value through `setValue()` or the constructor, which set the value *before*
+rendering on their own. **Coverage of an attribute is not coverage of the paths
+that write it.** That is the same shape as F-040's vacuous passes, arrived at from
+a third direction.
+
+**And the lock fix was the same fix, independently derived.** Upstream's
+`if (_activeWheelCol === this) _activeWheelCol = null` is character-for-character
+the body of our `releaseWheelLock()` — same guard, same position in `destroy()`
+(our indirection existed only to dodge a `no-this-alias` lint rule). So the
+`[PORT FIX]` marker is removed and upstream's form adopted: **the port now carries
+no behavioural deviation from the reference.** Two people reading the same code
+from opposite ends reached an identical one-line fix, which is the strongest
+evidence available that it was the right one.
+
+F-045's dark band is measured gone: the wheel fade now ends at `rgb(35,35,32)`
+against a `rgb(35,35,32)` popup — ratio **1.000**, where F-045 measured 1.19.
+Upstream fixed the same `Canvas`-as-surface mistake in `ScrollArea.css` and
+`ToggleTip.css` too, and re-copying those verbatim brought both across.
+
+---
+
+### F-054 · An upstream regression test that is itself not portable
+
+**Surface:** upstream `3c7df5b`'s `de-DE` tests. Four of this port's remaining
+eight failures.
+
+The locale fix itself ported cleanly, and separates the two concerns exactly as
+F-041's analysis said it should — `localeTag` for everything `Intl` touches,
+`locale` for our own translated strings. Upstream knew three things the port's
+report did not: the collapsed key reached `Intl` at roughly **20 call sites across
+all four** calendar fields, not just MonthField; WeekField's `Wk` / `Week 23` are
+strings the library itself wrote with no `de` bundle, so they stay English on
+purpose; and the root cause is the demo set — *"a demo set that agrees with the
+bug is not coverage."*
+
+Re-measured in Chromium on a production build, popups open:
+
+| Instance | before | after |
+|---|---|---|
+| MonthField wheel | `February…October` | **`Februar März April Mai…Oktober`** |
+| DateField | `Mon…Sun` / `June 1990` | **`Mo Di Mi Do Fr Sa So`** / **`Juni 1990`** |
+| DateTimeField | `Mon…Sun` / `May 2026` | **`Mo Di Mi Do Fr Sa So`** / **`Mai 2026`** |
+| WeekField | `Wk Mon…Sun` / `June 2026` | **`Wk` + `Mo Di Mi Do Fr Sa So`** / **`Juni 2026`** |
+
+`en-GB` and `sv-SE` byte-identical before and after.
+
+**And the four tests still fail.** They set up their state by rewriting
+`data-locale` in the served HTML via `page.route`. That works only because the
+reference reads the DOM at `attach()`. Per F-048 this port inverts that — locale
+is a **prop**, and `data-locale` is a rendered *output* — so the rewrite lands on
+an attribute nothing reads back, the tests open an `en-GB` instance, and are
+surprised to find English.
+
+Pointed at a `de-DE` instance through the suite's own documented `TARGET_ID`
+seam, **all four pass**. So the component fix is complete and the gap is purely
+where the test gets its locale from.
+
+**Decision:** leave them failing. Adding a client-side `data-locale` read would
+satisfy the test by reintroducing exactly the pattern F-048 rejected — a
+client-only DOM read that determines rendered text, i.e. a hydration mismatch — to
+buy nothing but a test technique.
+
+**Upstream suggestion:** select a `de-DE` demo instance by `data-id` rather than
+rewriting the response. Same coverage, no assumption about *when* the component
+reads its locale.
+
+This is the fourth member of a family now: F-011 (byte-identical `style`), F-038
+(`localStorage`), F-050 (unscoped `.popup`), and this. Every one is a **mechanism
+assumption inside a suite whose own test 8 says it asserts the end state**.
+
+---
+
+### F-055 · The dead-attribute check the port proposed exists upstream, is general, and finds less than reading did
+
+**Surface:** upstream `f7ab857` and `c2d12c2`, DateTimeField.
+
+The port's DateTimeField findings proposed a check nobody had: *assert that every
+attribute selector in a component's stylesheet is reachable from the DOM it
+renders.* It found real dead CSS by reading — `td[data-today="true"]` and
+`td[data-disabled="true"]` styled, never set, so today was not bold and an
+out-of-range day looked normal, while DateField's JS set both.
+
+Upstream built it: `tests/dead-attribute-selectors.unit.test.ts`, one `it()` per
+component across all eighteen, plus a `philosophy.md` rule. Three honest results:
+
+- **It catches `data-today` but would not have caught `data-disabled`.** It reads
+  attribute *names*, not element context, and DateTimeField writes `data-disabled`
+  on its own root — so the name is present somewhere and the check is satisfied.
+  Reading found more than the automated form does.
+- **The runtime version the port actually suggested was built and rejected.**
+  Checking reachability against the live DOM flagged **81 of 193** selectors,
+  mostly mutually exclusive enum states. The idea was right and the proposed
+  implementation was wrong.
+- **It runs over submodule sources only, so our ports are uncovered** — and its
+  regexes would port nearly unchanged (`(data-[a-z0-9-]+)\s*=` already matches
+  JSX). It would have flagged our dead `data-today` read.
+
+**And `#57`'s `Clear` failure was an exposed old gap, not a new requirement.** The
+commit is titled "check attribute values not just names", but the value-level
+check did not find it — the *tab-stop membership* test did. Upstream's
+`_calendarTabStops()` already filtered on `!clearBtn.disabled` before the fix: the
+**reader shipped and the writer never existed**. Our port faithfully reproduced
+both halves, including a comment asserting the button is never disabled.
+
+Structurally identical to the dead CSS: a read with no write. That makes it the
+third instance of F-040's theme — an assertion checking less than it appeared to —
+and the first of the three found by the library rather than by this port.
+
+---
+
+### F-056 · Two more failures in the measuring apparatus, both mine
+
+**Surface:** `web/scripts/conformance.sh`. **The fourth and fifth instances of
+this project's most persistent theme.**
+
+**`pgrep -f "playwright test"` matches wait loops, not just runners.** The guard I
+wrote to prevent concurrent runs matched every shell that merely *mentioned* the
+string — other agents' waiters, other guards, its own command line. With several
+agents active it self-blocked, and every waiter waited for every other waiter; one
+agent's run was killed at timeout having never started. Fixed to match the binary:
+`pgrep -fl "\.bin/playwright"`.
+
+**DateTimeField was missing from my own conformance array.** The first
+authoritative sweep reported **360 / 7** and looked entirely plausible. The real
+figure with all eighteen components is **397 / 8**. A runner that silently covers
+seventeen of eighteen is precisely the failure mode F-040 is about, committed by
+the person who wrote F-040.
+
+Neither is about the library. They are here because the pattern is now
+unmistakable and worth stating as a conclusion rather than an anecdote: across
+this project the **measuring apparatus failed more often, and more quietly, than
+the thing being measured**. Stale server answering 200 (F-052), dev-server
+hydration inside a click gesture (F-049), concurrent runners producing a bogus
+runner error (F-049), a self-blocking guard, a runner missing a component, and a
+jsdom stub that erased the defect under test (F-053).
+
+The library's own suite has the same property — that is F-040 — and it is the one
+finding from this port that generalises past this library entirely.
+
+---
+
 ## Proposals written for upstream
 
 Where a finding implies a change to the library rather than to this port, the
@@ -1929,31 +2189,39 @@ the only substrate that gives trustworthy numbers (F-049), with no concurrent
 runner (F-049 again) and no stale server (the failure that shipped a visibly
 broken page while the suite was green).
 
-**365 passed / 7 failed** across all 18 components plus the two site-level suites.
+**397 passed / 8 failed** across all 18 components plus the two site-level suites,
+on the submodule bumped to `c2d12c2` with every upstream fix applied. (Before the
+bump, against `99ff470`, the figure was 365 / 7.)
 
-| Component | | Component | |
+| Fully green | | With classified failures | |
 |---|---|---|---|
-| DateField | **43 / 43** | RangeGroup | **19 / 19** |
-| TimeField | **32 / 32** | ToggleTip | **11 / 11** |
-| RangeScale | **31 / 31** | ChoiceField | **8 / 8** |
-| DateTimeField | **30 / 30** | ChoiceGroup | **8 / 8** |
-| MonthField | **28 / 28** | Notice | **7 / 7** |
-| Picklist | **27 / 27** | MotionRegion | **5 / 5** |
-| FileUpload | **21 / 21** | ScrollArea | **3 / 3** |
-| RangeField | **21 / 21** | AffixField | 15 / 1 |
-| appearance | **8 / 8** | ThemeSwitch | 15 / 2 |
-| | | WeekField | 28 / 3 |
-| | | text-spacing | 5 / 1 |
+| TimeField | **39 / 39** | ThemeSwitch | 15 / 17 |
+| RangeScale | **31 / 31** | DateField | 48 / 49 |
+| Picklist | **27 / 27** | DateTimeField | 37 / 38 |
+| FileUpload | **21 / 21** | WeekField | 36 / 37 |
+| RangeField | **21 / 21** | MonthField | 33 / 34 |
+| RangeGroup | **19 / 19** | AffixField | 15 / 16 |
+| ToggleTip | **11 / 11** | text-spacing | 5 / 6 |
+| ChoiceField | **8 / 8** |  |  |
+| ChoiceGroup | **8 / 8** |  |  |
+| appearance | **8 / 8** |  |  |
+| Notice | **7 / 7** |  |  |
+| MotionRegion | **5 / 5** |  |  |
+| ScrollArea | **3 / 3** |  |  |
 
-Fourteen of eighteen components are fully green. All seven failures are
-classified and none is a defect in the port:
+Twelve of the eighteen components are fully green, plus the site-level appearance
+suite. All eight failures are classified and none is a defect in the port:
 
 | Failures | Cause | Entry |
 |---|---|---|
-| AffixField ×1 | a byte-identical `style` attribute, unreachable from React — and a *mechanism* assertion in a suite that declares itself end-state-only | F-011 |
+| `de-DE` ×4 — DateField, DateTimeField, MonthField, WeekField | the new upstream test rewrites `data-locale` in the served HTML, which only works if the component reads the DOM. This port takes locale as a prop. Pointed at a `de-DE` instance via `TARGET_ID`, all four pass | F-054 |
 | ThemeSwitch ×2 | the spec hard-codes `localStorage`, which its own `.md` and ADR-0021 both say is the host's choice | F-038 |
-| WeekField ×3 | an unscoped `document.querySelector('.popup')`, correct upstream only because `<template>` hides closed popups | F-050 |
+| AffixField ×1 | a byte-identical `style` attribute, unreachable from React — and a *mechanism* assertion in a suite that declares itself end-state-only | F-011 |
 | text-spacing ×1 | the suite's own canary cannot fire against a design system that already renders at `line-height: 1.5` | F-023 |
+
+All four causes are the same shape: a **mechanism assumption inside a suite whose
+own test 8 says it asserts the end state.** F-050 was the fifth member of that
+family and is now fixed upstream, from a PR opened by this project.
 
 Alongside: **206 kernel unit tests**, zero WCAG 2 AA violations across the whole
 page in **both appearances** (bar one inherited Phase A defect with a measured
