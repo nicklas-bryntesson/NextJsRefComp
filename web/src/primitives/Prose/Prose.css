@@ -1,0 +1,176 @@
+/* ─────────────────────────────────────────────────────────────────
+   Prose
+   Container for uncontrolled markup (RTE, markdown, CMS content).
+
+   All selectors use :where() — zero specificity.
+   Block components inside Prose override naturally via their own
+   class-based selectors without needing any resets here.
+───────────────────────────────────────────────────────────────── */
+
+/* ── Size ────────────────────────────────────────────────────── */
+
+:where(.Prose[data-size="sm"]),
+:where(.Prose[data-size="md"]),
+:where(.Prose[data-size="lg"]) {
+    font-size: var(--_fontSize); /* gate — only active when data-size is set */
+}
+
+:where(.Prose[data-size="sm"]) { --_fontSize: var(--fontSize-body-small); }
+:where(.Prose[data-size="md"]) { --_fontSize: var(--fontSize-body); }
+:where(.Prose[data-size="lg"]) { --_fontSize: var(--fontSize-body-large); }
+
+/* ── Basic + Default + Rich: paragraphs ─────────────────────── */
+
+:where(.Prose[data-variant="basic"]),
+:where(.Prose[data-variant="default"]),
+:where(.Prose[data-variant="rich"]) {
+    & p {
+        font-family:          var(--fontFamily-body);
+        font-weight:          var(--fontWeight-body);
+        line-height:          var(--lineHeight-body);
+        letter-spacing:       var(--letterSpacing-body);
+        font-feature-settings: var(--fontFeatureSettings-body);
+        font-size:            var(--_fontSize);
+        margin-block-end:     1em;
+    }
+
+    & p:last-child {
+        margin-block-end: 0;
+    }
+}
+
+/* ── Default + Rich: headings, lists, inline, links, code ────── */
+
+:where(.Prose[data-variant="default"]),
+:where(.Prose[data-variant="rich"]) {
+    /* Headings */
+    & :is(h1, h2, h3, h4, h5, h6) {
+        font-family:           var(--fontFamily-heading);
+        font-weight:           var(--fontWeight-heading);
+        line-height:           var(--lineHeight-heading);
+        letter-spacing:        var(--letterSpacing-heading);
+        font-feature-settings: var(--fontFeatureSettings-heading);
+        margin-block-start:    1.25em;
+        margin-block-end:      0.4em;
+    }
+
+    & :is(h1, h2, h3, h4, h5, h6):first-child {
+        margin-block-start: 0;
+    }
+
+    & h1 { font-size: var(--fontSize-h1); }
+    & h2 { font-size: var(--fontSize-h2); }
+    & h3 { font-size: var(--fontSize-h3); }
+    & h4 { font-size: var(--fontSize-h4); }
+    & h5 { font-size: var(--fontSize-h5); }
+    & h6 { font-size: var(--fontSize-h6); }
+
+    /* Lists */
+    & :is(ul, ol) {
+        font-family:           var(--fontFamily-body);
+        font-weight:           var(--fontWeight-body);
+        line-height:           var(--lineHeight-body);
+        letter-spacing:        var(--letterSpacing-body);
+        font-feature-settings: var(--fontFeatureSettings-body);
+        font-size:             var(--_fontSize);
+        margin-block-end:      1em;
+        padding-inline-start:  1.5em;
+    }
+
+    & li {
+        margin-block-end: 0.25em;
+    }
+
+    /* Inline */
+    & :is(em, i) {
+        font-style: italic;
+    }
+
+    & :is(strong, b) {
+        font-weight: var(--fontWeight-body-bold);
+    }
+
+    & :is(strong, b) :is(em, i),
+    & :is(em, i) :is(strong, b) {
+        font-style:  italic;
+        font-weight: var(--fontWeight-body-bold);
+    }
+
+    /* Links */
+    & a {
+        color:           currentColor;
+        text-decoration: underline;
+        text-underline-offset: 0.2em;
+    }
+
+    & a:hover {
+        text-decoration-thickness: 2px;
+    }
+
+    /* Inline code */
+    & code {
+        font-family: var(--fontFamily-code);
+        font-size:   0.875em;
+    }
+
+    /* Blockquote */
+    & blockquote {
+        margin-inline: 0;
+        padding-inline-start: 1em;
+        border-inline-start:  3px solid currentColor;
+        opacity: 0.7;
+    }
+}
+
+/* ── Rich only: tables, figures, hr ─────────────────────────── */
+
+:where(.Prose[data-variant="rich"]) {
+    /* Pre / code block */
+    & pre {
+        font-family:      var(--fontFamily-code);
+        font-size:        0.875em;
+        overflow-x:       auto;
+        padding:          1em;
+        border-radius:    0.35em;
+    }
+
+    & pre code {
+        font-size: 1em; /* reset — pre already scales */
+    }
+
+    /* Table */
+    & table {
+        width:           100%;
+        border-collapse: collapse;
+        font-size:       var(--_fontSize);
+    }
+
+    & :is(th, td) {
+        padding:       0.5em 0.75em;
+        border-bottom: 1px solid currentColor;
+        text-align:    start;
+    }
+
+    & th {
+        font-weight: var(--fontWeight-body-bold);
+    }
+
+    /* Figure */
+    & figure {
+        margin-inline: 0;
+    }
+
+    & figcaption {
+        font-size:    0.875em;
+        margin-block-start: 0.5em;
+        opacity:      0.7;
+    }
+
+    /* Rule */
+    & hr {
+        border:            none;
+        border-block-start: 1px solid currentColor;
+        margin-block:      2em;
+        opacity:           0.2;
+    }
+}

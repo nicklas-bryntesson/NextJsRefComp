@@ -1,0 +1,45 @@
+:where(.Card) {
+    --_gap:          var(--size-md);
+    --_borderRadius: 0.5rem; /* TODO: radius token */
+    --_borderColor:  var(--COLOR-N30); /* TODO: tone-border-primary */
+
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: var(--_gap);
+    border-radius: var(--_borderRadius);
+
+    /* ── Border ──────────────────────────────────────── */
+
+    &[data-border="true"] {
+        border: 1px solid var(--_borderColor);
+    }
+
+    /* ── Padding ─────────────────────────────────────── */
+
+    &[data-padding="none"],
+    &[data-padding="sm"],
+    &[data-padding="md"],
+    &[data-padding="lg"] {
+        padding: var(--_padding);
+    }
+
+    &[data-padding="none"] { --_padding: 0; }
+    &[data-padding="sm"]   { --_padding: var(--size-sm); }
+    &[data-padding="md"]   { --_padding: var(--size-md); }
+    &[data-padding="lg"]   { --_padding: var(--size-lg); }
+
+    /* ── Elevation ───────────────────────────────────── */
+
+    &[data-elevation="none"],
+    &[data-elevation="sm"],
+    &[data-elevation="md"],
+    &[data-elevation="lg"] {
+        box-shadow: var(--_shadow);
+    }
+
+    &[data-elevation="none"] { --_shadow: none; }
+    &[data-elevation="sm"]   { --_shadow: 0 1px 3px oklch(0 0 0 / 0.08), 0 1px 2px oklch(0 0 0 / 0.04); }
+    &[data-elevation="md"]   { --_shadow: 0 4px 12px oklch(0 0 0 / 0.08), 0 1px 3px oklch(0 0 0 / 0.05); }
+    &[data-elevation="lg"]   { --_shadow: 0 10px 24px oklch(0 0 0 / 0.1), 0 4px 8px oklch(0 0 0 / 0.06); }
+}

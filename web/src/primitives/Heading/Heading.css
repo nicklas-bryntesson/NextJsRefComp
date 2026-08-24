@@ -1,0 +1,134 @@
+/* =====================================================
+   HEADING COMPONENT
+===================================================== */
+
+.Heading {
+   --_color: ;
+
+   /* reset */
+   word-wrap: break-word;
+   overflow-wrap: break-word;
+   margin-block: 0;
+
+  /* ================================================
+     TEXT CONTAINER (Typography Engine)
+  ================================================= */
+
+   .heading-link,
+   .heading-text {
+    display: block;
+    font-size: var(--_fontSize);
+    line-height: var(--_lineHeight);
+
+    /* Inline children inherit metrics */
+    & :where(a, span, strong, em, b, i) {
+      font: inherit;
+      line-height: inherit;
+      letter-spacing: inherit;
+    }
+  }
+
+  /* =====================================================
+     VARIANT LAYER (voice + baseline offset)
+  ===================================================== */
+
+  &[data-variant="heading"] {
+    --_lineHeight: var(--lineHeight-heading);
+    --_baselineOffset: var(--baseline-offset-heading);
+
+    font-family: var(--fontFamily-heading);
+    font-weight: var(--fontWeight-heading);
+    letter-spacing: var(--letterSpacing-heading);
+    font-feature-settings: var(--fontFeatureSettings-heading);
+
+    &[data-size="1"] { --_fontSize: var(--fontSize-h1); }
+    &[data-size="2"] { --_fontSize: var(--fontSize-h2); }
+    &[data-size="3"] { --_fontSize: var(--fontSize-h3); }
+    &[data-size="4"] { --_fontSize: var(--fontSize-h4); }
+    &[data-size="5"] { --_fontSize: var(--fontSize-h5); }
+    &[data-size="6"] { --_fontSize: var(--fontSize-h6); }
+  }
+
+  &[data-variant="display"] {
+    --_lineHeight: var(--lineHeight-display);
+    --_baselineOffset: var(--baseline-offset-display);
+
+    font-family: var(--fontFamily-display);
+    font-weight: var(--fontWeight-display);
+    letter-spacing: var(--letterSpacing-display);
+    font-feature-settings: var(--fontFeatureSettings-display);
+
+    &[data-size="1"] { --_fontSize: var(--fontSize-display-1); }
+    &[data-size="2"] { --_fontSize: var(--fontSize-display-2); }
+    &[data-size="3"] { --_fontSize: var(--fontSize-display-3); }
+  }
+
+  &[data-variant="body"] {
+    --_lineHeight: var(--lineHeight-body);
+    --_baselineOffset: var(--baseline-offset-body);
+
+    font-family: var(--fontFamily-body);
+    font-weight: var(--fontWeight-body);
+    letter-spacing: var(--letterSpacing-body);
+    font-feature-settings: var(--fontFeatureSettings-body);
+
+    &[data-size="sm"] { --_fontSize: var(--fontSize-body-small); }
+    &[data-size="md"] { --_fontSize: var(--fontSize-body); }
+    &[data-size="lg"] { --_fontSize: var(--fontSize-body-large); }
+  }
+
+  /* =====================================================
+     ALIGNMENT
+  ===================================================== */
+
+  &[data-align="left"]   { text-align: left; }
+  &[data-align="center"] { text-align: center; }
+  &[data-align="right"]  { text-align: right; }
+
+  /* =====================================================
+     WRAP STRATEGIES
+  ===================================================== */
+
+  &[data-wrap="balance"] { text-wrap: balance; }
+  &[data-wrap="pretty"]  { text-wrap: pretty; }
+  &[data-wrap="stable"]  { text-wrap: stable; }
+
+  /* =====================================================
+     FEATURE LAYER — TEXT TRIM
+     Completely isolated. Removable in one sweep.
+     Applies ONLY to the text container.
+  ===================================================== */
+  
+  /* Native trim branch */
+  @supports (text-box-trim: trim-both) and (text-box-edge: cap alphabetic) {
+     > .heading-link,
+     > .heading-text {
+      text-box-trim: trim-both;
+      text-box-edge: cap alphabetic;
+      margin-block: 0;
+    }
+  }
+  
+  /* Fallback branch */
+  @supports not ((text-box-trim: trim-both) and (text-box-edge: cap alphabetic)) {
+     > .heading-link,
+     > .heading-text {
+         --_effectiveLineHeight: calc(var(--_fontSize) * var(--_lineHeight));
+         --_marginBlock: calc((var(--_fontSize) - var(--_effectiveLineHeight)) / 2);
+         --_marginBlockStart: calc(var(--_marginBlock) + var(--_baselineOffset, 0));
+         --_marginBlockEnd: calc(var(--_marginBlock) - var(--_baselineOffset, 0));
+   
+         margin-block-start: var(--_marginBlockStart);
+         margin-block-end: var(--_marginBlockEnd);
+      }
+   }
+}
+
+/* .Heading {
+   background-color: hotpink;
+   
+   .heading-link,
+   .heading-text {
+      background-color: rgba(255, 182, 193, 0.563);
+   }
+} */
