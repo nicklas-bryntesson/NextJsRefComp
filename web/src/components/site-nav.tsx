@@ -116,24 +116,64 @@ function Group({
 
 export function SiteNav() {
   return (
-    <footer className="border-t border-hairline-strong bg-canvas-soft">
-      <div className="mx-auto grid max-w-[var(--MAX--WIDTH--SITE)] gap-md px-[var(--SITE--PADDING)] py-lg">
-        <nav aria-label="Overview" className="flex flex-wrap gap-xxs">
-          <Link href="/" className={LINK}>
-            Aggregate kitchen sink
-          </Link>
-          <Link href="/primitives" className={LINK}>
-            Primitives index
-          </Link>
-        </nav>
-        <Group
-          label="Reference components"
-          base="/kitchen-sink"
-          slugs={COMPONENTS}
-        />
-        <Group label="Razor primitives" base="/primitives" slugs={PRIMITIVES} />
+    /* ── AT THE TOP, and collapsed ────────────────────────────────────────
+     *
+     * This started life as a footer, on the reasoning that nine specs assert on
+     * the first heading and the first focusable element of `/`, so anything above
+     * the content moves both. That protected the tests and got the priority
+     * backwards: on a component index the index IS the primary action, and
+     * putting it last means scrolling past twenty components to reach the link to
+     * the twenty-first.
+     *
+     * The reason it could not simply move is the reason it is a `<details>`:
+     * twenty-nine pills above the content push every component below the fold AND
+     * insert twenty-nine tab stops before the first one. Closed, this contributes
+     * exactly THREE — two links and the summary — and opens on click or Enter with
+     * no JavaScript. `<details>` is also the one disclosure primitive whose
+     * expanded state is announced without any ARIA of our own, which is the same
+     * argument the library makes for native elements everywhere else.
+     *
+     * There is no second copy in the footer: duplicating it would double the tab
+     * stops to buy a convenience that `End` already provides. F-090. */
+    <header className="border-b border-hairline-strong bg-canvas-soft">
+      {/* ONE row closed, and the links are NOT inside the <summary>.
+          Nesting them there did produce one row and did work — a click on an
+          inner <a> navigates, a click on the rest toggles — and axe rejected it
+          as `nested-interactive`, correctly: <summary> has button semantics, so a
+          screenreader announces one control whose name is every link's text run
+          together ("Aggregate kitchen sinkPrimitives index…") and the links are
+          not reachable at all. It worked and it was wrong, which is the whole
+          subject of this library.
+          `display: contents` on the <details> is what gets the row back: the
+          <summary> and the panel become direct children of this flex container,
+          so the summary sits on the links' line and the panel takes a full basis
+          and wraps below. The disclosure is DOM state, not layout, so it is
+          unaffected. */}
+      <div className="mx-auto flex max-w-[var(--MAX--WIDTH--SITE)] flex-wrap items-center gap-xxs px-[var(--SITE--PADDING)] py-xs">
+        <Link href="/" className={LINK}>
+          Aggregate kitchen sink
+        </Link>
+        <Link href="/primitives" className={LINK}>
+          Primitives index
+        </Link>
+        <details className="contents">
+          <summary className={`${LINK} w-fit cursor-pointer list-none marker:content-none`}>
+            All {COMPONENTS.length + PRIMITIVES.length} components
+            <span aria-hidden="true" className="ml-xxs">
+              ▾
+            </span>
+          </summary>
+          <div className="grid basis-full gap-md py-xs">
+            <Group
+              label="Reference components"
+              base="/kitchen-sink"
+              slugs={COMPONENTS}
+            />
+            <Group label="Razor primitives" base="/primitives" slugs={PRIMITIVES} />
+          </div>
+        </details>
       </div>
-    </footer>
+    </header>
   );
 }
 

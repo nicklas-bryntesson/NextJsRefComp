@@ -74,12 +74,13 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       data-appearance={appearance}
       className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}
     >
-      {/* The nav sits AFTER children on purpose: nine specs assert on the
-          first heading and the first focusable element of `/`, and a nav at
-          the top of the document would move both. See site-nav.tsx. */}
+      {/* The nav is FIRST, and collapsed to three tab stops so that being first
+          costs almost nothing. It used to sit after `children` to keep the
+          document's first heading and first focusable element untouched; see
+          site-nav.tsx for why that traded the wrong thing away. */}
       <body className="min-h-dvh">
-        {children}
         <SiteNav />
+        {children}
       </body>
     </html>
   );

@@ -129,7 +129,7 @@ export function CoverCompositionKitchensink() {
             autoplay="never"
           />
         </Frame>
-        <Frame caption="missing source — the error state">
+        <Frame caption="missing source — the error state (the 404 in the console is this cell, deliberately)">
           {/* The source's ERROR edge. A 404 on the <source> fires `error` on the
               <video>, and `data-video-state="error"` is the only signal; the
               poster stays up. Worth demonstrating because the state exists in the

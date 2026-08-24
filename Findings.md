@@ -3535,6 +3535,73 @@ stays 11/11 with no axe violations.
 ---
 
 
+### F-090 · The index belongs at the top; making that safe cost one `nested-interactive` violation and two probe artefacts
+
+**Surface:** the site chrome, prompted by the project owner asking whether the
+component map at the bottom of the page should be at the top.
+
+It should. F-084 put it in a footer on the reasoning that nine specs assert on the
+first heading and the first focusable element of `/`, so anything above the
+content moves both. That protected the tests and got the priority backwards: on a
+component index **the index is the primary action**, and putting it last means
+scrolling past twenty components to reach the link to the twenty-first.
+
+**What made it safe is that it is collapsed.** Twenty-nine pills above the content
+push every component below the fold and insert twenty-nine tab stops before the
+first one. Inside a closed `<details>` the header contributes exactly **three** —
+two links and the summary — and opens with no JavaScript. Measured by pressing
+Tab: `Aggregate kitchen sink` → `Primitives index` → `All 27 components` →
+AffixField's input. Header height 61px closed, 764px open at 320px wide, no
+horizontal overflow at any width.
+
+**The version that worked and was wrong.** To get one row I first put the two
+links *inside* the `<summary>`. It behaved perfectly: a click on a link navigated,
+a click on the rest toggled, tab order was still three stops. axe rejected it as
+**`nested-interactive`**, correctly — `<summary>` carries button semantics, so a
+screenreader announces a single control whose accessible name is every link's text
+run together (`"Aggregate kitchen sinkPrimitives index…"`) and the links are not
+reachable at all. Working and wrong, which is this library's entire subject, found
+by the one check that was looking.
+
+The fix is `display: contents` on the `<details>`: the `<summary>` and the panel
+become direct children of the header's flex row, so the summary sits on the links'
+line and the panel takes `basis-full` and wraps below. The disclosure is DOM
+state, not layout, so it is unaffected. One row, three tab stops, **axe 0** on the
+header in both appearances.
+
+**And two more measurement artefacts, both from the same cause.** This is now the
+project's most reliable regularity, so they are recorded rather than quietly
+fixed:
+
+1. A probe reported **30 tab stops** before the first component where pressing Tab
+   found **3**. Chromium hides a closed `<details>`'s contents with
+   `content-visibility: hidden`, which **preserves the layout box** — so an
+   `offsetParent !== null` focusability filter passes elements the browser
+   correctly refuses to focus. The same cause made a later probe list bounding
+   rectangles for 27 invisible links, which read as a broken header until a
+   screenshot showed one clean row. **A focusability heuristic that disagrees with
+   focus is worthless: press the key.**
+2. A probe reported that clicking `Primitives index` navigated to `/`. It
+   navigated correctly — the `<h1>` read `Razor primitives` in the same run.
+   `waitForLoadState('load')` returns immediately for a Next.js **soft**
+   navigation, because no new `load` event fires, so `page.url()` was read before
+   the client router had finished. Asserting on the destination's content rather
+   than on its URL is the version that cannot lie.
+
+**Also settled: the three console 404s are deliberate, and now say so.**
+`/media/does-not-exist/*` is `Picture`'s reproduction of the source's
+`GetCropUrl(...) ?? ""` path — a broken image, which is the source app's real
+behaviour — and `/primitives-demo/does-not-exist.mp4` drives
+`data-video-state="error"`, a state in the source's type union that the source app
+never renders. Both are contract demonstrations and both stay. But three red
+console lines read as breakage to anyone who opens devtools, which is exactly how
+they were reported, so each cell's caption now names itself as the cause. **A
+deliberate failure that does not explain itself is indistinguishable from a bug**,
+and a demo has an obligation the component does not.
+
+---
+
+
 ## Proposals written for upstream
 
 Where a finding implies a change to the library rather than to this port, the
@@ -3644,7 +3711,7 @@ everything else first.
 | [`findings/ScrollArea.md`](findings/ScrollArea.md) | 7 | The focus-ring contrast defect axe structurally cannot see, the enhancement-window measurements in frames, the three tiers of appearance-awareness |
 | [`findings/RangeField.md`](findings/RangeField.md) | 5 | The px-scale defect that turned out to be ours (F-026); the anti-DRY result |
 
-**178 fragment entries across 17 fragments, plus 89 project-level entries — 267 findings in total.**
+**178 fragment entries across 17 fragments, plus 90 project-level entries — 268 findings in total.**
 
 ### How to read a finding
 

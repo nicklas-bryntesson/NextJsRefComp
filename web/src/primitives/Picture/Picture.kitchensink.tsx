@@ -197,7 +197,7 @@ export function PictureKitchensink() {
               helper coalesces to "", and `src=""` re-requests the current page.
               Here the URL is well-formed and simply 404s, which is the same
               user-visible outcome (a broken image) by a different route. */}
-          <Cell caption="image present, crops missing — no error box, just a broken image">
+          <Cell caption="image present, crops missing — no error box, just a broken image (the two 404s in the console are this cell, deliberately)">
             <div data-id="picture-error-missing-files" className="w-[12rem] max-w-full min-w-0">
               <Picture
                 image={MISSING}
