@@ -1,80 +1,52 @@
-/* Media.css — STEP 2. Restyled to cursor-DESIGN.md.
+/* Media.css — STEP 3. Every declaration has moved to Tailwind utilities.
  *
- * Step 1 copied this file byte-identical from
- * `ClientApp/css/04_ui/Media.css` (sha1 b7f3d8ec…, 18 lines, 415 bytes) and it
- * needed no repair to compile — the only primitive stylesheet in the set so far
- * that went through Lightning CSS untouched. It also read ZERO design tokens, of
- * either tier, so `primitive-tokens.css` had nothing to bridge and F-061's
- * `--COLOR-` grep came back empty. Step 1 therefore looked exactly like the
- * source, which for once is the honest baseline rather than a coincidence.
+ * This file is now comments only, and it is kept and still imported on purpose:
+ * the import is what makes the component deletable in one move, and the record
+ * of what the source's stylesheet actually said is worth more than the eleven
+ * declarations were.
  *
- * WHAT STEP 2 CHANGES, and why each one is design rather than taste:
+ * ── THE THREE STATES OF THIS FILE ──────────────────────────────────────────
  *
- * 1. THE FIGURE BECOMES A CARD. cursor-DESIGN.md has no media component, and its
- *    two nearest specified surfaces are `ide-mockup-card` ("rounded lg (12px),
- *    1px hairline border") and `ide-pane` (background `canvas-soft`). The design
- *    doc is explicit that this system uses "hairline-only depth. No drop
- *    shadows", so there is none. `overflow: hidden` is required for the radius to
- *    clip the image, and it is not an invention: Teaser.css already does exactly
- *    this to its `.MediaContainer` with `border-radius: 0.3em; overflow:
- *    hidden`. Step 2 replaces that hand-picked 0.3em with the system's `lg`.
+ * STEP 1 — verbatim, `sha1 b7f3d8ec885ff0aa53e8685300e31a7f9963c138`, 18 lines,
+ * 415 bytes, byte-identical to `ClientApp/css/04_ui/Media.css`. Two facts about
+ * it are worth recording because they are the exception in this set:
  *
- * 2. `canvas-soft` IS ALSO THE LOADING GROUND. It is the pane background in the
- *    design doc and it doubles as what shows through the reserved box before the
- *    bytes land — which only became a visible surface once (3) reserved one.
+ *   · It COMPILED UNCHANGED. Every other primitive stylesheet so far needed a
+ *     repair to get through Lightning CSS (Button.css's bare `var()` was a hard
+ *     build error). This one did not.
+ *   · It read ZERO design tokens, of either tier. `grep -o '--COLOR-[A-Z0-9]*'`
+ *     came back empty and no lowercase semantic appeared either, so
+ *     `primitive-tokens.css` had nothing to bridge and F-061's failure mode
+ *     could not arise. Step 1 looked exactly like the source — for once because
+ *     there was nothing to translate, not by luck.
  *
- * 3. SCOPED TO `figure.Media`, NOT `.Media`. This looks fussy and is load-
- *    bearing. `BuildFigureHtml` parameterises both class names, and its two
- *    upstream callers disagree about what `.Media` names: `PictureTagHelper`
- *    takes the defaults so `.Media` is the FIGURE, while `TeaserTagHelper` passes
- *    `figureClass: "MediaContainer", pictureClass: "Media"` so `.Media` is the
- *    PICTURE. The file's existing `:where(.Media) { margin: 0 }` gets away with
- *    the ambiguity because a stray `margin: 0` on a `<picture>` is harmless; a
- *    border, radius and background are not. The `figure` qualifier states the
- *    intent the original comment already claimed ("figure reset") and keeps
- *    specificity at zero, since a compound inside `:where()` still contributes
- *    nothing.
+ *   :where(.Media)         { margin: 0 }
+ *   :where(.Media-picture) { display: block;
+ *                            & img { display: block; width: 100%;
+ *                                    height: 100%; object-fit: cover } }
  *
- * WHAT STEP 2 DELIBERATELY LEAVES ALONE. `height: 100%` on the img is kept
- * verbatim even though it resolves to `auto` in every default context (a
- * percentage against an indefinite containing block). Replacing it with `auto`
- * would be a no-op for `app-picture` and a behaviour change for Teaser's
- * flow-horizontal state, which puts the picture in a definite-height 1:1 box and
- * relies on `100%` + `object-fit: cover` to fill it. A no-op that is only a
- * no-op sometimes is not a cleanup.
+ * STEP 2 — restyled to cursor-DESIGN.md. `figure.Media` took the
+ * `ide-mockup-card` / `ide-pane` treatment (radius lg, 1px hairline,
+ * `canvas-soft` ground, `overflow: hidden`, no shadow), and the selector gained
+ * its `figure` qualifier so the Teaser call path — where `.Media` names the
+ * PICTURE — kept getting nothing.
  *
- * THE RESERVED BOX IS NOT IN THIS FILE, and that is the interesting part. Step 1
- * measured CLS 0.253 (POOR) with 3998 px of unreserved height across 23
- * pictures, 0 of which carried `width`/`height` and 0 of which got an
- * `aspect-ratio` from CSS. The fix could have been a CSS `aspect-ratio` here,
- * and is not, because under art direction the crop changes per breakpoint and
- * CSS would need one media query per source — re-deriving in a stylesheet what
- * the `<source media>` ladder already says. HTML has the right mechanism:
- * `width`/`height` on each `<source>`. See mediaHelper.ts and MediaFigure.tsx.
+ * STEP 3 — the declarations became utilities on the same DOM, in
+ * `pictureUtilities.ts`, with every structural class name kept. The interesting
+ * cost is recorded there: both surviving rules were contingent on a class name
+ * the CALLER chooses, and a utility cannot be contingent on anything, so two CSS
+ * selectors became two string equality tests in JavaScript. The stylesheet was
+ * extensible by construction — a third caller passing a third class name got a
+ * predictable answer from the cascade. The component is extensible only by
+ * editing it.
+ *
+ * WHAT DID NOT NEED CONVERTING, and is now supplied by Tailwind's preflight
+ * instead: `img { display: block }` and `img { max-width: 100% }`. Preflight
+ * ships both, which means the port has an overflow guard the Razor app does not
+ * have — measured on the Teaser call path, where the source's own CSS gives the
+ * img no `max-width` at all and an 800 px crop in a 240 px card would overflow.
+ * A source-side bug our substrate hides. See findings.
  */
-
-:where(figure.Media) {
-    margin: 0; /* figure reset */
-
-    /* cursor-DESIGN.md `ide-mockup-card` / `ide-pane`. Every value is a token,
-       and every token is a light-dark() pair, so the appearance flip is free —
-       no `dark:` variant and no duplicate block. */
-    background-color: var(--color-canvas-soft);
-    border: 1px solid var(--color-hairline);
-    border-radius: var(--radius-lg);
-    overflow: hidden; /* clip the image to the radius — as Teaser.css already does */
-}
-
-:where(.Media-picture) {
-    display: block;
-
-    & img {
-        display: block;
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-}
 
 /* StackedSources / HorizontalSources visibility is controlled
    by the consuming component (e.g. Teaser.css) via container queries.

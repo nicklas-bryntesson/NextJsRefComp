@@ -36,6 +36,7 @@ import {
   type PictureGroup,
   type PicturePreset,
 } from "./mediaHelper";
+import { cx, figureUtilities, pictureUtilities } from "./pictureUtilities";
 
 export type MediaFigureProps = {
   image: MediaImage;
@@ -68,7 +69,17 @@ export function MediaFigure({
   const resolvedLoading = loading ?? preset.loading;
 
   return (
-    <figure className={joinClasses(figureClass, preset.figureCssClass, extraClass)}>
+    /* STEP 3. The structural class names stay first and unchanged — they are the
+       part identity and the only thing a consumer's stylesheet can select on.
+       The utilities that follow are what `:where(figure.Media)` used to be,
+       resolved here because a utility cannot be contingent on the class name the
+       caller chose. See pictureUtilities.ts. */
+    <figure
+      className={cx(
+        joinClasses(figureClass, preset.figureCssClass, extraClass),
+        figureUtilities(figureClass),
+      )}
+    >
       {preset.groups.map((group, i) => (
         <MediaPictureGroup
           /* Presets are a fixed table, so the index IS the stable identity —
@@ -108,8 +119,12 @@ function MediaPictureGroup({
     cropUrl,
   );
 
+  /* STEP 3. Same contingency as the figure: `:where(.Media-picture)` styled the
+     picture AND its img, and neither applies when the caller renamed the class. */
+  const utils = pictureUtilities(pictureClass);
+
   return (
-    <picture className={joinClasses(pictureClass, group.cssClass)}>
+    <picture className={cx(joinClasses(pictureClass, group.cssClass), utils.picture)}>
       {sources.map((s, i) => (
         /* The key is the (type, media, ordinal) triple, which is exactly what
            distinguishes one <source> from another in a group. */
@@ -150,6 +165,7 @@ function MediaPictureGroup({
           on markup that is still inside a `<picture>` at runtime. Which is why
           it stays inlined here. */}
       <img
+        className={utils.img || undefined}
         src={imgSrc}
         srcSet={imgSrcSet}
         sizes={imgSizes}

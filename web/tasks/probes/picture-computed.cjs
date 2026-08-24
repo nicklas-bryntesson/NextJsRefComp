@@ -5,9 +5,20 @@
  * question that matters for step 3: did any computed value change?
  *
  * It walks every figure/picture/img on /primitives/picture in BOTH appearances.
- * Instances are keyed by the nearest `data-id` host plus the picture's own class
- * list plus an ordinal, so the key survives a change that does not alter the
- * contract and breaks loudly on one that does.
+ *
+ * THE KEY MUST NOT CONTAIN THE CLASS LIST, and getting that wrong produced a
+ * false green worth recording. The first version keyed on `data-id` plus the
+ * figure's and picture's full `className`. Step 3 adds utility classes to both,
+ * so every key changed and the diff reported "0 property diffs, 46 gone, 46
+ * new" — zero diffs because NOTHING MATCHED, which reads exactly like a clean
+ * conversion. A snapshot key that contains the thing under test cannot detect a
+ * change to it.
+ *
+ * So the key is the STRUCTURAL identity only: the nearest `data-id` host, plus
+ * the class names that belong to the source's own lexicon (PascalCase parts and
+ * the two documented layout classes), plus an ordinal. Utilities are filtered
+ * out by allow-list rather than by pattern, so a new utility can never silently
+ * re-key an instance and a renamed structural class always does.
  *
  * THE IMG PROPERTY LIST IS THE INTERESTING PART. For this component the
  * dangerous regressions are not colours, they are the four properties that
@@ -97,6 +108,18 @@ async function measure() {
           for (const n of names) o[n] = el.getAttribute(n);
           return o;
         };
+        /* The source's own class lexicon, from MediaHelper's defaults, its two
+           callers, the `hero` preset's figure class, and the kitchensink's one
+           demo extra. Everything else on the element is a utility and is
+           excluded from the key. */
+        const STRUCTURAL = new Set([
+          'Media', 'Media-picture', 'MediaContainer',
+          'StackedSources', 'HorizontalSources',
+          'grid-container-full', 'demo-extra-class',
+        ]);
+        const structural = (el) =>
+          [...el.classList].filter((c) => STRUCTURAL.has(c)).sort().join('.') || '(none)';
+
         const result = {};
         const seen = {};
         for (const fig of document.querySelectorAll('figure')) {
@@ -104,7 +127,7 @@ async function measure() {
           const id = host ? host.getAttribute('data-id') : '(no-data-id)';
           for (const pic of fig.querySelectorAll('picture')) {
             const img = pic.querySelector('img');
-            let key = `${id} ~ figure.${fig.className.trim().replace(/\s+/g, '.')} ~ picture.${pic.className.trim().replace(/\s+/g, '.')}`;
+            let key = `${id} ~ figure.${structural(fig)} ~ picture.${structural(pic)}`;
             seen[key] = (seen[key] || 0) + 1;
             if (seen[key] > 1) key += ` #${seen[key]}`;
             result[key] = {

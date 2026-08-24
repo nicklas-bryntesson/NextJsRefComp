@@ -242,7 +242,7 @@
     }
    ]
   },
-  "picture-teaser ~ figure.Media ~ picture.Media-picture.HorizontalSources": {
+  "picture-teaser ~ figure.Media ~ picture.HorizontalSources.Media-picture": {
    "figure": {
     "display": "block",
     "margin-top": "0px",
@@ -430,7 +430,7 @@
     }
    ]
   },
-  "picture-alt-informative ~ figure.Media ~ picture.Media-picture.HorizontalSources": {
+  "picture-alt-informative ~ figure.Media ~ picture.HorizontalSources.Media-picture": {
    "figure": {
     "display": "block",
     "margin-top": "0px",
@@ -618,7 +618,7 @@
     }
    ]
   },
-  "picture-alt-decorative ~ figure.Media ~ picture.Media-picture.HorizontalSources": {
+  "picture-alt-decorative ~ figure.Media ~ picture.HorizontalSources.Media-picture": {
    "figure": {
     "display": "block",
     "margin-top": "0px",
@@ -806,7 +806,7 @@
     }
    ]
   },
-  "picture-alt-omitted ~ figure.Media ~ picture.Media-picture.HorizontalSources": {
+  "picture-alt-omitted ~ figure.Media ~ picture.HorizontalSources.Media-picture": {
    "figure": {
     "display": "block",
     "margin-top": "0px",
@@ -994,7 +994,7 @@
     }
    ]
   },
-  "picture-loading-default ~ figure.Media ~ picture.Media-picture.HorizontalSources": {
+  "picture-loading-default ~ figure.Media ~ picture.HorizontalSources.Media-picture": {
    "figure": {
     "display": "block",
     "margin-top": "0px",
@@ -1182,7 +1182,7 @@
     }
    ]
   },
-  "picture-loading-eager ~ figure.Media ~ picture.Media-picture.HorizontalSources": {
+  "picture-loading-eager ~ figure.Media ~ picture.HorizontalSources.Media-picture": {
    "figure": {
     "display": "block",
     "margin-top": "0px",
@@ -1518,7 +1518,7 @@
     }
    ]
   },
-  "picture-classes-default ~ figure.Media ~ picture.Media-picture.HorizontalSources": {
+  "picture-classes-default ~ figure.Media ~ picture.HorizontalSources.Media-picture": {
    "figure": {
     "display": "block",
     "margin-top": "0px",
@@ -1706,7 +1706,7 @@
     }
    ]
   },
-  "picture-classes-teaser ~ figure.MediaContainer ~ picture.Media.HorizontalSources": {
+  "picture-classes-teaser ~ figure.MediaContainer ~ picture.HorizontalSources.Media": {
    "figure": {
     "display": "block",
     "margin-top": "0px",
@@ -1894,7 +1894,7 @@
     }
    ]
   },
-  "picture-classes-extra ~ figure.Media.demo-extra-class ~ picture.Media-picture.HorizontalSources": {
+  "picture-classes-extra ~ figure.Media.demo-extra-class ~ picture.HorizontalSources.Media-picture": {
    "figure": {
     "display": "block",
     "margin-top": "0px",
@@ -2082,7 +2082,7 @@
     }
    ]
   },
-  "picture-error-missing-files ~ figure.Media ~ picture.Media-picture.HorizontalSources": {
+  "picture-error-missing-files ~ figure.Media ~ picture.HorizontalSources.Media-picture": {
    "figure": {
     "display": "block",
     "margin-top": "0px",
@@ -2568,7 +2568,7 @@
     }
    ]
   },
-  "picture-teaser ~ figure.Media ~ picture.Media-picture.HorizontalSources": {
+  "picture-teaser ~ figure.Media ~ picture.HorizontalSources.Media-picture": {
    "figure": {
     "display": "block",
     "margin-top": "0px",
@@ -2756,7 +2756,7 @@
     }
    ]
   },
-  "picture-alt-informative ~ figure.Media ~ picture.Media-picture.HorizontalSources": {
+  "picture-alt-informative ~ figure.Media ~ picture.HorizontalSources.Media-picture": {
    "figure": {
     "display": "block",
     "margin-top": "0px",
@@ -2944,7 +2944,7 @@
     }
    ]
   },
-  "picture-alt-decorative ~ figure.Media ~ picture.Media-picture.HorizontalSources": {
+  "picture-alt-decorative ~ figure.Media ~ picture.HorizontalSources.Media-picture": {
    "figure": {
     "display": "block",
     "margin-top": "0px",
@@ -3132,7 +3132,7 @@
     }
    ]
   },
-  "picture-alt-omitted ~ figure.Media ~ picture.Media-picture.HorizontalSources": {
+  "picture-alt-omitted ~ figure.Media ~ picture.HorizontalSources.Media-picture": {
    "figure": {
     "display": "block",
     "margin-top": "0px",
@@ -3320,7 +3320,7 @@
     }
    ]
   },
-  "picture-loading-default ~ figure.Media ~ picture.Media-picture.HorizontalSources": {
+  "picture-loading-default ~ figure.Media ~ picture.HorizontalSources.Media-picture": {
    "figure": {
     "display": "block",
     "margin-top": "0px",
@@ -3508,7 +3508,7 @@
     }
    ]
   },
-  "picture-loading-eager ~ figure.Media ~ picture.Media-picture.HorizontalSources": {
+  "picture-loading-eager ~ figure.Media ~ picture.HorizontalSources.Media-picture": {
    "figure": {
     "display": "block",
     "margin-top": "0px",
@@ -3844,7 +3844,7 @@
     }
    ]
   },
-  "picture-classes-default ~ figure.Media ~ picture.Media-picture.HorizontalSources": {
+  "picture-classes-default ~ figure.Media ~ picture.HorizontalSources.Media-picture": {
    "figure": {
     "display": "block",
     "margin-top": "0px",
@@ -4032,7 +4032,7 @@
     }
    ]
   },
-  "picture-classes-teaser ~ figure.MediaContainer ~ picture.Media.HorizontalSources": {
+  "picture-classes-teaser ~ figure.MediaContainer ~ picture.HorizontalSources.Media": {
    "figure": {
     "display": "block",
     "margin-top": "0px",
@@ -4220,7 +4220,7 @@
     }
    ]
   },
-  "picture-classes-extra ~ figure.Media.demo-extra-class ~ picture.Media-picture.HorizontalSources": {
+  "picture-classes-extra ~ figure.Media.demo-extra-class ~ picture.HorizontalSources.Media-picture": {
    "figure": {
     "display": "block",
     "margin-top": "0px",
@@ -4408,7 +4408,7 @@
     }
    ]
   },
-  "picture-error-missing-files ~ figure.Media ~ picture.Media-picture.HorizontalSources": {
+  "picture-error-missing-files ~ figure.Media ~ picture.HorizontalSources.Media-picture": {
    "figure": {
     "display": "block",
     "margin-top": "0px",
