@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { SiteNav } from "@/components/site-nav";
 import {
   APPEARANCE_COOKIE,
   resolvePreference,
@@ -73,7 +74,13 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       data-appearance={appearance}
       className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}
     >
-      <body className="min-h-dvh">{children}</body>
+      {/* The nav sits AFTER children on purpose: nine specs assert on the
+          first heading and the first focusable element of `/`, and a nav at
+          the top of the document would move both. See site-nav.tsx. */}
+      <body className="min-h-dvh">
+        {children}
+        <SiteNav />
+      </body>
     </html>
   );
 }

@@ -3148,6 +3148,56 @@ different symptom, on the same day.
 
 ---
 
+### F-084 · Optimising every page for a machine that arrives by URL produces a site with no way in
+
+**Surface:** the whole app. Found by the project owner opening the deployed site
+and reporting that the primitives were not there. They were there. All nine of
+them, live, correct, and unreachable.
+
+Playwright navigates by URL. It never clicks a link to get to a component, so
+across 29 routes **not one link was ever needed, and not one was ever written** —
+`grep -rn '<nav\|<Link' src/app` returned nothing at all. Three consequences,
+all invisible to the suite that was green the whole time:
+
+- `/` renders the aggregate kitchensink (F-019) and points at nothing, so the
+  root is simultaneously the conformance target and a dead end.
+- `/primitives` **404'd**, because App Router creates a route only where a `page`
+  file exists and the port only ever needed the children. My own first probe of
+  the deploy guessed `/primitives/circle-diagram` and `/primitives/cover-composition`
+  and got 404s from those too — the directories are `circlediagram` and
+  `covercomposition`, unhyphenated, because nothing human ever had to type them.
+- Every route was verified reachable by `curl`, which is precisely the check that
+  cannot notice this. A 200 from a URL you already know proves the route exists;
+  it says nothing about whether anyone can find it.
+
+This is the same class as F-052 and F-077 but pointed the other way. Those were
+the *instrument* failing while the app was fine. This is the instrument
+**succeeding completely** on the thing it measures, while the property it does not
+measure — can a person get here — was never once asserted, in 405 tests.
+
+**Decision: a `SiteNav` in the root layout, rendered after `children`.** After,
+not before, because nine specs assert on the first heading and the first focusable
+element of `/`, and a nav at the top of the document moves both. Hit areas are
+44px (WCAG 2.5.5, well above the 24px 2.5.8 floor) so a page-wide target-size
+sweep passes on it, and the link text is `text-body` and not `text-muted` for
+exactly the reason F-017 exists. Route lists are written out rather than read with
+`fs.readdirSync`: a stale link here is a 404 a human sees, whereas a filesystem
+read that Vercel declines to trace is a build that works only locally.
+
+Measured after: axe **0 violations** scoped to the footer on `/` and
+`/primitives`, in **both appearances**; 29 links, none under 24px; and no
+horizontal overflow at 320, 400, 768 or 1280px.
+
+**The generalisable finding: "every component is tested" and "the site works" are
+different claims, and a conformance suite establishes only the first.** A port
+driven entirely by a machine-readable contract will satisfy the contract exactly
+and leave out everything the contract never mentions. Navigation is the first such
+thing, and it took a human opening a browser to find it — which is the same way
+F-052 was found.
+
+---
+
+
 ## Proposals written for upstream
 
 Where a finding implies a change to the library rather than to this port, the
@@ -3257,7 +3307,7 @@ everything else first.
 | [`findings/ScrollArea.md`](findings/ScrollArea.md) | 7 | The focus-ring contrast defect axe structurally cannot see, the enhancement-window measurements in frames, the three tiers of appearance-awareness |
 | [`findings/RangeField.md`](findings/RangeField.md) | 5 | The px-scale defect that turned out to be ours (F-026); the anti-DRY result |
 
-**178 fragment entries across 17 fragments, plus 50 project-level entries — 228 findings in total.**
+**178 fragment entries across 17 fragments, plus 84 project-level entries — 262 findings in total.**
 
 ### How to read a finding
 
