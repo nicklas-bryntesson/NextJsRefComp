@@ -1,0 +1,97 @@
+/* tailwind-collisions.css — repairs where the library's element lexicon collides
+ * with a Tailwind utility of the same name.
+ *
+ * ADR-0019 gives internal parts deliberately generic, single-word lowercase
+ * names — `.content`, `.options`, `.popup`, `.trigger`, `.rail`, `.arrow`,
+ * `.grid`, `.ring` — precisely so a consuming project can swap them for its own
+ * utilities. Generic single words are also exactly what a utility framework
+ * generates, so several of them collide head-on with Tailwind:
+ *
+ *   .grid   → Tailwind's `display: grid`
+ *   .ring   → Tailwind's `--tw-ring-shadow: 0 0 0 calc(1px + …) currentcolor`
+ *   (.container and .table are also Tailwind utilities; neither is currently
+ *    styled by a component, so neither bites yet.)
+ *
+ * THE MECHANISM IS PRECISE, and worth understanding before touching this file:
+ * the collision only bites where the library RELIES ON A UA DEFAULT instead of
+ * declaring the property. `.DateField .popup .grid` sets `width` and
+ * `border-collapse` but never `display` — a <table>'s display comes from the UA
+ * stylesheet, and any author-level `.grid { display: grid }` beats it. Same for
+ * `.ring`: no `box-shadow` is declared, so Tailwind's ring lands unopposed.
+ * Where the library DOES declare (`.popup { border: … }`) there is no collision,
+ * because the more specific rooted selector wins normally.
+ *
+ * Measured before the repair, in Chromium:
+ *   .grid on the calendar <table> → display: grid, grid-template-columns: 262px
+ *     i.e. a one-column grid, not a table. Cells fell back to their intrinsic
+ *     7 × 32px = 224px inside a 262px box, leaving 38px of dead space to the
+ *     right of every calendar — which is exactly what it looked like.
+ *   .ring on each wheel column → box-shadow: rgb(38,37,30) 0 0 0 1px, from
+ *     `currentcolor` resolving to --color-ink. A 1px grey rectangle around every
+ *     wheel column.
+ *
+ * This lives in OUR layer, not in the verbatim component CSS: the collision is a
+ * property of this project's environment, not a defect in the reference. See
+ * Findings.md F-057. The durable fixes are upstream — either ADR-0026 (part
+ * identity becomes `data-part`, so no part name can collide with a class-based
+ * utility ever again) or declaring these defaults explicitly.
+ */
+
+/* The calendar grid is a <table> and must lay out as one. */
+.DateField .popup .grid,
+.DateTimeField .popup .grid,
+.MonthField .popup .grid,
+.WeekField .popup .grid {
+  display: table;
+}
+
+/* The wheel's positioning ring carries no visual treatment of its own. */
+.Wheel .ring {
+  box-shadow: none;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * The popup arrow's outline — progressive enhancement, deliberately.
+ *
+ * The base state everywhere: the bubble carries a plain 1px border, and the
+ * arrow is a filled rotated square with no border of its own. That reads as a
+ * notch cut out of the bubble's outline, which is cosmetically imperfect and
+ * functionally complete — the arrow is a directional cue, not information.
+ *
+ * WHY THE SPLIT IS HERE AND NOT ELSEWHERE. The bubble's border is NOT
+ * decoration in this design system: measured, a popover sits at 1.07:1 against
+ * the page and `--ui-shadow` is a 1px hairline ring at 1.48:1 (F-006), so
+ * `--ui-border` at 3.84:1 is the only thing delineating the panel — and WCAG
+ * 1.4.11 applies to a floating panel's boundary. The bubble's border is
+ * therefore load-bearing and lives in the base. The ARROW's outline is
+ * decoration, so it lives behind a feature gate. ADR-0005: load-bearing
+ * behaviour never depends on feature detection.
+ *
+ * `border-shape` takes a `<basic-shape>`, and `shape()` accepts both curves and
+ * `var()` — so the arrow's X position, which the components already compute into
+ * `--_df-arrow-offset`, feeds straight in. That is what makes this possible now:
+ * the library's own backlog spec (2026-05-08, SVG mask arrow) chose a
+ * JS-generated SVG mask precisely because "polygon() supports CSS variables but
+ * no curves; path() supports curves but not CSS variables". `shape()` closes
+ * that gap, and unlike a mask it can carry a stroke — which was the whole point.
+ *
+ * DELETABILITY: this block is fully self-contained. Delete it and every popup
+ * returns to the filled-square arrow with no other change. Nothing outside it
+ * reads anything it sets. That is the ADR-0003 / philosophy.md requirement for a
+ * `@supports` branch, and it is the reason this is safe to ship ahead of broad
+ * support.
+ *
+ * NOT YET IMPLEMENTED — the geometry is per-component (each field has its own
+ * `--_*-arrow-size`, `--_*-arrow-corner-radius` and radius token) and belongs in
+ * Phase B alongside the rest of the translation. The gate is written out here so
+ * the decision is recorded where the repair lives, and so the base state is
+ * explicitly the fallback rather than an oversight.
+ *
+ * @supports (border-shape: shape(from 0% 0%, line to 100% 0%)) {
+ *   .DateField .popup { border-shape: shape(…bubble + arrow bump at
+ *                       var(--_df-arrow-offset)…); }
+ *   .DateField .arrow { background: none; }   ← element stays in the DOM: the
+ *                       conformance suite selects `.arrow` (F-008), so it may
+ *                       become visually inert but must not be removed.
+ * }
+ * ───────────────────────────────────────────────────────────────────────────── */

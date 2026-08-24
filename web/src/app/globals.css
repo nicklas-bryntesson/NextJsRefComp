@@ -7,6 +7,9 @@
 @import "../styles/ui-tokens.css";
 /* Site layout scaffolding the popup family reads for viewport-edge clearance. */
 @import "../styles/site-tokens.css";
+/* Repairs where the library's generic element names collide with a Tailwind
+   utility of the same name (.grid, .ring). Imported last so it wins. F-057. */
+@import "../styles/tailwind-collisions.css";
 
 /* Component stylesheets are deliberately NOT imported here. Each component
    imports its own verbatim stylesheet from its own module (see any <Name>.tsx),

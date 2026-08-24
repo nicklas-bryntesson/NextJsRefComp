@@ -2164,6 +2164,150 @@ finding from this port that generalises past this library entirely.
 
 ---
 
+## Phase 7 — Looking at it
+
+The suite was green and the page still looked wrong in three places, all found by
+a human opening it. Two turned out to be the same bug, and it is the sharpest
+Tailwind-specific finding of the project.
+
+---
+
+### F-057 · The library's element lexicon collides with Tailwind's utility names
+
+**Surface:** `.grid` and `.ring`. **This validates ADR-0026 harder than the
+test-selector argument did.**
+
+ADR-0019 gives internal parts deliberately generic, single-word lowercase names —
+`.content`, `.options`, `.popup`, `.trigger`, `.rail`, `.arrow`, `.grid`, `.ring`
+— **precisely so a consuming project can swap them for its own utilities.**
+Generic single words are also exactly what a utility framework generates. Measured
+in Chromium:
+
+| Part | Computed | What the user saw |
+|---|---|---|
+| `.grid` on the calendar `<table>` | `display: grid`, `grid-template-columns: 262px` | Not a table at all — a one-column grid. Cells fell back to their intrinsic 7 × 32 px = 224 px inside a 262 px box, leaving **38 px of dead space** to the right of every calendar. |
+| `.ring` on each wheel column | `box-shadow: rgb(38,37,30) 0 0 0 1px`, from Tailwind's `--tw-ring-shadow: 0 0 0 calc(1px + 0px) currentcolor` | A 1 px grey rectangle around every wheel column. `currentcolor` resolved to `--color-ink`. |
+
+`.container` and `.table` are also Tailwind utilities. Neither is currently styled
+by a component, so neither bites — yet.
+
+**The mechanism is precise, and it is the useful part.** The collision only bites
+where the library **relies on a UA default instead of declaring the property**.
+`.DateField .popup .grid` sets `width` and `border-collapse` but never `display`
+— a `<table>`'s display comes from the UA stylesheet, and any author-level
+`.grid { display: grid }` beats it. Same for `.ring`: no `box-shadow` is
+declared, so Tailwind's ring lands unopposed. Where the library *does* declare
+(`.popup { border: … }`) there is no collision at all, because the rooted
+selector is more specific and wins normally.
+
+So this is not a specificity problem and cannot be fixed by ordering. It is a
+**gap in the declared surface**: every generic class name that leaves a property
+at its UA default is an open slot for a utility of the same name.
+
+**Decision:** repaired in our layer, `web/src/styles/tailwind-collisions.css`,
+not in the verbatim component CSS — the collision is a property of this project's
+environment, not a defect in the reference. Two rules. Verified: `.grid` computes
+`display: table` and fills the popup (cells grew from 32 px to ~37 px, which is
+also a WCAG 2.5.8 target-size improvement), `.ring` computes `box-shadow: none`.
+
+**Upstream, two options.** ADR-0026 is the durable one — part identity as
+`data-part` means no part name can collide with a class-based utility ever again,
+and this is a much more concrete argument for it than "the suite selects on class
+names". The cheap one is to declare the defaults: `display: table` on the grid,
+and treat any lexicon word that is also a common utility name as requiring an
+explicit declaration for the property that utility sets.
+
+**And note what caught it: a person looking at the page.** Not the suite — every
+one of the 397 assertions passed with a one-column calendar and a boxed wheel,
+because none of them measures appearance. PORTING.md says this outright — *"the
+suite proves behaviour and a11y, not appearance"* and *"verify it with a
+deliberate side-by-side against the reference's live demo"* — and this is the
+first time in the project that instruction actually paid.
+
+I also got it wrong twice before getting it right: my first probe read `.Wheel`
+rather than `.ring`, and my second truncated the `box-shadow` string at 60
+characters — the visible ring was in the part I cut off. I reported "there is no
+border" and was wrong. Recorded because F-056's theme is the apparatus failing
+quietly, and this is an instance of it in the diagnosis rather than the harness.
+
+---
+
+### F-058 · The arrow's outline is progressive enhancement; the bubble's border is not
+
+**Surface:** `.arrow` across the popup family. A design decision, recorded
+because the split is the interesting part.
+
+The arrow is a rotated square with `background-color` and no border, so it reads
+as a notch cut out of the bubble's outline. The obvious fix — put a border on it —
+draws a line across the bubble's edge where the two overlap.
+
+**The split:**
+
+- **The bubble's border is load-bearing and stays in the base.** Measured: a
+  popover sits at **1.07:1** against the page, and `--ui-shadow` is a 1 px
+  hairline ring at **1.48:1** (F-006), so `--ui-border` at **3.84:1** is the only
+  thing delineating the panel. WCAG 1.4.11 applies to a floating panel's
+  boundary. So "drop the border" — the cheapest option — is not available to this
+  design system, and that is a measured conclusion rather than a preference.
+- **The arrow's outline is decoration and goes behind a feature gate.** Without
+  it the arrow is a filled blob: cosmetically imperfect, functionally complete.
+  ADR-0005's rule exactly — load-bearing behaviour never depends on feature
+  detection.
+
+**What changed since the library's own backlog spec.**
+`2026-05-08-datefield-svg-mask-arrow-design.md` proposed a JS-generated SVG mask,
+and named its own blocker: *"`clip-path: polygon()` supports CSS variables but no
+curves; `clip-path: path()` supports curves but not CSS variables"*. Two things
+close that gap now: `shape()` accepts both curves and `var()`, and `border-shape`
+takes a `<basic-shape>` — so the arrow offset the components already compute into
+`--_df-arrow-offset` feeds straight in, with no path-string generation, no
+`<defs><mask>`, and no `getComputedStyle` of the radius. And unlike a mask, a
+border *has* a stroke, which was the point. Measured available in Chromium 147.
+
+The spec can probably be closed as superseded by the platform. The gate is
+written out in `tailwind-collisions.css` with the geometry left to Phase B, where
+the rest of the translation lives.
+
+One constraint the gate has to respect: **`.arrow` may become visually inert but
+must not be removed from the DOM** — the conformance suite selects it (F-008).
+
+---
+
+### F-059 · CSS anchor positioning cannot be progressive enhancement here, and the reason is structural
+
+**Surface:** `src/kernel/js/popup-position.ts`. Parked, not actioned.
+
+`anchor-name`, `position-area` and `position-try-fallbacks` all measured
+available in Chromium 147, which invites the thought that a kernel module with 11
+conformance tests could become a few lines of CSS. It cannot, and the reason is
+worth recording because it is not the obvious one.
+
+**It is not primarily about support** — and measuring one engine is not support
+data, which is a mistake I made in raising it.
+
+**It is that anchor positioning is a layout mechanism, not a paint change.**
+`border-shape` (F-058) is safe to gate because the DOM is identical either way:
+delete the block and the arrow is a filled square. Anchor positioning requires
+the popup to stand in a particular relation to its anchor, *and* requires the JS
+that currently computes offsets not to run for anchored instances. That is two
+code paths and potentially two DOM structures, which **fails the deletability
+test outright** — the `@supports` branch could not be removed without touching
+code outside it.
+
+**And the safety property is the real blocker.** The component currently
+guarantees the popup never spills: `--SITE--PADDING` clearance, clamping in
+`calculatePopupOffset`, and 11 kernel tests asserting it.
+`position-try-fallbacks` offers flip and shift, but *proving* equivalence to
+"never spills, at 320 px, in RTL, inside an overflow ancestor" is a sandbox
+exercise, not a refactor — `position-visibility` and ADR-0012's documented
+clipping limitation both sit inside that question.
+
+**Decision:** parked as an ADR-shaped question for the library, not a fix for this
+port. Whoever picks it up should expect a sprint of verification before a line of
+production CSS, and the deliverable is the equivalence proof, not the CSS.
+
+---
+
 ## Proposals written for upstream
 
 Where a finding implies a change to the library rather than to this port, the
