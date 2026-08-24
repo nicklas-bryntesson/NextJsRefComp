@@ -67,7 +67,7 @@
 import { useEffect, useRef } from "react";
 import type { CSSProperties, ReactNode } from "react";
 
-import "./RangeScale.css";
+import "./RangeScale.layered.css";
 /* The lane composes a RangeField (ADR-0023) and the geometry the suite measures
  * — half a thumb of inset, the input at the track's width — comes from that
  * component's stylesheet. Importing it is the composition seam made explicit;

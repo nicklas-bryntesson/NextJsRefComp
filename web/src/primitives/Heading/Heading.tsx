@@ -14,7 +14,7 @@
  */
 
 import { Fragment, type ReactNode } from "react";
-import "./Heading.css";
+import "./Heading.layered.css";
 import {
   elementAllowedForVariant,
   headingAttributes,

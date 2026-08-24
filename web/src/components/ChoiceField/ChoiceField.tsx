@@ -22,7 +22,7 @@
 
 import type { CSSProperties, ReactNode } from "react";
 
-import "./ChoiceField.css";
+import "./ChoiceField.layered.css";
 
 export type ChoiceFieldProps = {
   /** `for`/`id` integrity is a contract rule: the label's `for` equals this. */

@@ -25,7 +25,7 @@
  * apply to a Teaser at all. Reproduced faithfully; measured; recorded.
  */
 
-import "./Media.css";
+import "./Media.layered.css";
 import {
   joinClasses,
   resolveGroup,

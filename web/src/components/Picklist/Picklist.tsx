@@ -41,7 +41,7 @@ import { Notice, NoticeRegion } from "../Notice/Notice";
    from the submodule; Picklist.css has no init-gate rules to drop (its two
    `overflow: hidden` declarations are the sr-clip recipe for the input and the
    hidden legend, not a runtime gate), so it is 100% verbatim. */
-import "./Picklist.css";
+import "./Picklist.layered.css";
 
 export type PicklistOption = {
   /** `id`, and therefore the label's `for`. Must be unique in the document. */

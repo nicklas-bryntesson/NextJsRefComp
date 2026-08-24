@@ -22,7 +22,7 @@
  */
 
 import type { ReactNode } from "react";
-import "./Tables.css";
+import "./Tables.layered.css";
 
 export function TableScroll({
   label,

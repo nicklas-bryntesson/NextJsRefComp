@@ -44,7 +44,7 @@ import {
   type ReactNode,
 } from "react";
 
-import "./FileUpload.css";
+import "./FileUpload.layered.css";
 
 /* ── Pure utilities, ported verbatim from FileUpload.ts ─────────────────────── */
 

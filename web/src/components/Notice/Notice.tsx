@@ -20,7 +20,7 @@
 import type { ReactNode } from "react";
 
 /* The component owns its stylesheet — deletable in one move. */
-import "./Notice.css";
+import "./Notice.layered.css";
 
 /** The documented severity set. `neutral` is the default; the CSS treats an
  *  absent `data-variant` and `data-variant="neutral"` identically, so we always

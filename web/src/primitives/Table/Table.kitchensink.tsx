@@ -24,7 +24,7 @@
 import type { ReactNode } from "react";
 
 import { Block, Cell, Section } from "@/components/kitchensink-ui";
-import "./Tables.css";
+import "./Tables.layered.css";
 import { TableScroll } from "./TableScroll";
 
 /* EVERY data table on this page is wrapped, and that is the finding.

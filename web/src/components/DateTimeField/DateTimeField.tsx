@@ -84,8 +84,8 @@ import { resolveCssPx } from "@/kernel/css-px";
 /* `WheelColumn` deliberately ships no CSS of its own; `Wheel.md` records that
    shipping the JS without the stylesheet was the original port's
    hardest-to-find bug. Verified to emit its own chunk under Next 16. */
-import "@/kernel/Wheel.css";
-import "./DateTimeField.css";
+import "@/kernel/Wheel.layered.css";
+import "./DateTimeField.layered.css";
 
 /* ── Translations ──────────────────────────────────────────────────────────── */
 /* Ported verbatim from the reference's static table. `registerLocale()` is NOT

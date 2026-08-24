@@ -56,7 +56,7 @@ import { resolveCssPx } from "@/kernel/css-px";
 
 /* The component owns its stylesheet — deletable in one move, and parallel ports
    never contend for a shared import list. */
-import "./ToggleTip.css";
+import "./ToggleTip.layered.css";
 
 /* `toggle-tip` is not in React's intrinsic-element table and we deliberately do
    not augment the global JSX namespace: this element belongs to one component,

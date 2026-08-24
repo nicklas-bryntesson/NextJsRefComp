@@ -33,7 +33,7 @@
  */
 
 import { createElement, type ReactNode } from "react";
-import "./Card.css";
+import "./Card.layered.css";
 import {
   cardAttributes,
   cardClassName,

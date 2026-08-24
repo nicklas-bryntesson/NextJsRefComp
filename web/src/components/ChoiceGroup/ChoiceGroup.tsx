@@ -34,7 +34,7 @@
 
 import type { CSSProperties, ReactNode } from "react";
 
-import "./ChoiceGroup.css";
+import "./ChoiceGroup.layered.css";
 
 export type ChoiceGroupProps = {
   /** The group's accessible name. Rendered as the intrinsic `<legend>` — no id

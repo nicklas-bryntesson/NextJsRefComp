@@ -35,7 +35,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { ReactNode } from "react";
-import "./CoverComposition.css";
+import "./CoverComposition.layered.css";
 
 export type VideoState =
   | "idle"

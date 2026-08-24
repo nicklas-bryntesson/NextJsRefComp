@@ -1,0 +1,148 @@
+/* ─────────────────────────────────────────────────────────────────
+   Teaser — STEP 3: what is LEFT after the Tailwind conversion.
+
+   Step 1 was this file byte-identical from `ClientApp/css/04_ui/Teaser.css`
+   (212 lines, md5 53c66f31d4f51e223f7d85c457b5dd2a). Step 2 restyled every
+   design value to cursor-DESIGN.md and kept every selector. Step 3 moved the
+   values onto utilities in `teaserUtilities.ts`, and this is the residue.
+
+   ── IT IS NOT EMPTY, AND THAT IS THE FINDING ────────────────────────────────
+
+   `Card.css` went to zero declarations. `Button.css` kept one debug block.
+   `Teaser.css` keeps three groups, and they are the three groups that style
+   ELEMENTS THIS COMPONENT DOES NOT OWN:
+
+     1. `.Media.StackedSources` / `.Media.HorizontalSources` — the container
+        query's art direction. `MediaFigure` takes ONE `pictureClass` and puts it
+        on BOTH groups, so there is no seam through which Teaser can give one
+        group `block` and the other `hidden`. This is the most important rule in
+        the component and the only one that is *structurally* unconvertible.
+     2. `.ContentContainer > time` — the body SLOT. The caller's markup; Teaser
+        never sees the element.
+     3. `@supports not (container-type: inline-size)` — the fallback layout. Half
+        of it is group 1, so it stays whole rather than becoming half-utilities.
+
+   The generalisable rule, and it is sharper than "some CSS resists utilities":
+   **a utility conversion is possible exactly as far as component ownership
+   extends.** Button and Card own every element they style, so they converted
+   completely. Teaser is a composition, so the boundary of its markup falls
+   inside the boundary of its stylesheet — and every rule that crosses it stays
+   CSS. That boundary does not exist in the reference model at all, because there
+   the consumer authors the DOM and a descendant selector reaches anything.
+
+   ── WHAT WENT, AND IS A REAL LOSS ───────────────────────────────────────────
+
+   Step 2's five `--_*` properties: `--_padding`, `--_flow`, `--_columnGap`,
+   `--_mediaRadius`, `--_minMediaSize`. F-062's second data point, and the worse
+   of the two: Teaser has NO `className` prop (the source's
+   `SetAttribute("class", "Teaser")` replaces rather than appends), so those
+   properties were not one override seam among several — they were the only one.
+   `--_minMediaSize` was additionally a RELATIONSHIP, read in two places; it is
+   now `12rem` written twice as two literals in `teaserUtilities.ts`.
+
+   Also gone: the `[data-button="false"]` gate. The stretched-link overlay is now
+   a set of `after:*` utilities the component decides to emit, so the attribute is
+   still written, still documented, and no longer styles anything — `Card.css`'s
+   "an axis can die twice" outcome, again.
+
+   See findings/primitives-Teaser.md.
+───────────────────────────────────────────────────────────────── */
+
+/* ── GROUP 1 — the art direction. Unreachable: one `pictureClass`, two groups. */
+
+.Teaser .MediaContainer {
+    & .Media.StackedSources    { overflow: hidden; }
+    & .Media.HorizontalSources { overflow: hidden; }
+}
+
+@supports (container-type: inline-size) {
+
+    /* STATE A — flow-vertical (< 25rem) */
+    @container (max-width: 24.999rem) {
+        .Teaser .MediaContainer {
+            & .Media.StackedSources    { display: block; }
+            & .Media.HorizontalSources { display: none; }
+        }
+    }
+
+    /* STATE B — flow-horizontal (≥ 25rem) */
+    @container (min-width: 25rem) {
+        .Teaser .MediaContainer {
+            & .Media.StackedSources { display: none; }
+
+            & .Media.HorizontalSources {
+                display: block;
+                position: relative;
+                aspect-ratio: 1 / 1;
+
+                img {
+                    position: absolute;
+                    inset: 0;
+                    inline-size: 100%;
+                    block-size:  100%;
+                    object-fit:  cover;
+                }
+            }
+        }
+    }
+}
+
+/* ── GROUP 2 — the body slot. Unreachable: the caller's markup. ──────────────
+ *
+ * Step 2 repaired this: upstream the selector was `.Teaser-body`, a class the
+ * TagHelper stopped emitting (it emits `.ContentContainer`), so the rule was
+ * dead — measured `padding-top: 0px` on a slotted `<time>` in step 1, `12px`
+ * after. The 12px is `--spacing-sm`, inlined here because the custom property it
+ * used to read is gone. */
+.Teaser .ContentContainer > time {
+    padding-block-start: var(--spacing-sm);
+    margin-block-start:  auto;
+}
+
+/* ── GROUP 3 — the fallback layout. ~3% of browsers. ────────────────────────
+ *
+ * Kept whole. `.Media.*` is group 1, and a progressive-enhancement layer that is
+ * half utilities and half CSS is correct only in combination — which is a worse
+ * artefact than either half.
+ *
+ * Note the ASYMMETRY the conversion exposed: the POSITIVE `@supports` gate is
+ * redundant under utilities (an unknown `container-type` is dropped and an
+ * `@container` at-rule cannot match, so the utilities are self-gating), with one
+ * exception — `display: grid`, which is why `teaserUtilities.ts` carries
+ * `supports-[container-type:inline-size]:grid`. The NEGATIVE gate below has no
+ * such escape: it is a condition rather than an element, and Tailwind has no
+ * variant that can hold this whole block. */
+@supports not (container-type: inline-size) {
+    .Teaser {
+
+        .LayoutContainer {
+            gap: var(--spacing-sm);
+
+            & .MediaContainer {
+                inline-size: 100%;
+                margin-block-end: var(--spacing-sm);
+
+                & .Media.StackedSources {
+                    display: block;
+
+                    img {
+                        inline-size: 100%;
+                        block-size:  auto;
+                    }
+                }
+
+                & .Media.HorizontalSources {
+                    display: none;
+                }
+            }
+
+            & .ContentContainer {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: var(--spacing-sm);
+                margin-block-start: var(--spacing-sm);
+            }
+        }
+    }
+}

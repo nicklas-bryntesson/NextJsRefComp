@@ -33,7 +33,7 @@
 import type { CSSProperties } from "react";
 import type { ReactNode } from "react";
 
-import "./RangeField.css";
+import "./RangeField.layered.css";
 
 export type RangeFieldProps = {
   /** Input id. The `<label for>` is wired from it — the accessible name comes

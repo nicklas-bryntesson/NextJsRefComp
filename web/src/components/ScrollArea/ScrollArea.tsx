@@ -56,7 +56,7 @@ import {
   type ReactNode,
 } from "react";
 
-import "./ScrollArea.css";
+import "./ScrollArea.layered.css";
 
 /* ── Hydration as an external store ───────────────────────────────────────────
  *

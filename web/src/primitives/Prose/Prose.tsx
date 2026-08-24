@@ -14,7 +14,7 @@
  */
 
 import type { ReactNode } from "react";
-import "./Prose.css";
+import "./Prose.layered.css";
 import {
   proseAttributes,
   proseClassName,

@@ -16,7 +16,7 @@
  * Razor does. A total of 0 renders nothing (the source `return`s).
  */
 
-import "./CircleDiagram.css";
+import "./CircleDiagram.layered.css";
 
 /* STEP 3 — Tailwind conversion.
  *

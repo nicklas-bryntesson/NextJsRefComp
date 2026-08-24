@@ -1,0 +1,30 @@
+/* inherited-repairs.css — measured Phase B fixes for defects inherited verbatim
+ * from the reference library.
+ *
+ * Distinct from tailwind-collisions.css, which repairs collisions between the
+ * library's names and this environment. These are defects in the copied CSS
+ * itself: real, measured, with the fix verified, but not editable in place while
+ * PORTING.md's Phase A rule holds ("copy the .css verbatim … the translation is
+ * a separate step on a verified baseline"). Repairing them here keeps the
+ * verbatim copy honest AND the page correct, and each entry names the finding so
+ * it can be dropped when the fix lands upstream.
+ */
+
+/* FileUpload — WCAG 1.4.10 Reflow, 2px of document overflow at 320px.
+ *
+ * `.item-error` and `.item-size` are `white-space: nowrap` with no `overflow`,
+ * so a file row has an irreducible min-content of 281px inside a 238px cell.
+ * The FileUpload port measured the whole chain: verbatim 281px, with
+ * `.item-error { white-space: normal }` 208px (fits), plus `.item-size` 189px.
+ * `min-width: 0` on `.item-name` was tested and has no effect.
+ *
+ * It is the last horizontal overflow on the shared pages. Everything else that
+ * showed up in the sweep is either inside a scroller (ScrollArea's `th`) or an
+ * absolutely-positioned rail whose overflow goes to its containing block and
+ * never propagates (the TimeField port established that, and it is why
+ * `overflow: hidden` on a popup root was never protecting the page).
+ *
+ * Findings.md F-024, F-028, F-037. Drop this rule when it lands upstream. */
+.FileUpload .item-error {
+  white-space: normal;
+}

@@ -1,0 +1,170 @@
+/* primitive-tokens.css — the bridge for the Umbraco/Razor primitive set.
+ *
+ * The reference-components ports read design through the library's `--ui-*`
+ * seam (see ui-tokens.css). The primitives ported from the Razor TagHelper set
+ * read design through a DIFFERENT seam: a two-tier token system of its own —
+ * SCREAMING constants (`--COLOR-N90`) fed into lowercase semantics
+ * (`--text-primary`). This file answers that semantic tier with our values, so
+ * the ported component CSS keeps working unchanged while looking like ours.
+ *
+ * Worth naming, because it is the same system ADR-0018 explicitly declined:
+ *   "Explicitly not adopted: the author's tiered constant→semantic token
+ *    factory (SCREAMING constants fed through media queries into lowercase
+ *    semantics). It is powerful but belongs to the author's DS."
+ * This IS that DS. So we are now consuming both seams in one app: the flat
+ * `--ui-*` one the reference chose, and the tiered one it declined.
+ *
+ * WHY BRIDGE THE SEMANTIC TIER AND NOT THE CONSTANTS. The constants are a
+ * palette (a cool blue-tinted neutral ramp N00–N95 at hue 257°, a blue brand
+ * ramp B05–B95, plus pink/yellow/red/green accents). Ours is a warm cream ramp
+ * with an orange brand. Mapping constant-to-constant would mean inventing ~40
+ * warm equivalents and would preserve a structure we do not want. Mapping the
+ * ~30 semantics is smaller, and it is the layer that carries MEANING — which is
+ * the layer a design swap should happen at.
+ *
+ * The consequence is deliberate and useful for the port's sequencing: with this
+ * file in place, step 1 (lift the structure) yields components that already read
+ * as ours, so step 2 (restyle to cursor-DESIGN.md) is refinement rather than
+ * rewrite, and step 3 (Tailwind) has a working baseline to diff against.
+ *
+ * Divergences are marked ✕ and recorded in Findings.md.
+ */
+
+:root {
+  /* ── Text ────────────────────────────────────────────────────────────── */
+  --text-primary: var(--color-ink);
+  --text-secondary: var(--color-body);
+  /* Source: `--COLOR-N00` (#ffffff). Ours is a light-dark pair, so "inverse of
+     ink" is the on-a-dark-fill colour rather than a literal white. */
+  --text-inverse: var(--color-on-primary);
+
+  /* ── Brand ───────────────────────────────────────────────────────────── */
+  /* Source has a two-step brand (B50/B40 — the darker is primary). Ours has one
+     voltage plus an AA-safe stop: `--color-primary` (#c84000) carries text and
+     fills, `--color-primary-brand` (#f54e00) is decorative only. F-001. */
+  --brand-primary: var(--color-primary);
+  --brand-secondary: var(--color-primary-brand);
+
+  /* ── Tinted surfaces ─────────────────────────────────────────────────── */
+  /* ✕ THE ONE MAPPING THAT LOSES INFORMATION, and it needs a design decision.
+     The source offers FIVE surface themes — blue, red, green, sand, purple —
+     each as a primary/secondary pair, and components select one. Our design has
+     a single warm surface family (canvas / canvas-soft / surface-card /
+     surface-strong) and explicitly forbids the timeline pastels as system
+     colours: "Don't use timeline pastels on non-timeline UI."
+     So there is nowhere for five hues to land. All five are collapsed onto the
+     same surface pair, which means a purple Card and a blue Card render
+     identically. That is the honest default — it invents no brand hues — but it
+     silently removes an axis the components expose. See Findings.md F-061. */
+  --bg-blue-primary: var(--color-surface-strong);
+  --bg-blue-secondary: var(--color-canvas-soft);
+  --bg-red-primary: var(--color-surface-strong);
+  --bg-red-secondary: var(--color-canvas-soft);
+  --bg-green-primary: var(--color-surface-strong);
+  --bg-green-secondary: var(--color-canvas-soft);
+  --bg-sand-primary: var(--color-surface-strong);
+  --bg-sand-secondary: var(--color-canvas-soft);
+  --bg-purple-primary: var(--color-surface-strong);
+  --bg-purple-secondary: var(--color-canvas-soft);
+
+  /* ── Type families ───────────────────────────────────────────────────── */
+  /* ✕ Four families collapse to two, and this is the largest visual change in
+     the port. The source runs Fira Sans for headings, ABRIL FATFACE for display,
+     NOTO SERIF for body and Inter for labels. cursor-DESIGN.md runs one sans
+     (Inter, standing in for CursorGothic) plus JetBrains Mono, and says display
+     "sits at weight 400 with negative letter-spacing — a magazine-editorial
+     voice rather than tech-bombastic" and "never bold".
+     A fat display serif over serif body is close to the opposite of that, so
+     this is not a substitution — it is the design decision the port exists to
+     apply. F-062. */
+  --fontFamily-heading: var(--font-sans);
+  --fontFamily-display: var(--font-sans);
+  --fontFamily-body: var(--font-sans);
+  --fontFamily-label: var(--font-sans);
+  --fontFamily-code: var(--font-mono);
+
+  --fontWeight-heading: 600;
+  --fontWeight-display: 400;   /* never bold — the editorial voice depends on it */
+  --fontWeight-body: 400;
+  --fontWeight-body-bold: 600;
+  --fontWeight-label: 500;
+  --fontWeight-code: 400;
+
+  --lineHeight-heading: 1.25;
+  --lineHeight-display: 1.1;
+  --lineHeight-body: 1.5;
+  --lineHeight-label: 1.4;
+
+  --letterSpacing-heading: -0.0125em;
+  --letterSpacing-display: -0.03em;
+  --letterSpacing-body: 0;
+  --letterSpacing-label: 0;
+
+  --fontFeatureSettings-heading: normal;
+  --fontFeatureSettings-display: normal;
+  --fontFeatureSettings-body: normal;
+  --fontFeatureSettings-label: normal;
+
+  /* ✕ `--baseline-offset-*` is a faux-text-trim multiplier the source feeds into
+     its line-height maths. Our design system has no equivalent mechanism and
+     ADR-0025's test applies — a value that only makes things look different is
+     taste, not mechanics. Neutralised at 1 rather than invented. F-062. */
+  --baseline-offset-heading: 1;
+  --baseline-offset-display: 1;
+  --baseline-offset-body: 1;
+  --baseline-offset-label: 1;
+
+  /* ── Type sizes ──────────────────────────────────────────────────────── */
+  /* ✕ Nine heading steps (display-1..3 + h1..h6) onto our four display + two
+     title. The source also scales every size through `--TYPE-SCALE` with
+     separate mobile/desktop constants; ours are static rem. Keeping our values
+     means losing the scale multiplier — which nothing in these components reads
+     directly, so it degrades to a fixed scale rather than breaking. F-062. */
+  --fontSize-display-1: var(--text-display-mega);   /* 4.5rem  */
+  --fontSize-display-2: var(--text-display-lg);     /* 2.25rem */
+  --fontSize-display-3: var(--text-display-md);     /* 1.625rem */
+  --fontSize-h1: var(--text-display-lg);            /* 2.25rem */
+  --fontSize-h2: var(--text-display-md);            /* 1.625rem */
+  --fontSize-h3: var(--text-display-sm);            /* 1.375rem */
+  --fontSize-h4: var(--text-title-md);              /* 1.125rem */
+  --fontSize-h5: var(--text-title-sm);              /* 1rem */
+  --fontSize-h6: var(--text-caption-uppercase);     /* 0.6875rem */
+  --fontSize-body-large: var(--text-body-md);
+  --fontSize-body: var(--text-body-md);
+  --fontSize-body-small: var(--text-body-sm);
+  --fontSize-label-large: var(--text-body-md);
+  --fontSize-label: var(--text-button);
+  --fontSize-label-small: var(--text-caption);
+  --fontSize-code: var(--text-code);
+
+  /* ── Space ───────────────────────────────────────────────────────────── */
+  /* Source: xs 3–4px, sm 6, md 12, lg 18, xl 24, 2xl 30, 3xl 36, 4xl 42, 5xl 48,
+     each × `--SPACE-SCALE`. Ours is a 4px-based named scale. Mapped by value,
+     nearest step. The `-px` variants exist in the source for places that must
+     not scale; both point at the same value here because ours never scales. */
+  --size-none: 0;
+  --size-xs: var(--spacing-xxs);    /* 4px  */
+  --size-sm: var(--spacing-xs);     /* 8px  */
+  --size-md: var(--spacing-sm);     /* 12px */
+  --size-lg: var(--spacing-md);     /* 20px */
+  --size-xl: var(--spacing-lg);     /* 24px */
+  --size-2xl: var(--spacing-xl);    /* 32px */
+  --size-3xl: var(--spacing-xl);    /* 32px */
+  --size-4xl: var(--spacing-xxl);   /* 48px */
+  --size-5xl: var(--spacing-xxl);   /* 48px */
+  --size-xs-px: var(--spacing-xxs);
+  --size-sm-px: var(--spacing-xs);
+  --size-md-px: var(--spacing-sm);
+  --size-lg-px: var(--spacing-md);
+  --size-xl-px: var(--spacing-lg);
+  --size-2xl-px: var(--spacing-xl);
+  --size-3xl-px: var(--spacing-xl);
+  --size-4xl-px: var(--spacing-xxl);
+  --size-5xl-px: var(--spacing-xxl);
+
+  /* ── Site ────────────────────────────────────────────────────────────── */
+  /* The primitives read `--site-offset` for the page gutter, which is the same
+     role `--SITE--PADDING` plays for the reference components (F-007). Pointed
+     at the same value so the two sets cannot disagree about the gutter. */
+  --site-offset: var(--SITE--PADDING);
+}

@@ -90,7 +90,22 @@ export function Cell({ caption, children }: { caption: string; children: ReactNo
           marks it "disabled text only (WCAG 1.4.3 inactive exception)" — a live
           state caption gets no exception. F-017. */}
       <span className="text-caption text-body">{caption}</span>
-      <div className="grid gap-xxs [&>label]:text-body-sm [&>label]:text-body">{children}</div>
+      {/* `min-w-0` on the INNER div too, not just the outer. `Cell` renders two
+          nested grids, and a grid item defaults to `min-width: auto`, so putting
+          it on the outer one alone leaves the inner track unshrinkable — the
+          outer box measured 238px while its own `grid-template-columns` computed
+          to 281px, and a FileUpload row overflowed the document by 2px at 320px.
+          Reported by the RangeScale port ("Cell renders two nested divs and only
+          the outer carries min-w-0"); acted on here.
+
+          And `min-w-0` alone was not enough, which is the subtler half: it sets
+          `min-width` on the div as a grid ITEM of the outer grid, but the div is
+          also a grid CONTAINER, and its own track was still sized to its
+          content's max-content (measured: box 238px, own
+          `grid-template-columns` 281.109px). A track wider than its box
+          overflows regardless of the box's min-width. So the track itself has to
+          be bound: `minmax(0, 1fr)`. F-024. */}
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-xxs [&>label]:text-body-sm [&>label]:text-body">{children}</div>
     </div>
   );
 }

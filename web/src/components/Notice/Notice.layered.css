@@ -1,0 +1,5 @@
+/* Notice.css in the `components` cascade layer. See Card.layered.css for the
+   full reasoning; Findings.md F-064 for the measurement. The verbatim Phase A
+   copy stays byte-identical — `@import … layer()` assigns the layer at the
+   import site, so nothing in the copied file changes. */
+@import "./Notice.css" layer(components);

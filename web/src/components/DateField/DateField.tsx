@@ -98,8 +98,8 @@ import { resolveCssPx } from "@/kernel/css-px";
 /* The wheel visuals are a hard dependency of `WheelColumn` — `Wheel.md` records
    that shipping the JS without the CSS was the original port's
    hardest-to-find bug (unstyled stacked options that also failed contrast). */
-import "@/kernel/Wheel.css";
-import "./DateField.css";
+import "@/kernel/Wheel.layered.css";
+import "./DateField.layered.css";
 
 /* ── Translations ──────────────────────────────────────────────────────────── */
 /* Ported from the reference's static table. The `.md` says the authored

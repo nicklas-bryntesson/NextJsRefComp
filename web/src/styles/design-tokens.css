@@ -82,10 +82,17 @@
      doc. Warning is a warm amber, which belongs in a warm system; info is a
      cool-neutral slate that reads as informational without inventing a second
      brand hue. F-021. */
-  --color-semantic-error: light-dark(#cf2d56, #ff8095);
-  --color-semantic-success: light-dark(#1e8662, #5fc79b);
-  --color-semantic-warning: light-dark(#9d6d29, #e0a94e);
-  --color-semantic-info: light-dark(#5b6b7f, #9db3cc);
+  /* Sized against the TIGHTEST ground these land on — the cream canvas
+     (#f7f7f4) and canvas-soft (#fafaf7) — not against the white card. F-005 and
+     F-021 measured them on white only, which passed success at 4.52 and warning
+     at 4.51 while both actually fell to 4.20 on the canvas. The library's own
+     ui-tokens.css warns about exactly this ("the ratio is picked against the
+     TIGHTEST surface it lands on, not against Canvas"), it is quoted in F-004,
+     and the mistake was made anyway. See F-063. */
+  --color-semantic-error: light-dark(#cf2d56, #ff8095);   /* 4.70 on canvas */
+  --color-semantic-success: light-dark(#1d805e, #5fc79b); /* 4.55 — was #1e8662, 4.22 */
+  --color-semantic-warning: light-dark(#966827, #e0a94e); /* 4.53 — was #9d6d29, 4.20 */
+  --color-semantic-info: light-dark(#5b6b7f, #9db3cc);    /* 5.08 on canvas */
 
   /* ── Type ───────────────────────────────────────────────────────────── */
   /* CursorGothic is licensed; the doc names Inter as the substitute. */

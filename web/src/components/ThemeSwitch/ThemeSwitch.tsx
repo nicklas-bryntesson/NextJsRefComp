@@ -72,7 +72,7 @@ import {
   type Preference,
 } from "@/kernel/theme-preference";
 
-import "./ThemeSwitch.css";
+import "./ThemeSwitch.layered.css";
 
 const DARK_QUERY = "(prefers-color-scheme: dark)";
 

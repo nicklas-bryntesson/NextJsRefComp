@@ -71,7 +71,7 @@ import {
   parseWeekISO,
 } from "@/kernel/dates";
 
-import "./WeekField.css";
+import "./WeekField.layered.css";
 
 /* ── Translations ──────────────────────────────────────────────────────────── */
 

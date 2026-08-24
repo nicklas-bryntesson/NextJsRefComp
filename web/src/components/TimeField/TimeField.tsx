@@ -73,8 +73,8 @@ import { trapPopupInteraction } from "@/kernel/popup-interaction";
 import { resolveLocale } from "@/kernel/locale";
 import { resolveCssPx } from "@/kernel/css-px";
 
-import "@/kernel/Wheel.css";
-import "./TimeField.css";
+import "@/kernel/Wheel.layered.css";
+import "./TimeField.layered.css";
 
 /* ── Exported pure utilities ───────────────────────────────────────────────────
    Ported 1:1 from the reference, which exports the same three "for unit tests". */

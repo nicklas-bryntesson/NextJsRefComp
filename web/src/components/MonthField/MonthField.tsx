@@ -76,8 +76,8 @@ import { resolveCssPx } from "@/kernel/css-px";
 import { formatMonthISO, getMonthName, parseMonthISO } from "@/kernel/dates";
 import { resolveLocale } from "@/kernel/locale";
 
-import "@/kernel/Wheel.css";
-import "./MonthField.css";
+import "@/kernel/Wheel.layered.css";
+import "./MonthField.layered.css";
 
 /* ── Exported pure utilities (the reference exports these four) ─────────────── */
 

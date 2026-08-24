@@ -55,7 +55,7 @@
 import { useEffect, useRef } from "react";
 import type { CSSProperties, ReactNode } from "react";
 
-import "./RangeGroup.css";
+import "./RangeGroup.layered.css";
 /* The lane draws; its stylesheet is the composition seam made explicit. */
 import "../RangeScale/RangeScale.css";
 import "../RangeField/RangeField.css";

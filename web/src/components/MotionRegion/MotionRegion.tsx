@@ -47,7 +47,7 @@ import {
   type MotionState,
 } from "@/kernel/motion-policy";
 
-import "./MotionRegion.css";
+import "./MotionRegion.layered.css";
 
 /* navigator.connection (Network Information API) is not in the standard DOM lib. */
 interface NetworkInformationLike {

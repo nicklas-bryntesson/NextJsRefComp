@@ -1,0 +1,20 @@
+/* DateTimeField.css in the `components` cascade layer.
+ *
+ * Tailwind v4 emits its utilities inside `@layer utilities`. A stylesheet
+ * imported from a JS module is UNLAYERED, and unlayered normal declarations beat
+ * every layer regardless of specificity — so a component's own CSS silently wins
+ * over any utility written against it, and `:where()`'s specificity-zero (written
+ * precisely so a consumer can override with one class) counts for nothing.
+ * Findings.md F-064 measured the consequence: half-applied overrides producing
+ * real AA failures at 1.07:1 and 1.10:1, because the two halves of one override
+ * resolved by different rules — one on specificity, one on layer.
+ *
+ * `@import … layer(components)` assigns the layer at the import site, so the
+ * stylesheet itself stays BYTE-IDENTICAL — which PORTING.md requires of a Phase A
+ * copy — while sitting below utilities where it belongs. Verified in Chromium: a
+ * `bg-*` utility now overrides a component background that previously won.
+ *
+ * Corroboration: `@tailwindcss/typography` registers through `addComponents`,
+ * i.e. this same layer, for exactly this reason.
+ */
+@import "./DateTimeField.css" layer(components);

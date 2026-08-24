@@ -1,0 +1,27 @@
+/* ScreenReaderText.css — the `.ScreenReaderText` rule, copied VERBATIM from the
+ * source's `ClientApp/css/style.css` (lines 61–70).
+ *
+ * `TeaserTagHelper` is the only helper in the set that emits this class, and the
+ * class is NOT a component: upstream it lives in the global stylesheet, next to
+ * a keyframes block and a commented-out debug block, with no file of its own.
+ *
+ * It lands here rather than in `web/src/styles/` because that directory is off
+ * limits to a port and because a Teaser is currently its only consumer. If a
+ * second primitive needs it, it should be promoted — reported, not pre-empted.
+ *
+ * KEPT AS CSS THROUGH STEP 3 DELIBERATELY. Tailwind ships `sr-only`, which is
+ * the obvious conversion and is NOT equivalent — measured, see
+ * findings/primitives-Teaser.md. The class name is also contractual: it is the
+ * name the source's markup uses.
+ */
+
+.ScreenReaderText {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(100%);
+  border: 0;
+}

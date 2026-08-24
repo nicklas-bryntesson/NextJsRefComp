@@ -19,7 +19,7 @@
  */
 
 import type { ReactNode } from "react";
-import "./CtaButton.css";
+import "./CtaButton.layered.css";
 import {
   ctaButtonAttributes,
   ctaEffectClassName,

@@ -33,7 +33,7 @@ import type { CSSProperties, ReactNode } from "react";
 /* The component owns its stylesheet. Importing it here rather than from a shared
    registry keeps the component deletable in one move (philosophy.md), and lets
    parallel ports land without contending for a single import list. */
-import "./AffixField.css";
+import "./AffixField.layered.css";
 
 /** The documented allowlist from AffixField.md. `password` and the date/time
  *  family are non-goals, so the type system refuses them rather than relying on

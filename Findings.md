@@ -2365,6 +2365,789 @@ block size as the custom layer that replaces it.* Verified no conformance change
 
 ---
 
+## Phase 8 — The second port: Razor primitives
+
+A different porting problem from the same author's other repo: the Razor
+TagHelper set that covers everything the accessibility library does not —
+buttons, cards, headings, media, prose, teasers. Eight components, three shared
+statics, ~1 060 lines of component CSS, and **no conformance suite at all**.
+
+The owner's sequencing, deliberately three separable steps: lift the structure →
+restyle to `cursor-DESIGN.md` → convert to Tailwind. The Button family (five
+sources, one stylesheet) went first because the rest build on it.
+
+---
+
+### F-061 · Bridging the semantic tier was half right, and colour was the half it missed
+
+**Surface:** `web/src/styles/primitive-tokens.css`. **My error, found by the port.**
+
+The source is a two-tier token system: SCREAMING constants (`--COLOR-N90`, a cool
+blue-tinted neutral ramp at hue 257°) feeding lowercase semantics
+(`--text-primary`, `--bg-purple-primary`). I bridged the **semantic** tier only,
+reasoning that constant-to-constant mapping would mean inventing forty warm
+equivalents and would preserve a palette structure we do not want, while the
+semantic tier is the layer that carries meaning.
+
+Sound reasoning, wrong premise. `Button.css` reads colour **straight from the
+constant tier** — `var(--COLOR-B80)`, `var(--COLOR-N00)` — bypassing the
+semantics entirely. Measured after step 1: primary and secondary buttons
+pixel-identical, `background-color: rgba(0,0,0,0)`, text falling back to
+inherited `--color-body`. **Typography and spacing came through; colour did
+not.**
+
+So the tier a component *declares* through is not the tier it *reads* through,
+and a bridge built on the declared architecture covers only what the components
+happen to route that way. The only colours that did render came from the source's
+own inline fallbacks — `var(--COLOR-R60, #d63031)` — and `R60`/`G60` do not exist
+in the source palette either, so those fallbacks were always the live value.
+
+**Decision:** the gap is closed in step 2 by retinting to our tokens rather than
+by extending the bridge downward. Adding forty constant mappings would make the
+bridge carry a palette we are replacing.
+
+**The generalisable point:** a two-tier token system is only as good as its
+components' discipline about which tier they read. Verify by grepping the
+components for constant-tier reads before trusting a semantic bridge — a
+measurement, not an assumption.
+
+---
+
+### F-062 · The blank-property gate does not survive a Tailwind conversion, and the cost lands on the consumer
+
+**Surface:** `Button.css`, step 3. **The clearest answer yet to the project's
+original Tailwind question.**
+
+`Button.css` is built on the idiom the reference library's philosophy is also
+built on: declare a custom property **blank** in the base rule
+(`--_borderRadius: ;`), then have a variant gate fill it. About thirty blank
+properties, and it is the same "conditional properties live behind a gate"
+pattern `philosophy.md` prescribes.
+
+Converted to utilities, **it becomes dead code.** The gate has nothing to gate
+because the value now lives in a class on the element. Deleting it is a genuine
+simplification — thirty declarations gone, `CtaButton.css` emptied entirely, and
+`Button.css` reduced to debug pseudo-elements no utility can reach.
+
+**And it removes the seam a consumer overrides through.** The source's own
+`style.css` re-tints buttons over a hero image in **nine lines**, by setting
+those blank properties in a scoped rule. After the conversion that override has
+nowhere to attach: the winning value is a utility class on each element, so
+re-tinting means either editing every call site or fighting specificity.
+
+That is the trade stated precisely, and it is not visible from either end alone:
+**the utility conversion is a real simplification for the component author and a
+real loss for the component's consumer.** ADR-0017 and ADR-0018 exist to give a
+consumer exactly that override surface. A Tailwind port keeps the design tokens
+and discards the *per-component* override seam.
+
+Recorded as the finding rather than resolved. Whether to keep a token seam
+alongside the utilities is a design decision, not a porting one.
+
+---
+
+### F-063 · Two state colours were sized against the wrong ground, in the exact way the library warns about
+
+**Surface:** `design-tokens.css`. **My error, caught by a subagent that refused
+to work around it in my files.**
+
+F-005 and F-021 sized the four state colours against a **white card** and
+reported them clearing AA. Two of them do not clear it against the **cream
+canvas** they also land on:
+
+| Token | on card | on canvas | on canvas-soft |
+|---|---|---|---|
+| `--color-semantic-success` `#1e8662` | 4.52 ✓ | **4.22 ✗** | **4.33 ✗** |
+| `--color-semantic-warning` `#9d6d29` | 4.51 ✓ | **4.20 ✗** | **4.32 ✗** |
+| `--color-semantic-error` `#cf2d56` | 5.04 | 4.70 | 4.82 |
+| `--color-semantic-info` `#5b6b7f` | 5.45 | 5.08 | 5.21 |
+
+Both sat *just* over 4.5 on white, which is the signature of a value tuned to the
+wrong reference and the reason it looked settled.
+
+**The library warned about this in the file I was mirroring.** `ui-tokens.css`
+says of its own muted foreground: *"the ratio is picked against the TIGHTEST
+surface it lands on, not against Canvas"* — and F-004 quotes that sentence
+approvingly while doing the opposite two entries later.
+
+**Decision:** success → `#1d805e` (4.55 on canvas), warning → `#966827` (4.53).
+Both re-verified on all three grounds. Dark halves unaffected — they were sized
+against the dark card, which is their tightest ground.
+
+Worth noting how it surfaced: the Button porter hit success at 4.22 under a
+button label, was told `web/src/styles/**` was off-limits, and **worked around it
+in its own component with a token-derived `color-mix` while reporting the token
+as the real defect** rather than silently patching my file. That is the behaviour
+the file boundaries were for.
+
+---
+
+### F-064 · The override seam dies at step 2, not step 3, and it dies to the cascade LAYER — not to specificity
+
+**Surface:** `Card.css` under Tailwind v4. **Supersedes the mechanism in F-062;
+its conclusion stands and its explanation was wrong.**
+
+F-062 concluded that the blank-property gate idiom becomes dead code under a
+Tailwind conversion, and that this removes the seam a consumer overrides
+through. Both true. But the Card port measured *when* and *why*, and the answer
+is earlier and worse.
+
+**Tailwind v4 emits its utilities inside `@layer utilities`. A component
+stylesheet imported from a JS module is UNLAYERED. Unlayered normal declarations
+beat every layer, regardless of specificity.**
+
+So `:where(.Card)` — written at specificity zero *precisely* so that one
+consumer class can win — is irrelevant. The component wins because it is
+unlayered, and `:where()` is exactly what makes that invisible: the author sees
+zero specificity and reasonably expects to lose.
+
+That means the seam was already dead **at step 2**, before any conversion, and
+step 3 does not restore it. After conversion both sides sit in the utilities
+layer, where Tailwind emits `.bg-*` **alphabetically** — so a consumer override
+wins if and only if its token name sorts after the component's.
+`bg-surface-card` beats `bg-ink` and `bg-canvas`; it would lose to
+`bg-surface-strong`. Ordering by identifier, not by intent.
+
+**And the worst part is measured:** the two halves of a single override resolve
+by *different rules*. `[&_*]:text-canvas` wins on **specificity**; `bg-ink`
+loses on **layer**. So a half-applied override is the default outcome, not an
+edge case — the port measured real AA failures of **1.07:1 and 1.10:1** in a
+demo before restructuring it.
+
+This also reconciles F-057, which looked contradictory: there Tailwind's `.grid`
+beat the library's `.grid`. It did, because the library never *declared*
+`display` — there was nothing unlayered to win. Where component CSS declares,
+it wins; where it leaves a UA default, the utility wins. Two mechanisms, one
+consistent rule.
+
+**Decision — recorded, not acted on.** The fix is one line per component
+stylesheet: wrap it in `@layer components { }`, which puts it below utilities and
+restores the normal Tailwind expectation *and* the consumer seam. It is not taken
+yet for two reasons worth stating. First, the reference-component stylesheets are
+verbatim Phase A copies, and wrapping one in a layer is an edit to the copy.
+Second, it trades against a deliberate early decision: components import their own
+CSS so each stays deletable in one move (see `globals.css`), and a JS-imported
+stylesheet cannot be assigned a layer at the import site the way
+`@import … layer(components)` can. Moving to a central layered import list would
+restore the cascade and give up the deletability.
+
+That is a genuine architectural trade, not a bug fix, and it belongs to a Phase B
+decision rather than to a component port. **It is also the single most useful
+thing this project has to say to anyone putting a component library and Tailwind
+in the same app.**
+
+---
+
+### F-065 · A predictor for whether a Tailwind conversion is mechanical
+
+**Surface:** Button versus Card, steps 2–3. A positive finding.
+
+The Button family's conversion cost three things: the blank-property gate became
+dead code, two `px-*` utilities collided at equal specificity where Tailwind's
+value-sorted stylesheet order picked the winner, and the `calc()` relationships
+had to be resolved to values. Card's conversion cost **none** of them —
+**0 property diffs across 26 instances × 2 appearances × 2 elements**, and
+`Card.css` went from 45 lines to *empty*.
+
+That is not luck, and the port worked out why:
+
+| Button | Card |
+|---|---|
+| axes overlap — several gates write the same property | axes are **orthogonal**: padding, border and elevation each own different properties, so no gate ever overrode another |
+| has states (`:hover`, `:active`, `:disabled`) — properties written more than once | **no states** — nothing written twice |
+| uses `calc()` — relationships, not values | **no `calc()`** — nothing relational to lose |
+
+So there is a cheap test before committing to step 3: **grep the stylesheet for
+`calc(`, for any pseudo-class state, and for any selector carrying two
+attributes.** All three absent means the conversion is mechanical. Any present
+means the conversion has a cost to price first.
+
+Button was three for three. Card was zero for three. A second data point does not
+make a law, but the mechanism behind each of the three is clear enough to act on.
+
+---
+
+### F-066 · An unbridged token does not degrade to nothing — it degrades to the host reset, which can be the opposite of the intent
+
+**Surface:** `Card.css`. **Sharpens F-061.**
+
+F-061 recorded that the token bridge answers the semantic tier while component
+CSS often reads the constant tier directly, so colour simply did not arrive.
+"Did not arrive" turns out to be too generous.
+
+`Card.css` has exactly **one** `--COLOR-` read in 45 lines, and it is the border
+colour — the one axis actually carrying design. With the token unbridged, the
+`var()` was invalid, and because it sat inside a **shorthand** (`border`), an
+invalid `var()` makes the whole shorthand invalid at computed-value time. The
+property fell back to what the host reset had left.
+
+Measured result: `data-border="true"` computed `border-style: **none**`, while
+`data-border="false"` kept Tailwind preflight's `solid`. **The axis rendered
+inverted.**
+
+So the failure mode of an unbridged token is not absence, it is whatever the
+consuming project's reset happens to say — and with a shorthand it can take three
+other properties with it. Grepping components for constant-tier reads before
+trusting a semantic bridge (F-061's conclusion) matters more than F-061 implied:
+the symptom may not look like a missing value at all.
+
+---
+
+### F-067 · A fourth React 19 compiler rule, and the pattern is now unmistakable
+
+**Surface:** the primitive ports. Extends F-051's observation.
+
+Four distinct compiler rules have now rejected four idioms that a port from
+imperative markup-plus-JS arrives at naturally:
+
+| Rule | The idiom it rejects | Found in |
+|---|---|---|
+| `react-hooks/set-state-in-effect` | `useEffect(() => setState(true), [])` — the "am I hydrated" gate | MotionRegion, ScrollArea |
+| `react-hooks/refs` | a props factory or validator dereferencing a ref during render | FileUpload, MonthField, WeekField |
+| `react-hooks/immutability` | a render-loop accumulator; state mirrored into a ref an effect depends on | CircleDiagram, CoverCompositionVideo |
+| `react-hooks/static-components` | `const Element = tag; <Element>` — a component choosing its own tag name | Card, and two other TagHelpers exposing `element` |
+
+The last is the most structural: **a TagHelper that picks its own tag has no JSX
+form in React 19.** `output.TagName = "a"` is ordinary in Razor and three
+TagHelpers in this set expose an `element` prop; `createElement` is the only
+route. That is not a style preference, it is a capability the source language has
+and the target does not.
+
+Where the fix has been measured it has been *better* rather than merely
+compliant — `useSyncExternalStore` was faster (two commits became one, and
+ScrollArea's enhancement window went 13.6–27.5 ms → 6.1–11.0 ms), and hoisting
+the ref-dereferencing helper removed a read that was silently degrading to a
+fallback. Whether that holds for the immutability pair is still open and has been
+asked for explicitly rather than assumed.
+
+---
+
+### F-068 · CTABlock: not a variant, not dead — a Card composition with the wrong root, and the provenance is conclusive
+
+**Surface:** `CTABlock.css`, one of the four orphan stylesheets with no TagHelper.
+
+The reconnaissance answer is that it is **a live component that is a *composition*
+of Card**, and it has no TagHelper because it is not one: it is an Umbraco
+rich-text block partial. `seed.sql:191` creates the doctype `rteCTABlock`,
+`rteCTABlock.cshtml` renders it, `style.css:14` imports the CSS. Its "props" are
+content-model fields, which is why the C# contract is missing.
+
+Twelve of its twenty declarations are Card's — same radius literal, same
+`var(--COLOR-N30)` border, same flex column — **including both `TODO` comments
+copied verbatim.** Copied comments are conclusive provenance in a way duplicated
+declarations are not. Three declarations genuinely differ (a smaller gap, a
+`margin-block` that belongs to the rich-text flow rather than the card, and the
+root element) plus one part it owns, `.CTABlock-actions`.
+
+**And the root element is a defect, measured rather than assumed.** Card's
+element allow-list excludes `aside`, which looked like a blocker until the port
+rendered a faithful `<aside class="CTABlock">` and got a real axe violation in
+both appearances — `landmark-complementary-is-top-level` — because a CTABlock
+renders inside rich-text content inside `<main>`. **Card's allow-list is right and
+CTABlock's root is wrong**, and the source produces the same violation today.
+
+**Recommendation:** a `<div>` root, then collapse the stylesheet to
+`.CTABlock-actions` plus the margin and let `app-card` supply the frame. That is
+sixteen of twenty declarations deleted and an accessibility defect fixed, and it
+is a good upstream item for the Razor repo.
+
+---
+
+### F-069 · The family collapse serves the design doc; the size map is what does not
+
+**Surface:** `Heading.css`, `Prose.css`, step 2. **The measurement I asked for
+instead of an impression, and it overturned the expectation.**
+
+The source runs four families — Fira Sans headings, **Abril Fatface** display,
+**Noto Serif** body, Inter labels — against our one sans. That looked like the
+port's largest and most damaging change. Measured, it is neither.
+
+**Cap-height ratio:** Abril 0.70, Fira 0.69, Noto 0.71 → Inter **0.73**. The four
+faces are **metrically interchangeable**, which is the mechanical explanation for
+something otherwise suspicious: step 1 already looked broadly right.
+
+**And the collapse actively serves the design doc.** Normalised to a 100 px cap
+height, display **ink coverage falls 33.7 % → 25.7 %, a 24 % reduction, while the
+advance width moves 1 %.** A 24 % ink reduction at unchanged proportion is a
+mechanical description of `cursor-DESIGN.md`'s stated intent — *"a
+magazine-editorial voice rather than tech-bombastic"*. The doc asked for less ink
+at the same footprint, and swapping a fat display serif for Inter 400 delivers
+exactly that.
+
+**What does not survive is the size map, and it is a separate axis.** The
+editorial voice is achievable at `display-1` (72 px, −2.16 px tracking) and not at
+`display-2` or `display-3` — those are **−36 %** and **−46 %** against the source.
+Nine steps onto six costs one collision and yields seven distinct sizes, which is
+nearly free on paper. In practice it fails three measured ways:
+
+- the display ramp becomes a **cliff**: ×2.00 then ×1.38, against the source's
+  ×1.14 / ×1.17
+- **`h6` lands 11 px below 16 px body text**, which inverts the hierarchy
+- `h5` is size-identical to body
+
+**Decision:** the family collapse stands, on the evidence. The size map needs
+three more steps between `display-md` and `title-md`, and `h6` needs a floor at
+body size. That is a change to `cursor-DESIGN.md`'s scale, so it is the project
+owner's call — recorded as an open question, not applied.
+
+**And `--baseline-offset-*` never ran.** F-062 neutralised it at 1 on the ADR-0025
+argument that a value which only changes appearance is taste. Grepped and then
+measured: two reads, both inside `Heading.css`'s `@supports not` fallback, both
+`calc(<length> + <unitless>)` — which computes to **0 px in all four
+combinations**, including with the token absent, because the `var()` fallback `0`
+is unitless too. The branch is also unreachable in current Chromium. The decision
+was right; the reason was weaker than stated — it was already inert in both
+branches at every value.
+
+---
+
+### F-070 · Prose cannot be converted to utilities, and the proof is a specificity inversion
+
+**Surface:** `Prose.css`, step 3. **A negative result, argued — and the sharpest
+limit found on the Tailwind question.**
+
+Prose styles descendant elements it never renders (`.Prose p`, `.Prose li`, …).
+Utilities attach to elements. So the only conversion route is Tailwind's
+arbitrary-descendant escape hatch, `[&_p]:…`.
+
+That generates `.class p` at specificity **0,1,1**. The shipped stylesheet uses
+`:where(.Prose) p` at **0,0,1** — deliberately, so a consumer can override with a
+single class. Measured with the consumer's rule placed *first*, so only
+specificity could decide the winner:
+
+| | consumer override |
+|---|---|
+| today (`:where()` CSS) | **wins** — 11 px applied |
+| after conversion (`[&_p]:`) | **loses** — 102 px applied |
+
+Converting Prose destroys the only feature Prose has. It stays as CSS, and that
+is the finding rather than a failure.
+
+**Confirmed on the real consumer, which makes it more than theory.**
+`TeaserTagHelper` hand-writes both components' markup rather than nesting them.
+Against the converted and unconverted pair:
+
+- **Heading (step 3 applied): 4 of 6 properties wrong.**
+- **Prose (step 3 declined): 5 of 5 correct.**
+
+Every instrument was clean throughout — computed diff clean, axe clean, unit
+tests passing. **So a conversion can silently break a consumer that reproduces
+the markup, and nothing in this project detects it.** That is now flagged to the
+Teaser port as a decision it must make explicitly: compose `<Heading>` as a
+component, or revert its step 3.
+
+**A correction to F-062, and a useful one:** the *gate* dies under conversion, but
+the **token indirection survives**. `text-(length:--fontSize-h1)` was verified
+computed-identical to step 2. So a utility conversion does not force raw values —
+design tokens can still be read through the utility. F-062 conflated the two
+losses; only one is real.
+
+---
+
+### F-071 · The text-spacing canary was broken twice, and the second reason is worse
+
+**Surface:** `tests/text-spacing.e2e.test.js`. **Extends F-023.**
+
+F-023 recorded that the reference suite's planted-violation canary cannot fire
+against a design system already rendering at `line-height: 1.5`. True, and
+incomplete.
+
+The canary pins its plant's box from `getBoundingClientRect().height`. At
+`line-height: 1` the descenders already exceed the line box, so the plant is
+**already clipped by 2 px before the overrides are applied** — and the suite's own
+baseline filter, which exists to ignore pre-existing defects, therefore discards
+it. So the canary fails to fire for a reason entirely independent of the host's
+line-height. Pinning from `scrollHeight` instead fixes it; the port's probe now
+prints `planted violation DETECTED` before every run.
+
+**And with a working canary, the other three axes found three real defects that
+the plain reflow sweep cannot see:**
+
+- **An unstyled `<table>`** in two Prose variants: `table-layout: auto`, a 337 px
+  box at a 320 px viewport, **17 px of document scroll**.
+- **`<caption>` min-content widens the table**, so `table-layout: fixed` plus
+  `width: 100%` does not contain it — `overflow-wrap: anywhere` on the caption is
+  required too.
+- **`overflow-wrap: break-word` cannot shrink a container.** Only `anywhere`
+  reduces min-content. This is not widely understood and it is worth stating
+  plainly.
+
+Plus one more instance of a defect this project has now fixed twice: **`min-w-0`
+does not constrain a grid *track*.** A wrapper measured a 238 px box against a
+`grid-template-columns` of **340.281 px**, the same shape as the `Cell` fix
+(F-024). Two independent occurrences make it a rule rather than an anecdote:
+constrain the track with `minmax(0, 1fr)`, not the box with `min-width: 0`.
+
+**Upstream, two items.** The canary should pin from `scrollHeight`. And the
+suite's target-size check has **no WCAG 2.5.8 inline exception**, producing three
+false positives on inline links — 2.5.8 explicitly exempts targets in a sentence
+or block of text.
+
+---
+
+### F-072 · `next/image` cannot express art direction, and Next's own lint rule concedes it
+
+**Surface:** `MediaHelper.cs` → `Picture`. The framework-specific decision this
+port existed to make.
+
+`next/image` does srcset generation, lazy loading, layout-shift prevention and
+format negotiation — most of what `MediaHelper` implements by hand. The obvious
+move is to adopt it. Measured, the answer is to decline, and three guarantees are
+why:
+
+- **Art direction over named crops.** The `hero` preset runs 4:5 → 3:4 → 16:9 →
+  21:9 — four *different crops*, not one image at four sizes. `next/image`
+  renders a bare `<img>`; there is no `<source>` to switch on.
+- **Container-query source selection.**
+- **Focal-point crops.**
+
+Both escape hatches remove the reason to use it: `unoptimized` gives up the
+optimisation, and a custom loader leaves you with less than the source already
+has. And `images.remotePatterns` **cannot** be configured for a CMS host unknown
+at port time — it throws at runtime rather than degrading.
+
+**The corroboration is the good part, and it comes from inside Next.** The lint
+rule `@next/next/no-img-element` — whose entire purpose is to steer you to
+`next/image` — opens with `if (parent is <picture>) return`. The rule exempts the
+case its own recommendation cannot serve. Measured, not read: a speculative
+`eslint-disable` for it was flagged as **unused**.
+
+`web/next.config.ts` needs no change.
+
+---
+
+### F-073 · `srcset` is a fact about the image; `sizes` is a promise about the consumer's layout
+
+**Surface:** `mediaHelper.ts`. Measured in both directions.
+
+A central preset table can own `srcset` correctly, because the candidate widths
+are properties of the image. It structurally **cannot** own `sizes`, because
+`sizes` describes the layout box the consumer will place the image in — and the
+preset table has never seen that layout.
+
+Both failure directions were measured in the source:
+
+| `sizes` value | Problem | Cost |
+|---|---|---|
+| `sizes="100%"` | **invalid syntax** — the grammar is `<length> \| auto`, so it is dropped and silently falls back to `100vw` | over-fetches **3.3×** |
+| `sizes="12rem"` | Teaser's `--_minMediaSize`, i.e. the *minimum* | under-fetches **7.4×** |
+
+Neither fails loudly. One wastes bandwidth, the other ships a blurry image, and
+both look like a working `<picture>`.
+
+**The consequence for an API:** `sizes` belongs to the call site, not to the
+preset. A preset that ships a `sizes` value is guessing about its consumer, and a
+7.4× under-fetch is what a wrong guess costs.
+
+---
+
+### F-074 · Three CLS measurements read 0.000 because the stylesheet was shielding the page from its own shift
+
+**Surface:** `Picture`, and **the measurement methodology this project has been
+using.**
+
+The port measured CLS under four conditions:
+
+| Condition | step 1 | after fix |
+|---|---|---|
+| local / fast-4g / slow-4g | 0.000 | 0.000 |
+| **image-lag** (900 ms, `/media/**` only) | **0.253 — POOR** | **0.000** |
+| unreserved height across 23 pictures | **3998 px** | **0 px** |
+
+The first three rows are the finding. **Uniform throttling slows the
+render-blocking CSS and the images together, so the stylesheet arrives late
+enough to shield the page from the shift it would otherwise cause.** A measurement
+that throttles everything equally cannot see an image-driven layout shift at all.
+Only selective throttling — the images and nothing else — exposes it.
+
+That qualifies every CLS number in this document taken under uniform conditions,
+including F-060's. Those were measuring document-height deltas across hydration,
+which is a different mechanism and unaffected, but the general lesson stands and
+is now the seventh instance of this project's recurring theme: **the apparatus
+fails more quietly than the thing it measures.**
+
+**And the fix is not the obvious one.** `width`/`height` go on each **`<source>`**,
+not on the `<img>`: a single pair on the `<img>` declares 21:9 while the 320 px
+breakpoint actually shows 4:5, so the naive fix trades one shift for a larger one.
+Upstream this needs **no new CMS data** — `GetCropUrl` already resolves a crop
+that carries its own dimensions.
+
+Also recorded by the same port: **a computed-style diff that reported "0 diffs,
+46 gone, 46 new"** — zero because the diff key contained the element's class list,
+which is precisely the thing under test. Re-keyed and re-baselined for a real
+result. Two false greens, documented as fully as the real findings, which is the
+right instinct.
+
+---
+
+### F-075 · A selector whose match depends on a prop cannot become a utility
+
+**Surface:** `Media.css`, step 3. **Broader than F-062.**
+
+Both rules that survived into step 3 were contingent on a class name the **caller
+chooses** — `TeaserTagHelper` passes `pictureClass: "Media"`, so `.Media` names
+the *picture* on that path and the *figure* on others. A utility cannot express
+that: it is attached at authoring time, and the condition is not known until the
+prop arrives.
+
+The two selectors became two string comparisons in JavaScript.
+
+F-062 said the blank-property *gate* dies under conversion. This is the general
+form: **any selector whose match depends on a prop becomes a pre-render
+decision.** CSS can branch on the DOM it finds; utilities are decided before the
+DOM exists. That is a category difference, not a cost, and it is the cleanest
+statement of the Tailwind limit this project has produced.
+
+---
+
+### F-076 · `alt=""` cannot distinguish "decorative" from "forgotten", and axe cannot help
+
+**Surface:** `mediaHelper.ts`, and the source's own production markup.
+
+`Alt ?? ""` makes a **forgotten** alt byte-identical to a **deliberate** empty
+one. axe reports green and cannot do otherwise — both
+`docs/atomica11y/main/informative-image.md` and `decorative-image-icon.md` are
+satisfied by the output, and neither criterion can separate the two cases because
+the DOM is the same.
+
+It is worse in the source's production markup than in the abstract:
+`_CoverComposition.cshtml` puts the **page title** in the hero image's alt, and
+renders the same string as the adjacent `<h1>`. A screen reader hears it twice.
+
+**Decision needed from the project owner:** a TypeScript discriminated union
+would make intent mandatory at **zero runtime cost** —
+`{ alt: string } | { decorative: true }` — so a forgotten alt becomes a type
+error rather than a silent empty attribute. That is the highest-value change
+available in this component and it is an API decision, so it is recorded rather
+than applied.
+
+---
+
+### F-077 · A third stale-server variant: `next start` reads the build manifest once
+
+**Surface:** this project's own tooling. **Eighth instance of the theme, and the
+one the playbook did not name.**
+
+F-052 recorded that `pkill -f "next start"` does not match, leaving a stale
+server answering 200 from an overwritten `.next`. This is a different failure with
+the same signature: **`next start` reads the build manifest once at boot.** So
+when a concurrent agent rebuilds, the running server keeps serving — and serves a
+**totally unstyled page**, because the CSS chunk hashes in its cached manifest no
+longer exist.
+
+`curl` returning 200, the log reading `Ready in`, and a page that renders are
+**all three consistent with zero CSS applied**. Every check this project added
+after F-052 passes while the page is broken. It cost the Picture port two
+measurement rounds and one wrong conclusion before a purpose-built guard caught
+it.
+
+**Decision:** the guard is the fix — assert that a known token actually computes,
+not merely that the server responds. And the structural fix, recommended by the
+port and accepted: **give each agent its own git worktree.** The same concurrency
+also caused a second problem — one agent's commit swept another's staged step-1
+files, so those files landed in an unrelated commit. Both are one cause: parallel
+agents sharing one working tree and one build output.
+
+That is an orchestration error of mine, not the agents'. The Agent tool supports
+`isolation: "worktree"` and I did not use it for a phase where four agents wrote
+concurrently.
+
+---
+
+### F-078 · F-064 fixed: `@import … layer(components)` puts component CSS below utilities without touching the verbatim copy
+
+**Surface:** all 29 component and primitive stylesheets. **Acts on F-064, and the
+mechanism was validated from outside before it was applied.**
+
+F-064 recorded the defect and declined to fix it, because the two obvious routes
+both had a real cost: wrapping each stylesheet in `@layer components { }` edits a
+verbatim Phase A copy, and moving to a central layered `@import` list gives up the
+per-component import that keeps each component deletable in one move.
+
+There is a third route. **`@import "./X.css" layer(components)` assigns the layer
+at the import site**, so the stylesheet stays byte-identical while sitting below
+utilities. Each component gets a one-line `X.layered.css` sibling and imports
+that instead. Deleting a component still means deleting its directory; nothing
+central references it.
+
+**Independent corroboration, found by looking rather than reasoning.** The user
+raised `@tailwindcss/typography` — which exists precisely because utilities cannot
+style content you do not control, and therefore corroborates F-070 rather than
+contradicting it: inspected at v0.5.20, it generates **descendant selectors with
+`:where()`** plus a `:not(:where([class~="not-prose"], …))` escape, i.e. the same
+construction `Prose.css` already uses. But the useful part is *how it registers*:
+**`addComponents`** — the components layer, deliberately below utilities so
+utilities can override it. Tailwind's own maintainers put descendant-selector
+component CSS exactly where F-064 said it belonged.
+
+**Verified in Chromium, not assumed.** A `bg-surface-strong` utility applied to a
+`.Notice` root: background went
+`color(srgb 0.985 0.934 0.947)` → `rgb(230, 229, 224)`. Before the change the
+component's own declaration won regardless of specificity; now the utility does.
+
+Rolled out to 34 imports across 29 files, including the kernel's `Wheel.css`.
+Verbatim integrity re-checked: every reference stylesheet still differs from
+upstream only by its documented sanctioned edits, and `Wheel.css` is
+byte-identical. Gates after: build clean, lint 0, **303 unit tests**.
+
+**Two things deliberately left unlayered**, because unlayered-wins is the
+behaviour wanted there: `tailwind-collisions.css` (it exists to beat a utility —
+F-057) and `*.kitchensink.css` (demo chrome, not shipped).
+
+**And a decision not taken:** adopting the typography plugin instead of the ported
+`Prose.css`. Two frictions argue against it. It brings its own typographic scale,
+which would need a third token mapping alongside `--ui-*` and
+`primitive-tokens.css`. And its dark mode is `dark:prose-invert` — a class-toggled
+variant — while F-020 deliberately left this project with **no `dark:` variant at
+all**, every token being a `light-dark()` pair. That is a finding in its own right:
+**a `light-dark()` strategy is incompatible with any Tailwind plugin whose dark
+mode assumes a class toggle.** ADR-0021 anticipated a consumer mapping
+`[data-appearance="dark"]` onto its `dark` variant in one line; we skipped that
+step, and the bill arrives here.
+
+---
+
+### F-079 · A stylesheet with no class names is not a component, and reflow forces exactly one wrapper into its contract
+
+**Surface:** `Tables.css`, the largest of the four orphan stylesheets.
+
+**Verdict: element-level styling, not a component.** Zero class names in 224
+lines; every selector rooted at a bare `table`. Two consumers confirm it: a
+533-line partial of *arbitrary* tables, and — conclusively —
+`DateField.css` and `DateTimeField.css`, which both carry
+`background: none; /* override global Tables.css thead th band */`. **The author's
+own components fighting their own global element stylesheet** is something that
+only happens to a global element stylesheet.
+
+**But it cannot survive 320 px without a markup addition.** Measured: **578 px**
+of overflow verbatim, and **219 px** for a plain five-column table of names.
+`Tables.css`'s own answer — `overflow-x: auto` on `table` — computes to `visible`,
+because a table box is not a scroll container. So the "no component" verdict has
+exactly one limit: reflow forces one wrapper into the contract.
+
+And that wrapper's two accessibility requirements pull in opposite directions:
+**axe wants the scroll region focusable; `docs/atomica11y/main/table.md` criterion
+1 says the table itself must not be.** Only `tabindex` on the *wrapper* satisfies
+both. Result: 0 px overflow at all six widths.
+
+**Recommended discards, with reasons:** the idea of a `<Table>` component,
+permanently; and `Tables.css` from any route rendering reference components — it
+restyles **77 %** of elements inside every table it reaches, and five ported
+components render a `<table>` (the ones inside closed popups make any static
+measurement an under-count).
+
+---
+
+### F-080 · Deriving a contract from CSS plus Razor plus JS cost four defects that no single source showed
+
+**Surface:** `CoverComposition.css`. The inverse of the reference-components
+situation, where the contract *was* the deliverable.
+
+Contract confidence was rated **HIGH** for `CircleDiagram` — a `.cshtml` that
+*enumerates* its markup is as good a contract as C# — and **MEDIUM** for
+`CoverComposition`, which had three disagreeing sources. The medium one cost four
+real defects, each findable only by reading Razor, CSS and JS together and then
+measuring:
+
+- **Non-clickable CTAs in the image variant** — `pointer-events: none`, because
+  only the *video* variant emits `class="content"`.
+- **A 12-column grid whose tokens are undefined in the source app too.**
+- **An overlay that never overlaid** — three stacked silent failures: no grid, a
+  `1/-1` span degenerating on an implicit grid, and auto-placement refusing to
+  share a cell.
+- **No scrim at all on the image variant**, so display text sat on arbitrary CMS
+  media with no knowable contrast.
+
+The last is the one that matters: it is an accessibility defect that cannot be
+measured in the source repo, because the media is whatever the editor uploads.
+
+---
+
+### F-081 · The design system has no categorical data-viz palette, which is why every porter reaches for the timeline pastels
+
+**Surface:** `CircleDiagram.css`. **A refusal, argued.**
+
+`CircleDiagram` was the one component in this port with a plausible claim on
+`cursor-DESIGN.md`'s five timeline pastels. The claim was declined on three
+measured grounds: **six slots against five pastels**; they are *stage identities*
+the doc forbids off-timeline in four separate places (mint = *Grepping* read as
+"C#" actively misinforms); and they are **light-only by design** while a CMS chart
+must survive the appearance flip.
+
+Replaced with a six-step monochromatic ramp in the brand hue — honest **only
+because** the chart is `aria-hidden` and the legend carries label plus value as
+text, so colour is not the information channel.
+
+**The real finding is the gap:** `cursor-DESIGN.md` has no categorical data-viz
+palette at all. That is why the timeline pastels are the first thing any porter
+reaches for, and it will happen again. It needs a proper categorical set —
+appearance-reactive, contrast-checked against both grounds, and explicitly *not*
+the timeline identities.
+
+---
+
+### F-082 · The bridge and Tailwind share `xs…xl` with every step shifted by one
+
+**Surface:** `primitive-tokens.css` versus Tailwind's spacing scale. **A latent
+trap in every future conversion.**
+
+Four utilities substituted during a step-3 conversion turned out **not** to be
+equivalent to what they replaced, and the counts show the blast radius:
+
+| Utility | What it actually differs by | Nodes affected |
+|---|---|---|
+| `text-caption` | carries a line-height the original did not | **440** |
+| `rounded-full` | `9999px` ≠ `50%` | 52 |
+| `gap-xs` | **8 px, while the bridge maps `--size-xs` to 4 px** | 52 |
+| `text-title-md` | overrides heading metrics | 22 |
+
+The third is the systemic one. The source's scale is `xs 3–4 · sm 6 · md 12 ·
+lg 18 · xl 24`; Tailwind's is `xs 8 · sm 12 · md 16 · lg 24 · xl 32`. **They share
+the suffixes and every step is shifted by one.** So a conversion that translates
+`--size-md` to `gap-md` by suffix is silently wrong by one step, everywhere, and
+looks plausible.
+
+**Rule for any future conversion: translate through the bridge table, never by
+suffix.** And the sharper lesson: a computed-style diff catches this only if the
+diff runs over every instance — a spot check would have passed.
+
+Also recorded from the same port: **one undefined token killed 190 of 224 lines**
+of `Tables.css` — `--_border` inside a shorthand, invalid at computed-value time,
+no error reported anywhere. That is F-066's shorthand mechanism again, at nine
+times the scale.
+
+---
+
+### F-083 · The "compiler fix is always better" pattern does not repeat
+
+**Surface:** `CircleDiagram.tsx`, `CoverCompositionVideo.tsx`. **A correction to
+F-067's optimism, made by the agent that had every incentive to agree with me.**
+
+F-067 observed that each React 19 compiler rule rejected an idiom a port arrives
+at naturally, and that the fix had so far been *better* rather than merely
+compliant — `useSyncExternalStore` was measurably faster, and hoisting a
+ref-dereferencing helper removed a read that was silently degrading to a fallback.
+I asked explicitly whether that held for the third rule and said not to assume the
+flattering answer.
+
+It half holds. The **ref-mirroring** fix is strictly better. The **render-loop
+accumulator** fix is **pure compliance cost** — less readable and O(n²) where the
+original was O(n).
+
+So three rules, two improvements, one regression. The pattern is real but it is
+not a law, and the accumulator case is the honest counterexample.
+
+**And two measurement failures from the same port cost more time than any defect
+it found**, which is now this project's most reliable regularity: a contrast probe
+that regexed digits out of `lab()`/`oklch()` reported **1.36:1 for a 16.91:1
+pair**; and a concurrent `npm run build` in the shared tree left the server
+serving a 404'd CSS chunk, at which point the probe reported **21:1 ratios on a
+page with no design at all**. Probes there now refuse to run unless every
+stylesheet resolves — which is the guard F-077 arrived at independently, from a
+different symptom, on the same day.
+
+---
+
 ## Proposals written for upstream
 
 Where a finding implies a change to the library rather than to this port, the
