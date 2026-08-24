@@ -8,7 +8,7 @@
  * WHY IT IS NEEDED. `Tables.css` declares `overflow-x: auto` on `table` itself.
  * That is a no-op: a table box is not a scroll container, so the declaration
  * computes and does nothing, and a 12-column table pushes the DOCUMENT sideways.
- * Measured at 320 px before this wrapper existed — see F-072. The source app
+ * Measured at 320 px before this wrapper existed — see O-09. The source app
  * never noticed because its own table demos are all narrow.
  *
  * WHY THE WRAPPER IS FOCUSABLE AND THE TABLE IS NOT. `table.md` criterion 1 is
@@ -16,7 +16,7 @@
  * 2.1.1 needs a scrollable region to be reachable by keyboard. Both hold only if
  * the focus target is the wrapper — putting `tabindex` on the `<table>` would
  * satisfy axe's `scrollable-region-focusable` and violate the atomica11y
- * criterion at the same time. F-073.
+ * criterion at the same time. O-10.
  *
  * Server Component: it computes no state.
  */

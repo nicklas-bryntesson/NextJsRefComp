@@ -34,7 +34,7 @@ import { CircleDiagram } from "./CircleDiagram";
  * the exact pattern `Cell`'s own comment prescribes ("so a component can use a
  * plain `w-[28rem] max-w-full` and get reflow for free"). Same shape as the Button
  * port's `Row`: the shared chrome is field-shaped and off-limits, so an
- * intrinsically-sized component states its width at the call site. F-091. */
+ * intrinsically-sized component states its width at the call site. O-28. */
 function Sized({ children }: { children: ReactNode }) {
   return <div className="w-[22rem] min-w-0 max-w-full">{children}</div>;
 }
@@ -72,7 +72,7 @@ export function CircleDiagramKitchensink() {
               by segment ordinal with no wrap, so a seventh segment resolves
               `var(--CircleDiagram-color-7)` to nothing: an invalid conic-gradient
               stop, which invalidates the WHOLE gradient and renders the chart
-              blank. Reproduced deliberately. F-074. */}
+              blank. Reproduced deliberately. O-11. */}
           <Cell caption="7 segments (source: chart goes blank)">
             <Sized>
               <CircleDiagram

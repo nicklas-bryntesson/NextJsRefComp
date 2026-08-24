@@ -7,7 +7,7 @@
  * as `Prose.css`. So this file imports the stylesheet directly and supplies
  * ARBITRARY table markup — there is no `<Table>` wrapper to import, because a
  * wrapper would invent a contract the source does not have and would not be
- * reachable by the selectors that do the work. See F-070.
+ * reachable by the selectors that do the work. See O-07.
  *
  * The demo tables are the source's own (`Views/Shared/Partials/KitchenSink/
  * _Tables.cshtml`), narrowed to the structural axes the stylesheet branches on —
@@ -18,7 +18,7 @@
  * source's demos mostly do not, and three of them use `<th>` with no `scope` at
  * all. That is a deliberate correction, not a port: atomica11y's `table.md`
  * requires a caption and identified row/column headers, and this is the only
- * inspection surface the primitive has. F-071.
+ * inspection surface the primitive has. O-08.
  */
 
 import type { ReactNode } from "react";
@@ -33,14 +33,14 @@ import { TableScroll } from "./TableScroll";
  * five-column table of real names has a min-content width of ~500 px; nothing a
  * `table { }` rule can say makes that fit 320 px, because the only mechanisms
  * that would — a scroll container, or a display change — are either forced to
- * `visible` on a table box (F-072) or destroy the table semantics the stylesheet
+ * `visible` on a table box (O-09) or destroy the table semantics the stylesheet
  * and atomica11y both depend on. Measured: 578 px of document overflow at 320 px
  * for the 12-column case, 219 px for the plain five-column one.
  *
  * So the "no component" verdict has exactly ONE limit: reflow puts a single
  * wrapper element into the contract. That is the whole markup requirement this
  * stylesheet turns out to have, and the source app never discovered it because
- * every one of its own demos is narrow. F-088.
+ * every one of its own demos is narrow. O-25.
  */
 function Framed({ label, children }: { label: string; children: ReactNode }) {
   return <TableScroll label={label}>{children}</TableScroll>;
@@ -289,7 +289,7 @@ export function TableKitchensink() {
             1.4.10 is a defect in the kitchensink, not a demonstration (CLAUDE.md
             is explicit about this; one fixed-width demo previously put 9 px of
             scroll on the shared page). The number lives in the step-1 snapshot
-            and in F-072; the page shows the version that passes. */}
+            and in O-09; the page shows the version that passes. */}
         <Block title="Wrapped in TableScroll — 12 columns at any viewport">
           <Cell caption="scroll region, keyboard-reachable">
             <TableScroll label="Quarterly figures by region, scrollable">

@@ -11,7 +11,7 @@
  * invalid-at-computed-value-time, so the whole `border` shorthand fell to its
  * initial value and computed `border-top-width: 0px`. That ONE token took out
  * the entire border and radius system — 190 of 224 lines — plus the header
- * band, the footer band and the row-header hatch. Measured, see F-077.
+ * band, the footer band and the row-header hatch. Measured, see O-14.
  *
  * MAPPING (source constant -> ours):
  *   --COLOR-N30  #c2cfe2 cool grey border  -> --color-hairline      hairline-only depth
@@ -29,20 +29,20 @@
  *
  * THREE REPAIRS, all source defects rather than design changes:
  *  · `text-align: middle` on the caption is not a valid value for that property,
- *    so the browser drops the declaration. Repaired to `center`. F-078.
+ *    so the browser drops the declaration. Repaired to `center`. O-15.
  *  · The scroll declaration on `table` was silently forced to `visible` by the
  *    engine — a table box is not a scroll container. Measured: computed
  *    `visible` in Chromium, in both appearances. Moved to `.table-scroll`, which
  *    is what `TableScroll.tsx` is for, and it is the whole reason a 12-column
- *    table can reflow at 320 px. F-072.
+ *    table can reflow at 320 px. O-09.
  *  · `border-spacing: var(--borderWidth)` in the no-`:has()` fallback read a
  *    token that is undefined IN THE SOURCE APP TOO. Set to 0, which is the value
  *    the invalid var already produced.
  *
  * NOT SCOPED. Every selector is still the bare `table` element, because that IS
- * the contract this stylesheet has (F-070). The consequence in Next.js is that
+ * the contract this stylesheet has (O-07). The consequence in Next.js is that
  * "component CSS" means ROUTE-scoped, not element-scoped, and five ported
- * reference components render `<table>`. Measured collision count in F-079.
+ * reference components render `<table>`. Measured collision count in O-16.
  */
 
   table {
@@ -52,12 +52,12 @@
     /* REPAIR: the horizontal-scroll declaration lived here and computed to
        `visible` — the engine forces that, because a table box is not a scroll
        container. The real scroll container is `.table-scroll`, at the bottom
-       of this file. F-072. */
+       of this file. O-09. */
 
     & caption {
       caption-side: bottom;
       color: var(--text-secondary);
-      text-align: center; /* REPAIR: `middle` is not valid here. F-078. */
+      text-align: center; /* REPAIR: `middle` is not valid here. O-15. */
       margin-block-start: 0.5rem;
     }
 
@@ -288,7 +288,7 @@
  * system's, and it is on the WRAPPER — atomica11y's `table.md` criterion 1
  * requires the table itself not to be focusable, while WCAG 2.1.1 requires the
  * scroll region to be reachable by keyboard. Both hold only if the wrapper is
- * the focus target. F-073.
+ * the focus target. O-10.
  */
 .table-scroll {
   max-inline-size: 100%;

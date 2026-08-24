@@ -3,7 +3,7 @@
  * Step 1 was byte-identical to `ClientApp/css/04_ui/CoverComposition.css`. The
  * source's own header comment is kept below, unedited, because two of the three
  * class names it documents do not exist anywhere in the source app — that
- * mismatch is part of what made the contract MEDIUM confidence (F-065).
+ * mismatch is part of what made the contract MEDIUM confidence (O-02).
  *
  * FOUR THINGS CHANGED, and one of them is a genuine mechanism, not a repaint.
  *
@@ -29,7 +29,7 @@
  *      heading over the scrim   1.36:1
  *    `color-scheme` changes UA-rendered things inside the subtree (scrollbars, and
  *    the native `controls` the SSR pass ships) and nothing at all about a
- *    `light-dark()` token declared elsewhere. F-080.
+ *    `light-dark()` token declared elsewhere. O-17.
  *
  *    WHAT SHIPS INSTEAD: two component-local properties holding an
  *    appearance-INDEPENDENT on-media pair, written as `oklch()` in the design's
@@ -39,7 +39,7 @@
  *
  *    This is a MISSING BRIDGE ROLE, not a component decision. `design-tokens.css`
  *    and `primitive-tokens.css` have no `on-media` / scrim family, and per the
- *    file boundaries this port does not add one. Open question in F-080.
+ *    file boundaries this port does not add one. Open question in O-17.
  *
  * 2. COLOUR (source constant -> ours):
  *      --COLOR-N20 #e0e9f6 media placeholder -> --color-surface-strong
@@ -53,14 +53,14 @@
  *    `.content-container` has been a single-column grid with `column-gap: normal`
  *    since it was written. Given fallbacks rather than replacements, which keeps
  *    the override seam F-062 says a utility conversion destroys: a host that
- *    defines the tokens still wins. F-081.
+ *    defines the tokens still wins. O-18.
  *
  * 4. THE `.content` DEFECT IS FIXED. `.content-container` sets
  *    `pointer-events: none` and only `.content` restored it — but the source's
  *    IMAGE variant emits a bare `<div>` with no `content` class, so its CTA
  *    buttons computed `pointer-events: none` and were not clickable. Measured on
  *    the step-1 baseline. The fix is `.content-container > *`, which covers both
- *    variants without renaming anything. F-066.
+ *    variants without renaming anything. O-03.
  *
  * Radius: none. A full-bleed hero has no corners; the kitchensink's own frame
  * supplies `radius-lg`. Depth: hairline only, no shadows — the source had none.
@@ -96,7 +96,7 @@
   position: relative;
 
   /* `display: grid` IS THE FIX FOR THE IMAGE VARIANT, and it is the second half
-     of F-066. The source's base rule is `position: relative` and nothing else;
+     of O-03. The source's base rule is `position: relative` and nothing else;
      the grid comes from a SEPARATE utility class, `grid-container`, which the
      Razor puts on the VIDEO variant and omits from the IMAGE variant. Without a
      grid, the overlay branch's `grid-row: 1` on both children is inert, so the
@@ -112,7 +112,7 @@
      That is harmless: a grid with implicit rows and no placement stacks its
      children vertically, which is exactly the STACKED layout the source's
      `<21.25rem` branch describes. And `grid-container` is not portable anyway —
-     `--grid-container-columns` is undefined in the source app too (F-081). */
+     `--grid-container-columns` is undefined in the source app too (O-18). */
   display: grid;
 
   /* ONE EXPLICIT COLUMN, and this is the subtle half. The overlay branch places
@@ -125,7 +125,7 @@
      932x118 in column 2 — no overlay, and the retinted on-media text landing on
      the page canvas at 1.06:1 across 11 nodes.
      Declaring one explicit column makes `-1` mean what the source's author
-     plainly intended. F-094. */
+     plainly intended. O-31. */
   grid-template-columns: minmax(0, 1fr);
 
   & .media-container {
@@ -191,7 +191,7 @@
     grid-template-columns: var(--grid-layout-columns, repeat(12, minmax(0, 1fr)));
     pointer-events: none;
 
-    /* F-066: `.content` was the only rule restoring pointer events, and the
+    /* O-03: `.content` was the only rule restoring pointer events, and the
        source's image variant never emits that class, so its CTAs were dead.
        `> *` covers both variants and renames nothing. */
     & > * {
@@ -325,12 +325,12 @@
       /* MUST be placed explicitly, and the source could not know it. Upstream
          this reads `grid-column: main` — a NAMED grid line supplied by the
          `.grid-container` utility, whose `--grid-container-columns` is undefined
-         everywhere in the source app (F-081). With no such line, the
+         everywhere in the source app (O-18). With no such line, the
          content-container AUTO-PLACES, and auto-placement will not stack it on an
          occupied cell: it opened an implicit column 2 and the hero rendered as two
          side-by-side columns (measured `grid-template-columns: 0px 1166px`, media
          0 wide). Naming the same span as the media is what makes the overlay an
-         overlay. F-094. */
+         overlay. O-31. */
       grid-column: 1 / -1;
       z-index: 2;
       /* On media in this branch, so the dark half applies — see note 1. */

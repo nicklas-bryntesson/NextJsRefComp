@@ -11,6 +11,13 @@ Routes: `/primitives/table`, `/primitives/covercomposition`,
 Probes: `web/tasks/probes/orphans-{guard,step1-tokens,step2-verify,computed,axe,reflow,reflow-who}.cjs`.
 Baseline snapshot: `web/tasks/snapshots/orphans-step2-before-tailwind.json`.
 
+**Numbering.** Entries are `### F-NEW`, per the project convention — the owner
+assigns global `F-nnn` numbers at merge. Because this fragment cross-references
+itself heavily (34 entries, ~60 internal references), each entry also carries a
+**local** label `[O-nn]`, and every internal reference uses that. So renumbering
+at merge cannot break a single cross-reference. References to `F-nnn` in this file
+always mean the root `Findings.md`, never an entry here.
+
 `F-061` (the bridge answers the semantic tier, colour reads the constant tier) and
 `F-062` (the blank-property gate does not survive a Tailwind conversion, and the
 cost lands on the consumer) are referenced throughout and live in the root
@@ -23,7 +30,7 @@ stricter than the prose. For the Button family the contract was executable C#.
 Here there is neither. The markup contract had to be **derived from the CSS
 selectors plus whatever Razor happens to use them**, and the confidence in that
 derivation varies enormously between the three. Two of the highest-value entries
-below (F-066, F-094) are defects that exist *only* because nobody ever had to
+below (O-03, O-31) are defects that exist *only* because nobody ever had to
 write the contract down.
 
 ---
@@ -46,7 +53,7 @@ is set out at the end.
 
 ---
 
-### F-064 · A `.cshtml` can be as good a contract as a `.cs` — and one of these three is
+### F-NEW · [O-01] A `.cshtml` can be as good a contract as a `.cs` — and one of these three is
 
 **Surface:** `Views/Partials/richtext/Components/rteCircleDiagramBlock.cshtml`.
 
@@ -65,7 +72,7 @@ The two things it does *not* pin, and neither is markup:
   port, so the element and its type role were reproduced directly. A hard-coded
   `h4` is a heading-order hazard the source already had, and fixing it means
   adding an attribute the contract does not have. Left as found, recorded.
-- `--CircleDiagram-color-7` and beyond. See F-074.
+- `--CircleDiagram-color-7` and beyond. See O-11.
 
 **Decision:** treat "has a TagHelper" as a poor proxy for "has a contract". The
 useful question is whether the markup is enumerated or computed. Enumerated Razor
@@ -74,7 +81,7 @@ with no markup anywhere is not.
 
 ---
 
-### F-068 · A hard-coded `h4` in a rich-text block is a heading-order hazard the contract cannot fix
+### F-NEW · [O-05] A hard-coded `h4` in a rich-text block is a heading-order hazard the contract cannot fix
 
 **Surface:** `rteCircleDiagramBlock.cshtml` line 44 → `CircleDiagram.tsx`.
 
@@ -89,7 +96,7 @@ work and its level matters.
 
 Reproduced as found. Fixing it means adding a `headingLevel` prop, which is an
 **attribute the contract does not have** — and inventing API on a derived contract
-is exactly the failure mode this port is trying to avoid (F-065). The kitchensink
+is exactly the failure mode this port is trying to avoid (O-02). The kitchensink
 sidesteps it: `Section` renders the `<h2>`, so the demo's own outline is valid.
 
 **Open question for the project owner:** add `headingLevel` (as
@@ -100,7 +107,7 @@ second is a constraint no editor will read.
 
 ---
 
-### F-065 · Where there was no TagHelper, the contract had THREE sources and they disagreed
+### F-NEW · [O-02] Where there was no TagHelper, the contract had THREE sources and they disagreed
 
 **Surface:** CoverComposition. **The measured cost of a derived contract.**
 
@@ -127,8 +134,8 @@ any element with that class anywhere in the document.
 
 **What the derivation cost, concretely.** Four real defects in the layout, none
 of which the source app could have noticed, all found by measuring rather than by
-reading: F-066 (dead CTAs), F-081 (a grid with no columns), F-094 (an overlay
-that does not overlay), F-095 (no scrim). Every one is a consequence of the
+reading: O-03 (dead CTAs), O-18 (a grid with no columns), O-31 (an overlay
+that does not overlay), O-32 (no scrim). Every one is a consequence of the
 contract living in three places with nobody responsible for their agreement.
 
 **Decision:** every derived decision is marked `DERIVED:` in the source files, and
@@ -138,7 +145,7 @@ other.
 
 ---
 
-### F-066 · The two variants have different markup, and one of them shipped non-clickable CTAs
+### F-NEW · [O-03] The two variants have different markup, and one of them shipped non-clickable CTAs
 
 **Surface:** `_CoverComposition.cshtml` lines 52 and 89. **The single best
 argument in this port for writing contracts down.**
@@ -174,7 +181,7 @@ copies the source's own markup is also covered.
 
 ---
 
-### F-067 · The chart is a `<div>` with a background, and the legend is the only accessible representation
+### F-NEW · [O-04] The chart is a `<div>` with a background, and the legend is the only accessible representation
 
 **Surface:** `CircleDiagram.tsx`, `CircleDiagram.css`.
 
@@ -196,7 +203,7 @@ option costs nothing and invents nothing.
 plus `role="group"` and `aria-label` on the `<figure>` so the figure announces
 what it is.
 
-**This decision is load-bearing for F-082** — it is what makes a monochromatic
+**This decision is load-bearing for O-19** — it is what makes a monochromatic
 palette honest. Nothing depends on telling adjacent fills apart, so WCAG 1.4.1
 "Use of Color" is satisfied by the text and not by the hues.
 
@@ -208,7 +215,7 @@ recorded in the stylesheet header at the point of use.
 
 ## Tables.css — the "is it even a component" question
 
-### F-070 · 224 lines, zero class names: this is a stylesheet, not a component, and the honest port says so
+### F-NEW · [O-07] 224 lines, zero class names: this is a stylesheet, not a component, and the honest port says so
 
 **Surface:** `ClientApp/css/04_ui/Tables.css`.
 
@@ -233,7 +240,7 @@ wrapper would be unreachable by the selectors that do all the work.
 
 **What shipped instead:** `Tables.css` (restyled), a kitchensink that imports it
 and supplies arbitrary table markup, a documented markup contract, and exactly
-one React file — `TableScroll.tsx`, which exists for the reason in F-088 and for
+one React file — `TableScroll.tsx`, which exists for the reason in O-25 and for
 no other.
 
 **Decision:** ported as a stylesheet. `Table` is singular in the directory name
@@ -241,7 +248,7 @@ because the directory holds a stylesheet about tables, not a Table component.
 
 ---
 
-### F-071 · The source's own table demos fail the accessibility criteria the library documents
+### F-NEW · [O-08] The source's own table demos fail the accessibility criteria the library documents
 
 **Surface:** `Views/Shared/Partials/KitchenSink/_Tables.cshtml` vs
 `reference-components/docs/atomica11y/main/table.md`.
@@ -268,7 +275,7 @@ structural axes the *stylesheet* branches on are reproduced exactly — tbody on
 
 ---
 
-### F-072 · `overflow-x: auto` on a `table` is silently forced to `visible`, so the source's whole reflow strategy is a no-op
+### F-NEW · [O-09] `overflow-x: auto` on a `table` is silently forced to `visible`, so the source's whole reflow strategy is a no-op
 
 **Surface:** `Tables.css` line 5, verbatim.
 
@@ -300,7 +307,7 @@ next person to see a bare `table { overflow-x: auto }` will assume it works too.
 
 ---
 
-### F-088 · An element-level table stylesheet CANNOT satisfy WCAG 1.4.10 on its own — reflow puts exactly one element into the contract
+### F-NEW · [O-25] An element-level table stylesheet CANNOT satisfy WCAG 1.4.10 on its own — reflow puts exactly one element into the contract
 
 **Surface:** `/primitives/table`, 320–1280 px sweep.
 **This is the answer to "how does a wide table survive 320 px".**
@@ -320,9 +327,9 @@ overflowed by 219 px at 320 px. This is not an exotic case; it is a normal data
 table.
 
 Nothing a `table { }` rule can say fixes it. The two mechanisms that would are
-both unavailable: `overflow` is forced to `visible` on a table box (F-072), and
+both unavailable: `overflow` is forced to `visible` on a table box (O-09), and
 changing `display` destroys the table semantics that both this stylesheet and
-`atomica11y/main/table.md` depend on. So the "no component" verdict of F-070 has
+`atomica11y/main/table.md` depend on. So the "no component" verdict of O-07 has
 **exactly one limit**: reflow forces a single wrapper element into the contract.
 That is the entire markup requirement this stylesheet turns out to have, and the
 source app never found it because every one of its own demos is narrow.
@@ -342,7 +349,7 @@ except that they overflow.
 
 ---
 
-### F-073 · The scroll container's two accessibility requirements pull in opposite directions, and only the wrapper satisfies both
+### F-NEW · [O-10] The scroll container's two accessibility requirements pull in opposite directions, and only the wrapper satisfies both
 
 **Surface:** `TableScroll.tsx`, `Tables.css`.
 
@@ -383,7 +390,7 @@ focus ring (`Findings.md`, CLAUDE.md), so composing it here would import a known
 
 ---
 
-### F-077 · One undefined token took out 190 of 224 lines, and the port could not see it because nothing errored
+### F-NEW · [O-14] One undefined token took out 190 of 224 lines, and the port could not see it because nothing errored
 
 **Surface:** `Tables.css`, step 1 verbatim. **F-061, a second time, worse.**
 
@@ -398,7 +405,7 @@ All three stylesheets in this scope read constants. Measured with
 | `--COLOR-N10`, `--COLOR-N20`, `--COLOR-N30`, `--COLOR-N80`, `--COLOR-B90` | **UNDEFINED** |
 | `--grid-layout-gap`, `--grid-layout-columns`, `--grid-container-columns` | **UNDEFINED** |
 | `--borderWidth` | **UNDEFINED** |
-| `--fontSize-label-sm` | **UNDEFINED** (a typo — see F-084) |
+| `--fontSize-label-sm` | **UNDEFINED** (a typo — see O-21) |
 | `--color-text-muted` | **UNDEFINED** (but written with a fallback — see below) |
 | `--fontFamily-body`, `--size-md`, `--fontSize-body-small`, `--fontSize-label-small` | resolved correctly |
 
@@ -450,7 +457,7 @@ apply to it. Worth stating explicitly so a future reader does not "fix" it.
 
 ---
 
-### F-078 · `text-align: middle` — a source defect the browser silently drops
+### F-NEW · [O-15] `text-align: middle` — a source defect the browser silently drops
 
 **Surface:** `Tables.css`, the caption rule.
 
@@ -466,7 +473,7 @@ caption inherits `start`. Repaired to `center` in step 2 — unambiguously the
 intent for a caption, and a one-word change that had been inert since it was
 written.
 
-Small on its own; it belongs in the same family as F-072 and as the Button port's
+Small on its own; it belongs in the same family as O-09 and as the Button port's
 `color: var()`. **Three of the four stylesheets ported from this source app
 contain at least one declaration that has never had any effect.** A stylesheet
 with no tests and no conformance suite accumulates dead declarations, and a
@@ -474,7 +481,7 @@ browser's error recovery is what hides them.
 
 ---
 
-### F-079 · "Component CSS" in Next.js means ROUTE-scoped, which is the wrong granularity for an element-level stylesheet
+### F-NEW · [O-16] "Component CSS" in Next.js means ROUTE-scoped, which is the wrong granularity for an element-level stylesheet
 
 **Surface:** `/kitchen-sink` with `Tables.css` injected.
 
@@ -501,7 +508,7 @@ The source app already knew: `DateField.css:248` and `DateTimeField.css:247` bot
 carry `background: none; /* override global Tables.css thead th band */`. Two
 components paying a tax to a global element stylesheet, in the source's own repo.
 
-**Decision:** the selectors stay bare, because that *is* the contract (F-070), and
+**Decision:** the selectors stay bare, because that *is* the contract (O-07), and
 the port keeps `Tables.css` on its own route where nothing else renders a table.
 **Open question for the project owner:** if this stylesheet is ever to be used
 alongside the reference components, it needs a scope — a `.Tables` wrapper or a
@@ -514,7 +521,7 @@ incompatible table contracts.
 
 ## CoverComposition — four defects from a contract nobody wrote down
 
-### F-080 · `color-scheme: dark` cannot pin a `light-dark()` token, because `light-dark()` resolves where it is DECLARED
+### F-NEW · [O-17] `color-scheme: dark` cannot pin a `light-dark()` token, because `light-dark()` resolves where it is DECLARED
 
 **Surface:** `CoverComposition.css`. **A mechanism I designed, shipped, measured,
 and had to withdraw.**
@@ -582,7 +589,7 @@ around it in my own file, report the token as the real defect.
 
 ---
 
-### F-081 · The grid tokens are undefined in the SOURCE app too, so this hero has never had columns
+### F-NEW · [O-18] The grid tokens are undefined in the SOURCE app too, so this hero has never had columns
 
 **Surface:** `CoverComposition.css`; `ClientApp/css/03_utils/grids/`.
 
@@ -616,12 +623,12 @@ day they were written, in a shipped hero on two live page templates.
 
 ---
 
-### F-094 · `grid-column: 1 / -1` degenerates on an implicit grid, so the overlay never overlaid
+### F-NEW · [O-31] `grid-column: 1 / -1` degenerates on an implicit grid, so the overlay never overlaid
 
 **Surface:** `CoverComposition.css`, the overlay branch. **Three stacked
 mistakes, each hiding the next.**
 
-The step-2 restyle retinted the hero's content for media (F-080) and axe
+The step-2 restyle retinted the hero's content for media (O-17) and axe
 immediately reported **11 contrast failures at 1.06:1** — `#f1f0ed` on `#f7f7f4`.
 The retint was not the bug; it *exposed* one. Chasing it took three rounds, and
 each round's fix revealed the next problem:
@@ -648,7 +655,7 @@ each round's fix revealed the next problem:
 3. **Auto-placement will not stack on an occupied cell.** Still two columns:
    `0px 1166px`. The content-container has no `grid-column` in the overlay branch
    at all — upstream it reads `grid-column: main`, the named line from the
-   undefined `--grid-container-columns` (F-081). With no such line it auto-places,
+   undefined `--grid-container-columns` (O-18). With no such line it auto-places,
    and auto-placement opens a new column rather than sharing an occupied one. →
    placed it explicitly on the same span as the media.
 
@@ -667,9 +674,9 @@ was not evidence the hero worked. It was evidence the hero was invisible.
 
 ---
 
-### F-095 · The image variant has no scrim, so display text sat on arbitrary CMS media with no knowable contrast
+### F-NEW · [O-32] The image variant has no scrim, so display text sat on arbitrary CMS media with no knowable contrast
 
-**Surface:** `_CoverComposition.cshtml`. Found while fixing F-094.
+**Surface:** `_CoverComposition.cshtml`. Found while fixing O-31.
 
 The Razor emits `<span class="overlay">` in the **video** variant only. The image
 variant overlays display-size content (72 px) on an editor-uploaded image with
@@ -679,7 +686,7 @@ ground, and neither the stylesheet nor axe can catch it — axe reads the CSS
 background, not the image pixels.
 
 Added to the image variant in step 2. Measured with the scrim compositing properly
-(see F-092 for why the first measurement of this was garbage), against the two
+(see O-29 for why the first measurement of this was garbage), against the two
 extremes any photo can present:
 
 | | over pure-WHITE media | over pure-BLACK media |
@@ -697,7 +704,7 @@ one poster would be meaningless — the component does not choose the poster.
 
 ---
 
-### F-069 · Server-rendering the video controls removes a dead-control window the source has by construction
+### F-NEW · [O-06] Server-rendering the video controls removes a dead-control window the source has by construction
 
 **Surface:** `CoverCompositionVideo.tsx` vs `ClientApp/js/utils/CoverCompositionVideo.ts`.
 
@@ -726,7 +733,7 @@ dropped, which the source does not do.
 
 ---
 
-### F-075 · A full-bleed component cannot use the shared `Block`, for the same reason an intrinsically-sized one cannot use `Cell`
+### F-NEW · [O-12] A full-bleed component cannot use the shared `Block`, for the same reason an intrinsically-sized one cannot use `Cell`
 
 **Surface:** `CoverComposition.kitchensink.tsx`.
 
@@ -746,7 +753,7 @@ on the page.
 **Decision:** recorded rather than fixed, because `web/src/components/**` is
 off-limits and correctly so. But the pattern is now three-for-three — Button
 needed `Row` because it is intrinsically sized, CircleDiagram needed `Sized`
-because it is fluid (F-091), CoverComposition needs `Frame` because it is
+because it is fluid (O-28), CoverComposition needs `Frame` because it is
 full-bleed. **The shared chrome is field-shaped**: it assumes a component is a
 form control that wants to be exactly as wide as its cell. Every primitive that is
 not a form control has had to opt out. That is worth a design decision at the
@@ -756,7 +763,7 @@ chrome level rather than a fourth local wrapper.
 
 ## CircleDiagram — and the timeline-pastel question
 
-### F-082 · CircleDiagram does NOT have a claim on the timeline pastels, and the reason it looks like it does is the interesting part
+### F-NEW · [O-19] CircleDiagram does NOT have a claim on the timeline pastels, and the reason it looks like it does is the interesting part
 
 **Surface:** `CircleDiagram.css`, whose own step-1 comment read
 `/* Hardcoded palette — swap for tokens later */`.
@@ -801,7 +808,7 @@ at N = 100/78/60/44/29/15. Zero new hues; both operands are `light-dark()` pairs
 so the ramp follows the appearance (measured: step 1 is `rgb(200,64,0)` in light
 and `rgb(255,122,64)` in dark).
 
-**A monochromatic ramp is only defensible because of F-067.** The chart is
+**A monochromatic ramp is only defensible because of O-04.** The chart is
 `aria-hidden` and the legend renders every label *and* every percentage as text,
 so nothing depends on distinguishing adjacent fills — WCAG 1.4.1 is satisfied by
 the text, not by the hues. Recorded at the point of use: if a future variant drops
@@ -816,7 +823,7 @@ component.
 
 ---
 
-### F-074 · A seventh segment blanked the entire chart, because one invalid stop invalidates the whole gradient
+### F-NEW · [O-11] A seventh segment blanked the entire chart, because one invalid stop invalidates the whole gradient
 
 **Surface:** `rteCircleDiagramBlock.cshtml` line 29.
 
@@ -835,12 +842,12 @@ which makes the failure look like a rendering bug rather than a data limit.
 **Decision:** the palette index wraps (`(i % 6) + 1`), so a seventh segment
 degrades to a repeated colour instead of destroying the chart. Demonstrated
 explicitly on the kitchensink with a 7-segment instance. Wrapping is only
-survivable because the legend carries the data as text (F-067) — with a
+survivable because the legend carries the data as text (O-04) — with a
 colour-only legend, two identical fills would be as broken as none.
 
 ---
 
-### F-083 · The donut hole was a plain white literal — CLAUDE.md's first tier, in the one place it is most visible
+### F-NEW · [O-20] The donut hole was a plain white literal — CLAUDE.md's first tier, in the one place it is most visible
 
 **Surface:** `CircleDiagram.css`, `.CircleDiagram-center { background: #fff }`.
 
@@ -858,14 +865,14 @@ worth keeping together, because they show the whole spectrum in 87 lines:
 
 - `var(--color-text-muted, currentColor)` — token undefined, **inline fallback
   saved it**. The subtitle rendered correctly on the verbatim build purely by
-  accident of how the declaration was written (see F-077).
+  accident of how the declaration was written (see O-14).
 - `var(--fontSize-label-sm)` — a **typo** for `--fontSize-label-small`; the
   source's own token set has no `-sm`. No fallback, so it resolved to nothing and
-  the legend silently fell back to the inherited 16 px instead of 13 px. F-084.
+  the legend silently fell back to the inherited 16 px instead of 13 px. O-21.
 
 ---
 
-### F-084 · `--fontSize-label-sm` is a typo in the source, and with no fallback it failed silently
+### F-NEW · [O-21] `--fontSize-label-sm` is a typo in the source, and with no fallback it failed silently
 
 **Surface:** `CircleDiagram.css`, `.CircleDiagram-legend-item`.
 
@@ -878,7 +885,7 @@ variant anywhere in `ClientApp/scss/tokens`. Measured on the verbatim build:
 `--fontSize-label-sm` → **UNDEFINED**, `--fontSize-label-small` → `.8125rem`. The
 legend fell back to the inherited 16 px instead of the intended 13 px.
 
-Worth its own entry rather than a footnote to F-083 because of the contrast with
+Worth its own entry rather than a footnote to O-20 because of the contrast with
 its neighbour two rules below: `var(--color-text-muted, currentColor)`, whose token
 is *also* undefined, rendered correctly — the inline fallback carried it. **Same
 file, same class of mistake, opposite outcome, decided entirely by whether the
@@ -891,13 +898,13 @@ indefinitely.
 
 **Decision:** repaired to `--fontSize-label-small`, verified at 13 px in both
 appearances. **Open question:** a build-time or CI check that every custom property
-read by the ported CSS resolves would have caught this, F-077's eleven undefined
-tokens, and F-081's grid tokens — three separate findings, one instrument. That is
+read by the ported CSS resolves would have caught this, O-14's eleven undefined
+tokens, and O-18's grid tokens — three separate findings, one instrument. That is
 a bigger return than any of the individual fixes.
 
 ---
 
-### F-085 · `opacity: 0.7` on text is a multiplier on a ratio nobody measured
+### F-NEW · [O-22] `opacity: 0.7` on text is a multiplier on a ratio nobody measured
 
 **Surface:** `CircleDiagram.css`, `.CircleDiagram-legend-value`.
 
@@ -923,7 +930,7 @@ this project, same source app.
 
 ---
 
-### F-087 · The source gated a layout on the viewport when the thing that varies is the container
+### F-NEW · [O-24] The source gated a layout on the viewport when the thing that varies is the container
 
 **Surface:** `CircleDiagram.css`, `@media (min-width: 30rem)`.
 
@@ -959,7 +966,7 @@ wide on a 1280 px viewport, which the viewport query got wrong.
 
 ## What the three steps taught about the method
 
-### F-086 · The kitchensink's own prose failed 1.4.10 while the component under test passed
+### F-NEW · [O-23] The kitchensink's own prose failed 1.4.10 while the component under test passed
 
 **Surface:** `CoverComposition.kitchensink.tsx`, step 2.
 
@@ -988,7 +995,7 @@ minutes rather than by bisection.
 
 ---
 
-### F-090 · A percentage width on a flex item sized from its content is a circular dependency that resolves to nothing
+### F-NEW · [O-27] A percentage width on a flex item sized from its content is a circular dependency that resolves to nothing
 
 **Surface:** `CircleDiagram.css`, `.CircleDiagram-chart`, step 2.
 
@@ -1011,7 +1018,7 @@ containing block simply does not apply, rather than poisoning the used value. Al
 restored `flex-shrink: 1` (the source pins it to `0`), which is what actually lets
 the circle shrink below 200 px instead of overflowing.
 
-The same trap then reappeared one level up, in the fix for F-091:
+The same trap then reappeared one level up, in the fix for O-28:
 `min-inline-size: min(100%, 18rem)` on the figure is not a floor either, for
 exactly this reason. **Twice in one component, in two different properties, both
 looking like the obvious answer.** The rule worth carrying: a percentage length on
@@ -1020,7 +1027,7 @@ guess — and `min()` / `max()` around it does not make it one.
 
 ---
 
-### F-091 · The shared chrome is field-shaped, and it silently sized a 200 px chart to 62 px
+### F-NEW · [O-28] The shared chrome is field-shaped, and it silently sized a 200 px chart to 62 px
 
 **Surface:** `CircleDiagram.kitchensink.tsx`; `kitchensink-ui.tsx` `Cell`.
 
@@ -1066,7 +1073,7 @@ narrow, and both are the shared chrome being field-shaped.
 
 ---
 
-### F-089 · The React compiler rejects a third idiom that a straight port produces — and this time only half the fix is an improvement
+### F-NEW · [O-26] The React compiler rejects a third idiom that a straight port produces — and this time only half the fix is an improvement
 
 **Surface:** `CircleDiagram.tsx:59`, `CoverCompositionVideo.tsx:145`. Two
 `react-hooks/immutability` errors, a rule not previously hit in this project.
@@ -1123,7 +1130,7 @@ claim stays a measurement rather than a slogan.
 
 ---
 
-### F-092 · A contrast probe that parses digits out of a computed colour string produces plausible, wrong numbers
+### F-NEW · [O-29] A contrast probe that parses digits out of a computed colour string produces plausible, wrong numbers
 
 **Surface:** `orphans-step2-verify.cjs`, first version.
 
@@ -1136,7 +1143,7 @@ for `color-mix()` and `oklch()` results. `lab(94.7964 0.107527 1.52066)` parsed 
 It reported a near-white heading on a near-black scrim as **1.36:1**, then
 **1.48:1** after the scrim was fixed. Both looked like exactly the failure I was
 hunting, and I nearly "fixed" a working scrim because of it. The real figures are
-5.09:1 and 16.91:1 (F-095).
+5.09:1 and 16.91:1 (O-32).
 
 Two errors, and the second is the subtler:
 
@@ -1149,13 +1156,13 @@ Two errors, and the second is the subtler:
    media, 16.91:1 over black" expressible at all.
 
 **Decision:** a wrong instrument that produces a plausible number is worse than no
-instrument, because it redirects the work. Recorded next to F-093 — both are
+instrument, because it redirects the work. Recorded next to O-30 — both are
 failures of *measurement* rather than of the port, and between them they cost more
 time than any defect in the three stylesheets.
 
 ---
 
-### F-093 · A shared `web/` directory reproduces the stale-server failure from a new cause, and the probes now refuse to run
+### F-NEW · [O-30] A shared `web/` directory reproduces the stale-server failure from a new cause, and the probes now refuse to run
 
 **Surface:** `/primitives/table` on a server I had started from a good build.
 
@@ -1190,7 +1197,7 @@ a sentinel computed value over any status code.
 
 ---
 
-### F-096 · A utility can express a VALUE; it cannot express a CONDITION whose halves must stay linked
+### F-NEW · [O-33] A utility can express a VALUE; it cannot express a CONDITION whose halves must stay linked
 
 **Surface:** step 3, all three stylesheets. **The direct answer to F-062's
 question, with counts.**
@@ -1206,7 +1213,7 @@ question, with counts.**
 (`tr:first-child th:last-child`) or `:has(thead)` / `:has(tfoot)` gates. A utility
 would have to be placed on each cell by the author, who would have to know whether
 that cell is last in its row **and** whether the table has a `tfoot`. The contract
-is "any HTML table" (F-070), so there is no call site to place anything on. This is
+is "any HTML table" (O-07), so there is no call site to place anything on. This is
 not a Tailwind limitation to work around; it is the boundary of what a class-per-
 element model can express.
 
@@ -1237,7 +1244,7 @@ model introduces that neither model has alone.
 
 ---
 
-### F-076 · A class-less stylesheet cannot be keyed by its contract, so the safety net had to key on the DOM
+### F-NEW · [O-13] A class-less stylesheet cannot be keyed by its contract, so the safety net had to key on the DOM
 
 **Surface:** `orphans-computed.cjs`.
 
@@ -1248,7 +1255,7 @@ because a Button *has* a contract surface: `data-emphasis`, `data-intent`,
 contract, and breaks loudly on one that does. That is exactly the property you want
 from a snapshot key.
 
-`Tables.css` has no class names and no `data-*` API (F-070). A `<td>` has nothing
+`Tables.css` has no class names and no `data-*` API (O-07). A `<td>` has nothing
 to be keyed by except *where it is*. So instances are keyed by a **DOM path** —
 `section[2]>div>div[1]>table>tbody>tr[3]>td[2]` — built from tag plus
 `nth-of-type` up to `<main>`.
@@ -1281,7 +1288,7 @@ path, so they degrade gracefully.
 
 ---
 
-### F-097 · Four utilities were not equivalent to the declaration they replaced, and only the computed-style diff knew
+### F-NEW · [O-34] Four utilities were not equivalent to the declaration they replaced, and only the computed-style diff knew
 
 **Surface:** step 3, `orphans-computed.cjs diff`. **The safety net earning its
 keep.**
@@ -1321,7 +1328,7 @@ primitive must translate through the bridge table, never by matching suffixes.**
 ## Gate results
 
 Measured on a clean production build on port 3210, after verifying every
-stylesheet chunk resolves (F-093), with the routes warmed and Playwright idle.
+stylesheet chunk resolves (O-30), with the routes warmed and Playwright idle.
 
 | Gate | Result |
 |---|---|
@@ -1337,7 +1344,7 @@ stylesheet chunk resolves (F-093), with the routes warmed and Playwright idle.
 
 The 18 "new" entries in the diff are two CTA selectors added to the probe *after*
 the baseline was taken; they carry no before/after coverage for this commit and
-were verified by hand against the step-2 CSS (F-097). Stated rather than hidden.
+were verified by hand against the step-2 CSS (O-34). Stated rather than hidden.
 
 ---
 
@@ -1346,19 +1353,19 @@ were verified by hand against the step-2 CSS (F-097). Stated rather than hidden.
 The owner said "take them along and we discard if we need to". Nothing here is
 dead code, so nothing gets discarded wholesale. Three narrower recommendations:
 
-1. **Discard the idea of a `<Table>` component, permanently.** F-070. `Tables.css`
+1. **Discard the idea of a `<Table>` component, permanently.** O-07. `Tables.css`
    is element-level styling and the honest port is a stylesheet plus a documented
    contract plus one scroll wrapper. If a `<Table>` appears later it will be
    because someone wanted a place to hang props, and it will not be reachable by
    the selectors that do the work.
 
 2. **Discard `Tables.css` from any route that renders reference components**, until
-   the scoping question in F-079 is answered. It restyles 77 % of the elements
+   the scoping question in O-16 is answered. It restyles 77 % of the elements
    inside every table it can reach, the source app already pays that tax in two
    components, and five ported components render `<table>`.
 
 3. **Discard the video variant's `<noscript>` duplicate video** — already done, per
-   F-069 — and consider discarding the source's *injected* controls pattern
+   O-06 — and consider discarding the source's *injected* controls pattern
    wherever else it appears. Server-rendering a control and enhancing it is
    strictly better than injecting it, and the source's own state machine already
    contains the handover step.
@@ -1370,18 +1377,18 @@ step 3, and F-062 is the argument.
 
 ## Open questions for the project owner
 
-1. **An `on-media` token family.** F-080. `design-tokens.css` needs
+1. **An `on-media` token family.** O-17. `design-tokens.css` needs
    `--color-on-media-ground` / `--color-on-media-ink`, defined *without*
    `light-dark()` because they must not flip. They currently live as two `oklch()`
    literals in `CoverComposition.css` because `web/src/styles/**` is off-limits to
    this port.
-2. **A categorical data-visualisation palette.** F-082. Until one exists, every
+2. **A categorical data-visualisation palette.** O-19. Until one exists, every
    chart author will reach for the timeline pastels, and the only thing stopping
    them is a comment in one component.
-3. **Scoping `Tables.css`.** F-079. A `.Tables` wrapper or a `@scope` block changes
+3. **Scoping `Tables.css`.** O-16. A `.Tables` wrapper or a `@scope` block changes
    the contract from "any table" to "any table inside a marked region". A design
    decision, not a porting one.
-4. **`TableScroll` versus `ScrollArea`.** F-073. Whether they converge — noting
+4. **`TableScroll` versus `ScrollArea`.** O-10. Whether they converge — noting
    that `ScrollArea` would import a 2.22:1 focus ring into a data table.
-5. **The fixed `h4` in CircleDiagram.** F-064. A heading-order hazard inherited
+5. **The fixed `h4` in CircleDiagram.** O-01. A heading-order hazard inherited
    from the source; fixing it means adding an attribute the contract does not have.

@@ -24,7 +24,7 @@ const BASE = process.env.BASE_URL || 'http://localhost:3210';
  * every colour is resolved to sRGB by the browser itself, via a canvas, and a
  * translucent background is COMPOSITED over the ground beneath it rather than
  * being treated as opaque. Recorded because a wrong instrument that produces a
- * plausible number is worse than no instrument. F-092. */
+ * plausible number is worse than no instrument. O-29. */
 async function resolve(page, colours) {
   return page.evaluate((list) => {
     const cv = document.createElement('canvas');

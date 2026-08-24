@@ -45,22 +45,22 @@
  * every label AND every percentage as text, so nothing depends on telling
  * adjacent fills apart — WCAG 1.4.1 is satisfied by the text, not by the hues.
  * If a future variant drops the legend, the ramp stops being sufficient and this
- * decision has to be revisited. F-082.
+ * decision has to be revisited. O-19.
  *
  * OTHER CHANGES:
  *  · The donut hole was a plain literal white — right in light, wrong in dark,
  *    the first of the three tiers CLAUDE.md names. Now `--color-surface-card`.
- *    Measured white-on-dark before the change. F-083.
+ *    Measured white-on-dark before the change. O-20.
  *  · `--fontSize-label-sm` is a TYPO for `--fontSize-label-small`; the source's
  *    own token set has no `-sm`. It resolved to nothing and the legend fell back
- *    to inherited size. Repaired. F-084.
+ *    to inherited size. Repaired. O-21.
  *  · `--color-text-muted` is undefined, but the source wrote it with a
  *    `currentColor` fallback, so the subtitle rendered — the one place in these
  *    three stylesheets where an inline fallback saved a constant-tier read.
  *    Pointed at `--text-secondary`, keeping the fallback.
  *  · The value text was dimmed with an opacity multiplier, which dropped it below
  *    AA. Replaced with `--text-secondary`, which is a real ratio rather than a
- *    multiplier on one. F-085.
+ *    multiplier on one. O-22.
  *  · The chart size is capped at `100%` so a 200 px circle cannot set the
  *    document width at 320 px.
  *
@@ -93,7 +93,7 @@
  * because this file is UNLAYERED and Tailwind's utilities live in
  * `@layer utilities` — unlayered declarations win over layered ones regardless of
  * source order. That is load-bearing and invisible at the call site: a reader of
- * the JSX sees `flex-col` and cannot tell that a media query overrides it. F-096.
+ * the JSX sees `flex-col` and cannot tell that a media query overrides it. O-33.
  */
 
 .CircleDiagram {
@@ -103,7 +103,7 @@
     /* A six-step monochromatic ramp in the brand hue. Both operands are
        `light-dark()` pairs, so the ramp follows `color-scheme` with no `dark:`
        variants. See the header above for why the timeline pastels are not used
-       (F-082), and point 1 for why these stay custom properties. */
+       (O-19), and point 1 for why these stay custom properties. */
     --CircleDiagram-color-1: var(--color-primary);
     --CircleDiagram-color-2: color-mix(in oklch, var(--color-primary) 78%, var(--color-surface-strong));
     --CircleDiagram-color-3: color-mix(in oklch, var(--color-primary) 60%, var(--color-surface-strong));
@@ -117,7 +117,7 @@
        width on a flex item whose container is sized from its content is a circular
        dependency, so the 200px donut rendered at 62.27px. `width` plus a
        `max-w-full` utility expresses the same intent without the circularity.
-       F-090. The width itself stays here because it reads the size seam. */
+       O-27. The width itself stays here because it reads the size seam. */
     width: var(--CircleDiagram-size);
 }
 
@@ -138,7 +138,7 @@
  *
  * Container query with the viewport MQ as an `@supports not` fallback — the same
  * preferred-plus-fallback pattern `CoverComposition.css` already uses upstream,
- * so it is the source repo's own newer idiom rather than an invention. F-087.
+ * so it is the source repo's own newer idiom rather than an invention. O-24.
  */
 @supports (container-type: inline-size) {
     .CircleDiagram {

@@ -12,7 +12,7 @@
  * the way a Button can. Table cells are keyed by a DOM PATH instead — table
  * ordinal, section, row index, cell index — which is the only stable identity an
  * element-level stylesheet offers. That is itself the finding F-062 asks about:
- * see findings/primitives-orphans.md F-076.
+ * see findings/primitives-orphans.md O-13.
  *
  * Usage:
  *   node tasks/probes/orphans-computed.cjs save <file>
@@ -61,7 +61,7 @@ const TARGETS = {
        hero is guarded. The CTA was verified against the step-2 CSS by hand:
        min-block-size 2.75rem, padding-inline var(--size-xl) which the bridge maps
        to --spacing-lg (24px, NOT Tailwind's --spacing-xl 32px — the first draft
-       used `px-xl` and was 8px wide on each side). F-097. */
+       used `px-xl` and was 8px wide on each side). O-34. */
     '.CoverComposition-demoCta', '.CoverComposition-demoCta--quiet',
   ],
   '/primitives/circlediagram': [

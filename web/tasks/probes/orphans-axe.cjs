@@ -5,7 +5,7 @@
  * net. A data table raises the stakes: caption, `th scope`, and a keyboard-
  * operable scroll region are all axe-visible, and the atomica11y criteria in
  * `reference-components/docs/atomica11y/main/table.md` add one that is not
- * (criterion 1: the table itself must NOT be focusable — see F-073).
+ * (criterion 1: the table itself must NOT be focusable — see O-10).
  */
 const { chromium } = require('playwright');
 const guard = require('./orphans-guard.cjs');

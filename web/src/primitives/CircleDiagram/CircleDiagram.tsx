@@ -4,7 +4,7 @@
  * derivation cost nothing: the Razor partial is a complete, literal template
  * with every class name and every element spelled out, so the contract is as
  * explicit here as the C# was for the Button family — it just lives in a `.cshtml`
- * instead of a `.cs`. Confidence: HIGH. See findings/primitives-orphans.md F-064.
+ * instead of a `.cs`. Confidence: HIGH. See findings/primitives-orphans.md O-01.
  *
  * The one thing the source computes and we reproduce exactly is the conic
  * gradient: segments become `var(--CircleDiagram-color-N) START% END%` stops on
@@ -44,7 +44,7 @@ import "./CircleDiagram.css";
  *
  * So the boundary is not "small things move and big things stay": it is that a
  * utility can express a VALUE and cannot express a CONDITION whose two halves
- * must be linked. F-096.
+ * must be linked. O-33.
  */
 
 /* Kept as named constants rather than inlined at each site, so the class list at
@@ -54,14 +54,14 @@ import "./CircleDiagram.css";
  * bridge maps `--size-xs` to `--spacing-xxs` = 4px, so the inline fallback
  * `0.5rem` never applies and the real gap is 4px. A naming collision between the
  * two scales this port straddles; the computed-style diff caught it as 52 nodes
- * of `gap: 4px -> 8px`. F-097. */
+ * of `gap: 4px -> 8px`. O-34. */
 const LEGEND = "flex list-none flex-col gap-xxs p-0 m-0";
 /* `leading-normal` is REQUIRED, and it is the whole lesson of this conversion.
  * Step 2 set `font-size` alone and let `line-height` inherit 1.5 from the page.
  * Tailwind's `text-caption` is a PAIR — `--text-caption` plus
  * `--text-caption--line-height: 1.4` — so a utility that reads like a font-size
  * silently changed the line box from 19.5px to 18.2px on 440 nodes. A `font-size`
- * declaration and a `text-*` utility are not the same thing. F-097. */
+ * declaration and a `text-*` utility are not the same thing. O-34. */
 const LEGEND_ITEM =
   "flex flex-wrap items-center gap-xs font-sans text-caption leading-normal";
 const SWATCH = "size-3 shrink-0 rounded-xs border border-hairline";
@@ -76,7 +76,7 @@ const VALUE = "shrink-0 tabular-nums text-body";
  *  · `text-title-md` carries `line-height: 1.4` and no tracking, while step 2
  *    used the bridge's heading metrics (1.25 / -0.0125em). Restated explicitly
  *    as `leading-[1.25] tracking-[-0.0125em]` or 22 nodes move 22.5px -> 25.2px.
- * F-097. */
+ * O-34. */
 
 export type CircleDiagramSegment = {
   label: string;
@@ -87,7 +87,7 @@ export type CircleDiagramProps = {
   title?: string;
   subtitle?: string;
   segments: CircleDiagramSegment[];
-  /** Source has no such attribute. See F-067 — the chart is `aria-hidden` and
+  /** Source has no such attribute. See O-04 — the chart is `aria-hidden` and
    *  the legend carries the data as text, so a caption is the only place a
    *  screen-reader user learns what the figure *is*. Defaults to `title`. */
   accessibleName?: string;
@@ -119,7 +119,7 @@ export function CircleDiagram({
    * total is derived instead of mutated: each segment's start angle is the sum of
    * every value BEFORE it, computed from the array rather than carried in a
    * closure variable. Same output, O(n^2) on a list that is at most a handful of
-   * segments. F-089.
+   * segments. O-26.
    */
   const cumulativeBefore = segments.reduce<number[]>(
     (acc, segment, i) => [...acc, (acc[i] ?? 0) + segment.value],
@@ -137,7 +137,7 @@ export function CircleDiagram({
        renders the chart BLANK. One extra segment in the CMS and the graphic
        disappears. Wrapping the index degrades to a repeated colour instead,
        which is survivable precisely because the legend carries the data as text
-       (see the stylesheet header). F-074. */
+       (see the stylesheet header). O-11. */
     const paletteIndex = (i % PALETTE_SIZE) + 1;
     return {
       ...segment,
@@ -164,7 +164,7 @@ export function CircleDiagram({
           empty generic containers. Hiding it and letting the legend — which
           already renders label AND percentage as text — be the accessible
           representation is the only option that does not invent a data table
-          the source never had. F-067. */}
+          the source never had. O-04. */}
       <div
         className="CircleDiagram-chart relative aspect-square h-auto max-w-full shrink rounded-[50%]"
         aria-hidden="true"
@@ -179,7 +179,7 @@ export function CircleDiagram({
             role it resolves to are reproduced directly. A fixed `h4` is the
             source's own choice and it is a heading-order hazard the source
             already had — recorded, not fixed, because fixing it means adding an
-            attribute the contract does not have. F-068. */}
+            attribute the contract does not have. O-05. */}
         {title ? (
           <h4 className="CircleDiagram-title m-0 font-sans text-title-md font-semibold leading-[1.25] tracking-[-0.0125em] text-ink">
             {title}

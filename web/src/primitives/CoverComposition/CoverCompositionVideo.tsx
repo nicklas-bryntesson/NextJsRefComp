@@ -19,7 +19,7 @@
  *   We server-render the controls and put native `controls` on the one video,
  *   then hand over on enhancement. One video element, no duplicate download,
  *   and the control is live before hydration instead of ~100 ms after it —
- *   which is the dead-control window CLAUDE.md F-035 measured. F-069.
+ *   which is the dead-control window CLAUDE.md F-035 measured. O-06.
  *
  * · Enhancement state comes from `useSyncExternalStore`, not
  *   `useEffect(() => setState(true), [])`, which is a lint error in this repo
@@ -124,7 +124,7 @@ export function CoverCompositionVideo({
    * arbiter do — so the `useState` was never state, and mirroring it into a ref
    * was a workaround for having declared it as state in the first place. One ref,
    * written only from event handlers, and the mirroring effect disappears along
-   * with a render per user pause. F-089.
+   * with a render per user pause. O-26.
    */
   const userPausedRef = useRef(false);
 
@@ -231,7 +231,7 @@ export function CoverCompositionVideo({
           loop
           poster={posterSrc}
           /* SSR carries native controls so the video is operable with no JS at
-             all; the effect above removes them on enhancement. F-069. */
+             all; the effect above removes them on enhancement. O-06. */
           controls={!enhanced}
         >
           <source src={videoSrc} type="video/mp4" />

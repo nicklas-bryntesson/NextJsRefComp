@@ -6,14 +6,14 @@
  * `text-display-md`: min-content 467px, which set the DOCUMENT width to 483px at
  * a 320px viewport — 163px of horizontal scroll, a WCAG 1.4.10 failure caused
  * entirely by the demo page's own prose while the component under test reflowed
- * perfectly. axe reported zero violations throughout. F-086.
+ * perfectly. axe reported zero violations throughout. O-23.
  *
  * `Cell` and `Block` from the shared chrome are NOT used for the cover demos.
  * `Block` is a padded card with `flex-wrap` and `items-end`; `CoverComposition`
  * is a full-bleed hero whose whole contract is "fill the inline axis and put
  * content on top of media". Nesting it in a padded flex card measures the card,
  * not the component. `Section` is kept, because it carries `.kitchensink-section`
- * and the heading. Recorded in F-075 — the chrome is field-shaped and a
+ * and the heading. Recorded in O-12 — the chrome is field-shaped and a
  * full-bleed component has to opt out of it, the same conclusion the Button port
  * reached for an intrinsically-sized one.
  */
@@ -63,7 +63,7 @@ function Frame({
  * `var()` in arbitrary values, because there is no utility for "the appearance-
  * independent on-media pair"; the mechanism survives the conversion only because
  * a custom property can be referenced from an arbitrary value. Every structural
- * class name is kept. F-096. */
+ * class name is kept. O-33. */
 const CTA_BASE =
   "CoverComposition-demoCta inline-grid min-h-11 place-items-center rounded-md px-lg font-sans text-button font-medium no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--_on-media-ink)]";
 const CTA_SOLID = "bg-primary text-on-primary";

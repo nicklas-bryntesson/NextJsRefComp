@@ -12,14 +12,14 @@
  * and the file's own header comment names a third set of class names
  * (`.CoverComposition-videoControls`, `.CoverComposition-media`) that neither
  * the CSS nor the JS nor the Razor uses. Confidence: MEDIUM. Every derived
- * decision is marked `DERIVED:` below. See findings/primitives-orphans.md F-065.
+ * decision is marked `DERIVED:` below. See findings/primitives-orphans.md O-02.
  *
  * THE STRUCTURAL DISAGREEMENT, reproduced verbatim in step 1 and fixed in step 2:
  * the video variant's inner wrapper is `<div class="content">`; the IMAGE
  * variant's is a bare `<div>` with no class. `.content-container` sets
  * `pointer-events: none` and `.content` is the only rule that restores `auto`,
  * so in the source the image variant's CTA buttons are NOT CLICKABLE. Measured,
- * not inferred — F-066.
+ * not inferred — O-03.
  */
 
 import type { ReactNode } from "react";
@@ -55,7 +55,7 @@ export function CoverComposition({
        source, so `.content-container`'s `grid-template-columns` and every
        `grid-row` / `grid-column` in the media queries are inert on it. Kept as
        found in step 1 — this is one of the two reasons the image variant does
-       not lay out (F-066). */
+       not lay out (O-03). */
     <div className="CoverComposition">
       <div className="media-container" role="presentation">
         {/* STEP 2 ADDITION, and it is an accessibility fix rather than a restyle.
@@ -68,7 +68,7 @@ export function CoverComposition({
             With the scrim, the on-media ink measures 5.09:1 over pure-white media
             and 16.91:1 over pure-black — so it clears AA over ANY image, which is
             the only claim worth making about media a component does not control.
-            F-095. */}
+            O-32. */}
         <span className="overlay" />
         {/* eslint-disable-next-line @next/next/no-img-element -- the source emits
             a plain <picture>/<img> from app-picture with pre-resolved Umbraco
@@ -86,7 +86,7 @@ export function CoverComposition({
             the step-1 baseline: `pointer-events: none` on this element and every
             descendant. The class is added here AND `.content-container > *`
             restores pointer events in the stylesheet, so a host that copies the
-            source's markup is also covered. F-066. */}
+            source's markup is also covered. O-03. */}
         <div className="content">
           <Heading className="CoverComposition-heading">{title}</Heading>
           {preamble ? (

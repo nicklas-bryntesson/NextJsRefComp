@@ -15,7 +15,7 @@
  * ratios and a perfectly-sized 200px chart. A green-looking run on a page with no
  * design at all — exactly the failure that "produced three wrong reports in this
  * project". A `curl` 200 on the PAGE proves nothing; the assets have to be
- * checked too. F-093.
+ * checked too. O-30.
  *
  * Every probe in this set calls this first. It throws rather than warns, because
  * a warning in a long log is how this gets missed.
