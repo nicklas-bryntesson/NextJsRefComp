@@ -64,7 +64,13 @@ export function resolveCardElement(element: string): CardElement {
 }
 
 export type CardValidation =
-  | { ok: true; elevation: string | null }
+  /* `elevation` is narrowed to the union rather than left as `string`, because
+     step 3 indexes a `Record<CardElevation | "absent", string>` with it and TS
+     will not accept a widened `string` there ("No index signature with a
+     parameter of type 'string'"). The runtime guard above IS the proof of
+     membership, so the cast below is the type system catching up with a check
+     that has already happened — not a hole. */
+  | { ok: true; elevation: CardElevation | null }
   | { ok: false; message: string };
 
 /** The three guards, in the source's order: padding, then elevation, then the
@@ -107,7 +113,10 @@ export function validateCard(
 
   return {
     ok: true,
-    elevation: elevation === null || elevation === undefined ? null : resolvedElevation,
+    elevation:
+      elevation === null || elevation === undefined
+        ? null
+        : (resolvedElevation as CardElevation),
   };
 }
 

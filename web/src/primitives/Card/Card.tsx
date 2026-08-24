@@ -49,6 +49,7 @@ import {
  * suppression rule. The cost is that Card is no longer deletable without
  * Button — recorded in findings rather than papered over. */
 import { hasContent } from "../Button/hasContent";
+import { CARD_BORDER, CARD_ELEVATION, CARD_PADDING, CARD_ROOT, cx } from "./cardUtilities";
 
 export type CardProps = {
   /** Source default: `"article"`. Allow-list — anything else silently becomes
@@ -104,9 +105,23 @@ export function Card({
   return createElement(
     resolveCardElement(element),
     {
-      /* STEP 1 — the verbatim stylesheet does all the styling, selected by the
-         `data-*` attributes below. No Tailwind is involved. */
-      className: cardClassName("Card", className),
+      /* STEP 3 — the design values live in `cardUtilities.ts` now. `Card` stays
+         on the element: with no `Card-*` parts, it is the component's entire
+         public identity, the class `Teaser.css` selects, and the probe's key. */
+      className: cardClassName(
+        cx(
+          "Card",
+          CARD_ROOT,
+          CARD_PADDING[padding],
+          CARD_BORDER[border ? "true" : "false"],
+          /* Absent elevation and `elevation="none"` are the same styling and a
+             different DOM, so the lookup is keyed on the resolved value while
+             the attribute is written separately by `cardAttributes`. Both rows
+             are empty strings — see CARD_ELEVATION. */
+          CARD_ELEVATION[result.elevation ?? "absent"],
+        ),
+        className,
+      ),
       ...cardAttributes({ border, padding, elevation: result.elevation }),
     },
     children,
