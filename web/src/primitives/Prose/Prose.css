@@ -5,6 +5,20 @@
    All selectors use :where() — zero specificity.
    Block components inside Prose override naturally via their own
    class-based selectors without needing any resets here.
+
+   STEP 2 — restyled to cursor-DESIGN.md. Structure unchanged from the verbatim
+   copy (commit fbb1026): same selectors, same `:where()` wrapping, same
+   variant/size gates. Every change is marked STEP 2 and recorded in
+   findings/primitives-Prose.md.
+
+   Zero `--COLOR-` reads in this file, so the semantic bridge in
+   primitive-tokens.css covers it completely.
+
+   THE `:where()` DISCIPLINE IS PRESERVED EVERYWHERE. It is this stylesheet's
+   entire thesis — a component dropped into Prose must win with one class and no
+   `!important` — and it is also the reason step 3 is hard: a zero-specificity
+   descendant selector and a utility class on an element are not substitutes for
+   one another. See the step-3 verdict in the findings.
 ───────────────────────────────────────────────────────────────── */
 
 /* ── Size ────────────────────────────────────────────────────── */
@@ -15,6 +29,12 @@
     font-size: var(--_fontSize); /* gate — only active when data-size is set */
 }
 
+/* NOTE, unchanged and reported rather than fixed: `--fontSize-body-large` and
+   `--fontSize-body` BOTH resolve to `--text-body-md` (16px) through the bridge,
+   because cursor-DESIGN.md has no body step above 16px. So `data-size="lg"` and
+   `data-size="md"` are pixel-identical here, and one third of this axis is
+   inert. Measured: p font-size 16px / 16px / 14px for lg / md / sm. The missing
+   role belongs in the token layer, not in this file. */
 :where(.Prose[data-size="sm"]) { --_fontSize: var(--fontSize-body-small); }
 :where(.Prose[data-size="md"]) { --_fontSize: var(--fontSize-body); }
 :where(.Prose[data-size="lg"]) { --_fontSize: var(--fontSize-body-large); }
@@ -37,6 +57,49 @@
     & p:last-child {
         margin-block-end: 0;
     }
+
+    /* STEP 2 — WHERE ACCESSIBILITY BEATS THE VARIANT TIERS.
+     *
+     * Upstream, `overflow-x: auto` on `pre` lives in the RICH block only. A
+     * `<pre>` is UA-styled `white-space: pre`, so in `basic` and `default` a long
+     * code line cannot wrap and cannot scroll — it just sticks out. Measured at a
+     * 320px viewport on this route: 134px of DOCUMENT horizontal scroll, and the
+     * innermost culprits were `code` elements at right edges 376px (default) and
+     * 454px (basic) against a 320px viewport. `rich` was fine, because its `pre`
+     * is a scroll container. A WCAG 1.4.10 Reflow failure that depends on which
+     * variant a CMS editor happened to be given.
+     *
+     * The tier design is a contract about APPEARANCE — which elements get a
+     * font, a ground, a padding. Survivability is not appearance, and CLAUDE.md
+     * makes accessibility the tiebreaker, so this one declaration is hoisted to
+     * all three variants while everything else about `pre` stays rich-only.
+     * Worth noting it also exempts `pre` from the 1.4.12 clipping check, because
+     * a scroller is meant to scroll. */
+    & pre {
+        overflow-x: auto;
+    }
+
+    /* And the same argument for `table`, found by the WCAG 1.4.12 probe rather
+     * than by the reflow sweep. Upstream, EVERY table declaration is rich-only,
+     * so a `<table>` in `basic` or `default` keeps `table-layout: auto` and
+     * `overflow-wrap: normal` and is free to size to its content. Measured at
+     * 320px with the four forced text-spacing properties: the rich table stayed
+     * at 238px while the default and basic tables both reached 337px, putting
+     * 17px of document horizontal scroll on the route. Without the overrides they
+     * fit, which is exactly why the plain reflow sweep was green and this probe
+     * was not — the criterion is about SURVIVING the reader's typography, and an
+     * auto-layout table does not.
+     *
+     * Split the same way as `pre`: the survivability declarations are
+     * variant-agnostic, the appearance declarations (border, padding, ground,
+     * font) stay rich-only. */
+    & table {
+        table-layout: fixed;
+    }
+
+    & :is(th, td, caption) {
+        overflow-wrap: anywhere;
+    }
 }
 
 /* ── Default + Rich: headings, lists, inline, links, code ────── */
@@ -52,18 +115,40 @@
         font-feature-settings: var(--fontFeatureSettings-heading);
         margin-block-start:    1.25em;
         margin-block-end:      0.4em;
+
+        /* STEP 2 — colour, added because Prose has to own its own hierarchy.
+           Upstream Prose sets no heading colour and relies on the host. Our
+           host's base layer colours h1–h4 with `--color-ink` and stops there, so
+           the step-1 build rendered h5 and h6 in `--color-body` while h2–h4 were
+           ink — measured rgb(90,88,82) against rgb(38,37,30) inside one article.
+           A long-form container whose sixth heading level is a different colour
+           from its second is broken, and the fix belongs here rather than in the
+           host base layer: this component's job IS to style descendant
+           headings. `--color-ink` is a light-dark pair, so it flips. */
+        color: var(--color-ink);
     }
 
     & :is(h1, h2, h3, h4, h5, h6):first-child {
         margin-block-start: 0;
     }
 
-    & h1 { font-size: var(--fontSize-h1); }
-    & h2 { font-size: var(--fontSize-h2); }
-    & h3 { font-size: var(--fontSize-h3); }
-    & h4 { font-size: var(--fontSize-h4); }
-    & h5 { font-size: var(--fontSize-h5); }
-    & h6 { font-size: var(--fontSize-h6); }
+    /* Per-step tracking, for the same reason as Heading.css: the bridge has one
+       `--letterSpacing-heading` and these six steps land on four different roles
+       in cursor-DESIGN.md's table. Read from the size token's own companion so
+       the design system stays the single source. */
+    & h1 { font-size: var(--fontSize-h1); letter-spacing: var(--text-display-lg--letter-spacing); }
+    & h2 { font-size: var(--fontSize-h2); letter-spacing: var(--text-display-md--letter-spacing); }
+    & h3 { font-size: var(--fontSize-h3); letter-spacing: var(--text-display-sm--letter-spacing); }
+    & h4 { font-size: var(--fontSize-h4); letter-spacing: normal; }
+    & h5 { font-size: var(--fontSize-h5); letter-spacing: normal; }
+    /* h6 resolves to `--text-caption-uppercase` (11px) through the bridge —
+       SMALLER than body text, which inverts the hierarchy. Left as the bridge
+       maps it and reported, because the honest fix is a seventh stop in
+       design-tokens.css and that file is not this port's to change. The
+       uppercase-and-tracked treatment the caption role implies is deliberately
+       NOT applied: h6 is a heading here, not a section label, and applying it
+       would be inventing a role rather than mapping one. */
+    & h6 { font-size: var(--fontSize-h6); letter-spacing: normal; }
 
     /* Lists */
     & :is(ul, ol) {
@@ -101,24 +186,55 @@
         color:           currentColor;
         text-decoration: underline;
         text-underline-offset: 0.2em;
+        /* STEP 2 — the underline is drawn in the hairline-strong tint rather
+           than at full text strength, so a link reads as a link without the rule
+           competing with the letterforms. `currentColor` is kept for the TEXT,
+           which is what keeps a link legible on any ground Prose lands on —
+           including a coloured band, which is exactly why upstream chose it. */
+        text-decoration-color: var(--color-hairline-strong);
+        text-decoration-thickness: 1px;
+        transition: text-decoration-color 120ms ease;
     }
 
     & a:hover {
         text-decoration-thickness: 2px;
+        /* STEP 2 — hover promotes the rule to the brand voltage. The design
+           reserves `--color-primary` for CTAs and the wordmark; an underline is
+           not a fill, and this is the one place in the stylesheet where a link
+           has to become unambiguous. */
+        text-decoration-color: var(--color-primary);
     }
 
     /* Inline code */
     & code {
         font-family: var(--fontFamily-code);
-        font-size:   0.875em;
+        /* STEP 2 — 0.8125em, not 0.875em. cursor-DESIGN.md's `{typography.code}`
+           is 13px against a 16px body, which is 0.8125. Kept as a RATIO rather
+           than pinned to 13px: the relationship is what survives a consumer
+           changing the body size, and ADR-0025's rule is "express
+           relationships, never a scale". The ratio changed; the mechanism did
+           not. */
+        font-size:   0.8125em;
     }
 
     /* Blockquote */
     & blockquote {
         margin-inline: 0;
         padding-inline-start: 1em;
-        border-inline-start:  3px solid currentColor;
-        opacity: 0.7;
+        /* STEP 2 — `border-inline-start: 3px solid currentColor` became a token,
+           and `opacity: 0.7` was REMOVED as a contrast failure.
+           `opacity` on a text container multiplies against whatever ground it
+           lands on, so it cannot be sized once. Measured: `--color-body`
+           #5a5852 at 0.7 over the white card composites to rgb(140,138,134) — measured 3.45:1,
+           under the 4.5:1 minimum, and axe reports it as a real 1.4.3 violation
+           because a blockquote is live text with no inactive-component
+           exemption. This is the same defect shape as the reference library's
+           FileUpload `.drop-label` (F-027) and Prose's own figcaption below.
+           The quiet-voice intent is kept by moving to `--color-body`, which is
+           already the quieter of our two text stops (5.64:1 on the card) and is
+           a light-dark pair, so it stays quiet in dark instead of dissolving. */
+        border-inline-start:  3px solid var(--color-hairline-strong);
+        color: var(--color-body);
     }
 }
 
@@ -128,10 +244,19 @@
     /* Pre / code block */
     & pre {
         font-family:      var(--fontFamily-code);
-        font-size:        0.875em;
+        font-size:        0.8125em;   /* STEP 2 — see `code` above */
         overflow-x:       auto;
-        padding:          1em;
-        border-radius:    0.35em;
+        /* STEP 2 — cursor-DESIGN.md's `code-block`: surface-card ground, ink
+           text, 1px hairline, `{rounded.lg}` (12px), 20px padding. Upstream
+           `pre` had a font and a radius and NO ground at all, which on a cream
+           canvas made a code block indistinguishable from a paragraph — and code
+           surfaces are, per the design doc, "roughly half the page". */
+        padding:          var(--spacing-md);
+        border-radius:    var(--radius-lg);
+        background-color: var(--color-surface-card);
+        border:           1px solid var(--color-hairline);
+        color:            var(--color-ink);
+        margin-block-end: 1em;
     }
 
     & pre code {
@@ -143,16 +268,55 @@
         width:           100%;
         border-collapse: collapse;
         font-size:       var(--_fontSize);
+        /* STEP 2 — a table is the one element in this stylesheet that cannot
+           reflow on its own, and Prose does not own the element so it cannot
+           wrap it in a scroll container. Measured at a 320px viewport with the
+           four-column sample: the table box was 338px against a 320px viewport
+           and put 59px of DOCUMENT horizontal scroll on the route on its own,
+           with the `pre` defect below already fixed.
+           `table-layout: fixed` + `overflow-wrap: anywhere` on the cells makes
+           the columns share the available width and break inside words, which
+           costs typographic quality and buys WCAG 1.4.10 — the tiebreaker
+           CLAUDE.md names. See the finding: it is a mitigation, not a fix, and
+           the real fix needs an element Prose is not allowed to add. */
+        table-layout:    fixed;
+        margin-block-end: 1em;
     }
 
     & :is(th, td) {
         padding:       0.5em 0.75em;
-        border-bottom: 1px solid currentColor;
+        /* STEP 2 — `currentColor` drew a full-strength ink rule under every row,
+           which reads as a spreadsheet rather than as editorial. The design's
+           card language is "minimal hairlines, no shadows". */
+        border-bottom: 1px solid var(--color-hairline);
         text-align:    start;
+        overflow-wrap: anywhere;  /* STEP 2 — see `table` above */
     }
 
     & th {
         font-weight: var(--fontWeight-body-bold);
+        /* STEP 2 — the header row is the only place a table earns emphasis. */
+        color: var(--color-ink);
+    }
+
+    & caption {
+        /* STEP 2 — upstream styles `table` but not `caption`, so a captioned
+           table rendered its caption at the inherited size, centred by the UA,
+           with no space. It is the only element in the sample that the
+           stylesheet's own element list forgot. */
+        font-size: var(--text-caption);
+        color: var(--color-body);
+        text-align: start;
+        margin-block-end: 0.5em;
+        /* And `overflow-wrap: anywhere` for a reason that is not obvious: a
+           `<caption>`'s min-content contributes to the TABLE's minimum width, so
+           `table-layout: fixed` + `width: 100%` does not stop a long caption from
+           widening the table past its container. Found by the WCAG 1.4.12 probe,
+           not by the reflow sweep: at 320px with `letter-spacing: 0.12em` forced,
+           the caption pushed the table box to 337px and put 17px of horizontal
+           scroll on the document. The cells were already `anywhere`; the caption
+           was the one element still able to do it. */
+        overflow-wrap: anywhere;
     }
 
     /* Figure */
@@ -161,16 +325,22 @@
     }
 
     & figcaption {
-        font-size:    0.875em;
+        /* STEP 2 — 0.8125em to land on `{typography.caption}` 13px, and
+           `opacity: 0.7` removed for the same measured reason as the blockquote:
+           `--color-body` at 0.7 over the card composites to 3.45:1. */
+        font-size:    0.8125em;
         margin-block-start: 0.5em;
-        opacity:      0.7;
+        color: var(--color-body);
     }
 
     /* Rule */
     & hr {
         border:            none;
-        border-block-start: 1px solid currentColor;
+        /* STEP 2 — `1px solid currentColor` at `opacity: 0.2` composited to a
+           near-invisible line on the cream canvas and to a nearly-white one in
+           dark, because `currentColor` inverts and 0.2 does not compensate. The
+           hairline token is a light-dark pair sized for exactly this job. */
+        border-block-start: 1px solid var(--color-hairline);
         margin-block:      2em;
-        opacity:           0.2;
     }
 }

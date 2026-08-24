@@ -62,7 +62,27 @@ export function HeadingKitchensink() {
 
         <Block title="Nine steps side by side — display-1..3 then h1..h6, at one element, to show where the bridge's four display + two title stops actually land">
           <Cell caption="descending">
-            <div className="grid gap-xxs">
+            {/* `min-w-0` is load-bearing here, and the reason is a CSS subtlety
+                worth knowing: `Heading.css`'s reset is `overflow-wrap:
+                break-word`, which permits a break to AVOID overflow but does NOT
+                reduce the element's min-content contribution — only
+                `overflow-wrap: anywhere` does that. So in an intrinsically-sized
+                track a long unbroken word still sizes the track. Measured under
+                the WCAG 1.4.12 overrides at 320px: the `display-1` `.heading-text`
+                reached a 381px right edge against a 320px viewport, 61px of
+                document scroll. `min-w-0` lets the track shrink and the
+                break-word reset then does its job. Same shape as F-024.
+
+                AND `min-w-0` ALONE IS NOT ENOUGH. Measured under the overrides:
+                this div's BOX was correctly 238px while its own
+                `grid-template-columns` computed to **340.281px** — the implicit
+                auto track sized to max-content and overflowed the box it lives
+                in. `min-width: 0` constrains the box, not the track. The same
+                defect was found independently in the shared `Cell` chrome and
+                fixed there the same way, which makes this a general rule rather
+                than a one-off: a grid that is ALSO a grid item needs
+                `grid-cols-[minmax(0,1fr)]`, not just `min-w-0`. */}
+            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-xxs">
               {DISPLAY_SIZES.map((size) => (
                 <Heading
                   key={`d${size}`}
@@ -119,16 +139,30 @@ export function HeadingKitchensink() {
       <Section id="heading-color" title="Colour — data-color">
         <Block title="Four values. THE SOURCE STYLESHEET HAS NO [data-color] RULE — the axis is inert upstream. Step 2 gives it meaning.">
           {COLORS.map((color) => (
-            <Cell key={color} caption={color}>
-              <Heading element="h3" variant="heading" size="3" color={color} text={`color ${color}`} />
+            <Cell key={color} caption={color === "light" ? "light (on an ink ground)" : color}>
+              {/* `light` is the source's `--text-inverse` role, and an inverse
+                  text colour on a NON-inverse ground is a contrast failure by
+                  definition — measured 1.1:1 in dark when this cell first sat on
+                  the plain card, and axe reported it as a real 1.4.3 violation.
+                  So the cell carries the ground the value exists for. Same
+                  reasoning as the Button port's removed disabled-CTA cell: a
+                  demo must not manufacture a violation the component would never
+                  produce in correct use. */}
+              {color === "light" ? (
+                <div className="rounded-md bg-ink p-sm">
+                  <Heading element="h3" variant="heading" size="3" color={color} text="color light" />
+                </div>
+              ) : (
+                <Heading element="h3" variant="heading" size="3" color={color} text={`color ${color}`} />
+              )}
             </Cell>
           ))}
         </Block>
 
-        <Block title="data-color=light on a dark ground — the only place an inverse text colour is legible">
-          <Cell caption="light on surface-strong">
-            <div className="rounded-lg bg-ink p-base">
-              <Heading element="h3" variant="heading" size="3" color="light" text="Inverse heading" />
+        <Block title="data-color=light at display size on an ink band — the intended use, in both appearances">
+          <Cell caption="light on ink">
+            <div className="rounded-lg bg-ink p-lg">
+              <Heading element="h2" variant="display" size="3" color="light" text="An inverse display heading" />
             </div>
           </Cell>
         </Block>
@@ -145,11 +179,22 @@ export function HeadingKitchensink() {
           ))}
         </Block>
 
-        <Block title="data-wrap — note nowrap is accepted by the helper and matched by NO rule in the source stylesheet">
+        <Block title="data-wrap — nowrap is accepted by the helper and matched by NO rule upstream; step 2 completes it">
           {WRAPS.map((wrap) => (
             <Cell key={wrap} caption={wrap}>
               <div className="w-[22rem] max-w-full">
-                <Heading element="h4" variant="heading" size="4" wrap={wrap} text={WRAP_SAMPLE} />
+                {/* `nowrap` gets a short string ON PURPOSE. The option is a WCAG
+                    1.4.10 hazard by construction — an unbreakable heading cannot
+                    reflow — and demonstrating it with the long sample would put
+                    real horizontal scroll on this route at 320px. The hazard is
+                    recorded as a finding instead of shipped as a demo. */}
+                <Heading
+                  element="h4"
+                  variant="heading"
+                  size="4"
+                  wrap={wrap}
+                  text={wrap === "nowrap" ? "No wrapping" : WRAP_SAMPLE}
+                />
               </div>
             </Cell>
           ))}

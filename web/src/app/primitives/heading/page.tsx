@@ -18,7 +18,7 @@ export default function Page() {
   return (
     <KitchensinkPage
       title="Heading"
-      intro="Ported from TagHelpers/HeadingTagHelper.cs (app-heading) — the largest file in the Razor set, and almost all of it validation. Three variants (heading / display / body) over nine size steps, nine legal elements, a per-variant element allowlist, plus colour, alignment, wrap strategy, a comma-separated highlighter and three guard branches."
+      intro="Ported from HeadingTagHelper.cs (app-heading) — the largest file in the Razor set, and almost all of it validation. Three variants (heading / display / body) over nine size steps, nine legal elements, a per-variant element allowlist, plus colour, alignment, wrap strategy, a comma-separated highlighter and three guard branches."
     >
       <HeadingKitchensink />
     </KitchensinkPage>

@@ -21,7 +21,7 @@ export default function Page() {
   return (
     <KitchensinkPage
       title="Prose"
-      intro="Ported from TagHelpers/ProseTagHelper.cs (app-prose) — the container for markup the component does not own: rich-text output, markdown, CMS fields. Three variants widen the element set (basic → p only; default → headings, lists, inline, links, code, blockquote; rich → + pre, tables, figures, rules). Every selector is wrapped in :where(), so the whole stylesheet has zero specificity."
+      intro="Ported from ProseTagHelper.cs (app-prose) — the container for markup the component does not own: rich-text output, markdown, CMS fields. Three variants widen the element set (basic → p only; default → headings, lists, inline, links, code, blockquote; rich → + pre, tables, figures, rules). Every selector is wrapped in :where(), so the whole stylesheet has zero specificity."
     >
       <ProseKitchensink />
     </KitchensinkPage>

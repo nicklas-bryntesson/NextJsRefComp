@@ -25,7 +25,9 @@ import { Prose } from "./Prose";
 import type { ProseElement, ProseSize, ProseVariant } from "./proseAttributes";
 
 const SIZES: ProseSize[] = ["sm", "md", "lg"];
-const ELEMENTS: ProseElement[] = ["div", "section", "article", "aside", "footer"];
+/* `aside` is deliberately absent from the live demos — see the block below.
+   All five values remain legal props; only the demo omits one. */
+const ELEMENTS: ProseElement[] = ["div", "section", "article", "footer"];
 
 /* A measuring column. Prose is a long-form container, so a 320 px viewport must
  * still reflow it — `max-w-full` plus `Cell`'s `min-w-0` is what makes that
@@ -221,7 +223,7 @@ export function ProseKitchensink() {
       </Section>
 
       <Section id="prose-element" title="Element — the wrapper tag">
-        <Block title="Five legal elements. An unknown value silently becomes div — unlike variant and size, which error.">
+        <Block title="Four of the five legal elements. An unknown value silently becomes div — unlike variant and size, which error.">
           {ELEMENTS.map((element) => (
             <Cell key={element} caption={`<${element}>`}>
               <Column>
@@ -231,6 +233,24 @@ export function ProseKitchensink() {
               </Column>
             </Cell>
           ))}
+        </Block>
+
+        <Block title='element="aside" is a legal prop and is NOT demonstrated, on purpose'>
+          <Cell caption="why it is absent">
+            <Column>
+              <p className="text-body-sm text-body">
+                <code>&lt;aside&gt;</code> carries the <code>complementary</code>{" "}
+                landmark role, and axe&rsquo;s{" "}
+                <code>landmark-complementary-is-top-level</code> rule fails any
+                complementary landmark nested inside another landmark. Every
+                kitchensink page is inside <code>&lt;main&gt;</code>, so rendering
+                the cell produced a real, moderate WCAG violation on this route in
+                both appearances — measured, not predicted. The prop is kept
+                because the source has it; the demo is dropped because a demo must
+                not manufacture a violation. See findings/primitives-Prose.md.
+              </p>
+            </Column>
+          </Cell>
         </Block>
       </Section>
 
