@@ -253,7 +253,11 @@ export function MotionRegion({
   return (
     <div
       ref={rootRef}
-      className={className ? `MotionRegion ${className}` : "MotionRegion"}
+      /* PHASE B. `.MotionRegion` stays first and contractual; the rest is the
+         stylesheet, which dissolved entirely — see MotionRegion.css. */
+      className={
+        className ? `MotionRegion relative ${className}` : "MotionRegion relative"
+      }
       data-component="MotionRegion"
       data-id={id}
       data-autoplay={autoplay}
@@ -271,13 +275,33 @@ export function MotionRegion({
       {initialized && (
         <button
           type="button"
-          className="control"
+          className={
+            /* Every one of the control's declarations was a VALUE, so all of them
+               moved. `top-base end-base` for the reference's
+               `inset-block-start`/`inset-inline-end`: `end-` is logical, and
+               block-start is `top` in every horizontal writing mode, which is the
+               only mode this component is used in.
+               The scrim and the white stay hard-coded, as arbitrary values rather
+               than tokens, because the reference's reason is sound and is not a
+               bypass: the control sits over authored media whose contrast is
+               unknowable, so it owns its own. */
+            "control absolute top-base end-base z-[2] grid place-items-center " +
+            /* `rounded-[50%]`, not `rounded-full`: Tailwind's `rounded-full` is
+               `calc(infinity * 1px)`, which is a stadium, while 50% is an
+               ellipse. Identical for this square control and NOT equivalent in
+               general — the computed-style diff is the only thing that caught
+               it, which is the argument for taking the snapshot. */
+            "size-11 cursor-pointer rounded-[50%] border-none p-0 " +
+            "bg-[oklch(0_0_0/0.5)] text-white backdrop-blur-[4px] " +
+            "[-webkit-tap-highlight-color:transparent] " +
+            "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+          }
           aria-label={running ? pauseText : playText}
           aria-controls={videoId}
           data-icon={running ? "pause" : "play"}
           onClick={onToggle}
         >
-          <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="size-5">
             <path d={running ? ICON_PATHS.pause : ICON_PATHS.play} />
           </svg>
         </button>
