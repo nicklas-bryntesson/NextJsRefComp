@@ -12,6 +12,7 @@
 
 import { Block, Cell, Section } from "@/components/kitchensink-ui";
 import { Heading } from "./Heading";
+import { HEADING_INNER, cx } from "./headingUtilities";
 import type { HeadingAlign, HeadingColor, HeadingElement, HeadingWrap } from "./headingAttributes";
 
 const HEADING_SIZES = ["1", "2", "3", "4", "5", "6"] as const;
@@ -265,10 +266,21 @@ export function HeadingKitchensink() {
           </Cell>
         </Block>
 
-        <Block title="Inline children inherit the metrics — :where(a, span, strong, em, b, i) { font: inherit }">
+        <Block title="Inline children inherit the metrics — :where(a, span, strong, em, b, i) { font: inherit } is one of the two rules that stayed CSS after step 3">
           <Cell caption="strong / em / a inside .heading-text">
+            {/* STEP 3 CHANGED WHAT A CONSUMER MUST WRITE HERE, and this cell is
+                the evidence. Before the conversion, `.heading-text { display:
+                block }` came from the stylesheet, so hand-written markup got it
+                for free. Now the declaration is a utility the COMPONENT applies,
+                so hand-written markup must apply it too — `cx("heading-text",
+                HEADING_INNER)`. Measured: without it, the computed-style diff
+                showed this element's `display` reverting block → inline and its
+                `width` 215.391px → auto.
+
+                This is not a kitchensink detail. `TeaserTagHelper.cs` hand-writes
+                exactly this markup — see findings/primitives-Heading.md. */}
             <Heading element="h3" variant="heading" size="3">
-              <span className="heading-text">
+              <span className={cx("heading-text", HEADING_INNER)}>
                 Plain <strong>strong</strong> <em>em</em> <a href="#heading-content">link</a>
               </span>
             </Heading>

@@ -30,6 +30,18 @@ import {
   type HeadingWrap,
 } from "./headingAttributes";
 import { hasContent } from "../Button/hasContent";
+import {
+  ALIGN,
+  cx,
+  DATA_COLOR,
+  HEADING_INNER,
+  HEADING_MARK,
+  HEADING_ROOT,
+  SIZE_METRICS,
+  VARIANT_COLOR,
+  VARIANT_VOICE,
+  WRAP,
+} from "./headingUtilities";
 
 export type HeadingProps = {
   /** Source `text`. Mutually exclusive with `children`. */
@@ -100,26 +112,62 @@ export function Heading({
   }
 
   const Tag = resolvedElement as HeadingElement;
+  const resolvedSize = resolveSize(resolvedVariant, resolvedElement, size);
   const attrs = headingAttributes({
     variant: resolvedVariant,
-    size: resolveSize(resolvedVariant, resolvedElement, size),
+    size: resolvedSize,
     color,
     align,
     wrap,
   });
 
+  /* STEP 3. Everything below the `Heading` class is what the `[data-variant]`,
+     `[data-size]`, `[data-color]`, `[data-align]` and `[data-wrap]` gates used to
+     do. The attributes are still emitted — they are the documented API and a
+     consumer's stylesheet still reads them — they just no longer drive the paint.
+
+     Resolved HERE rather than emitted together, because a utility cannot
+     override a utility: `text-ink` (the variant default) and `text-primary` (an
+     explicit data-color) are one class each and Tailwind's stylesheet order would
+     pick the winner. See headingUtilities.ts. */
+  const colorClass =
+    (attrs["data-color"] && DATA_COLOR[attrs["data-color"] as keyof typeof DATA_COLOR]) ||
+    VARIANT_COLOR[resolvedVariant as keyof typeof VARIANT_COLOR];
+
+  const metrics =
+    resolvedSize == null
+      ? undefined
+      : (SIZE_METRICS[resolvedVariant as keyof typeof SIZE_METRICS] as Record<string, string>)[
+          resolvedSize
+        ];
+
+  const inner = <HighlightedText text={text!} highlight={highlight} />;
+
   return (
-    <Tag className={headingClassName(className)} {...attrs}>
+    <Tag
+      /* `Heading` stays first and unchanged — it is the part identity, and the
+         residual stylesheet plus any consumer override still select on it. */
+      className={headingClassName(
+        cx(
+          HEADING_ROOT,
+          VARIANT_VOICE[resolvedVariant as keyof typeof VARIANT_VOICE],
+          metrics,
+          colorClass,
+          attrs["data-align"] && ALIGN[attrs["data-align"] as keyof typeof ALIGN],
+          attrs["data-wrap"] && WRAP[attrs["data-wrap"] as keyof typeof WRAP],
+          className,
+        ),
+      )}
+      {...attrs}
+    >
       {hasChildContent ? (
         children
       ) : href ? (
-        <a href={href} className="heading-link">
-          <HighlightedText text={text!} highlight={highlight} />
+        <a href={href} className={cx("heading-link", HEADING_INNER)}>
+          {inner}
         </a>
       ) : (
-        <span className="heading-text">
-          <HighlightedText text={text!} highlight={highlight} />
-        </span>
+        <span className={cx("heading-text", HEADING_INNER)}>{inner}</span>
       )}
     </Tag>
   );
@@ -137,7 +185,13 @@ function HighlightedText({ text, highlight }: { text: string; highlight?: string
           `.heading-text :where(span) { font: inherit }` and be harmless, but it
           would also change the DOM the computed-style probe walks. */}
       {splitHighlight(text, highlight).map((f, i) =>
-        f.marked ? <mark key={i}>{f.text}</mark> : <Fragment key={i}>{f.text}</Fragment>,
+        f.marked ? (
+          <mark key={i} className={HEADING_MARK}>
+            {f.text}
+          </mark>
+        ) : (
+          <Fragment key={i}>{f.text}</Fragment>
+        ),
       )}
     </>
   );

@@ -14,6 +14,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildSrcset,
+  dimensionsFor,
   joinClasses,
   PRESETS,
   PRESET_NAMES,
@@ -39,11 +40,12 @@ describe("PRESETS — verbatim from MediaHelper.Presets", () => {
       "StackedSources",
       "HorizontalSources",
     ]);
+    /* `aspectRatio` is the step-2 addition; every other field is verbatim. */
     expect(PRESETS.teaser.groups[0].sources).toEqual([
-      { cropAlias: "stacked", widths: [400, 800], sizes: "100%" },
+      { cropAlias: "stacked", widths: [400, 800], sizes: "100%", aspectRatio: [3, 2] },
     ]);
     expect(PRESETS.teaser.groups[1].sources).toEqual([
-      { cropAlias: "horizontal", widths: [320, 640], sizes: "12rem" },
+      { cropAlias: "horizontal", widths: [320, 640], sizes: "12rem", aspectRatio: [1, 1] },
     ]);
   });
 
@@ -152,6 +154,57 @@ describe("resolveGroup — the two negotiation modes", () => {
      * `a` only by document order — the mode is now neither one thing nor the
      * other. */
     expect(r.sources.slice(3).every((s) => s.media === undefined)).toBe(true);
+  });
+});
+
+/* ── STEP 2 — the reserved box ────────────────────────────────────────────────
+ *
+ * Step 1 measured CLS 0.253 (POOR) and 3998 px of unreserved height. These pin
+ * the repair, and the FIRST test is the one that matters: the reservation has to
+ * differ per art-direction breakpoint, because that is the thing a single
+ * width/height pair on the <img> — and therefore `next/image` — cannot do. */
+describe("dimensionsFor / step-2 reserved dimensions", () => {
+  it("gives each hero source ITS OWN shape, not one shape for the picture", () => {
+    const dims = PRESETS.hero.groups[0].sources.map((s) => dimensionsFor(s));
+    expect(dims).toEqual([
+      { width: 380, height: 475 },  // mobile   4:5
+      { width: 440, height: 587 },  // portrait 3:4
+      { width: 740, height: 416 },  // mid     16:9
+      { width: 1280, height: 549 }, // wide    21:9
+    ]);
+    /* Four genuinely different ratios. If one <img> had to carry all four it
+       would be wrong at three viewports, which is exactly the failure a naive
+       "just add width and height" fix produces. */
+    const ratios = dims.map((d) => +(d!.width / d!.height).toFixed(3));
+    expect(new Set(ratios).size).toBe(4);
+  });
+
+  it("puts the dimensions on every <source> of a triplet, identically", () => {
+    const [avif, webp, original] = resolveSource(PRESETS.hero.groups[0].sources[0], IMG, stub);
+    for (const s of [avif, webp, original]) {
+      expect(s.width).toBe(380);
+      expect(s.height).toBe(475);
+    }
+  });
+
+  it("gives the fallback img the LAST source's shape, matching where its src comes from", () => {
+    const hero = resolveGroup(PRESETS.hero.groups[0], IMG, stub);
+    expect(hero.imgSrc).toBe("wide-1280.orig");
+    expect([hero.imgWidth, hero.imgHeight]).toEqual([1280, 549]); // wide, 21:9
+    const teaser = resolveGroup(PRESETS.teaser.groups[1], IMG, stub);
+    expect([teaser.imgWidth, teaser.imgHeight]).toEqual([320, 320]); // horizontal, 1:1
+  });
+
+  /* Absent, not guessed. A source with no known crop ratio emits no attributes
+     at all, which is the step-1 behaviour — so the extension never invents a
+     shape, it only declares one it was told. */
+  it("emits nothing when the source declares no aspectRatio", () => {
+    const bare = { cropAlias: "a", widths: [100, 200], sizes: "100vw" };
+    expect(dimensionsFor(bare)).toBeUndefined();
+    const r = resolveGroup({ sources: [bare] }, IMG, stub);
+    expect(r.imgWidth).toBeUndefined();
+    expect(r.imgHeight).toBeUndefined();
+    expect(r.sources.every((s) => s.width === undefined && s.height === undefined)).toBe(true);
   });
 });
 

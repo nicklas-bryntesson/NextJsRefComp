@@ -212,9 +212,19 @@ export function PictureKitchensink() {
 
       {/* ── 6. Live ──────────────────────────────────────────── */}
       <Section id="picture-live" title="Live — the CLS target">
-        <Block title="One hero and one teaser, unconstrained apart from the page gutter">
+        <Block title="The instance tasks/probes/picture-cls.cjs reports against">
+          {/* NOT `w-full`. It was, and it made this the only cell in the route
+              with a residual reserved-height delta (+170 px) after step 2 — which
+              read exactly like a component defect and was not one. `Block` lays
+              its children out with `flex flex-wrap`, so a child is a
+              shrink-to-fit flex item whose width is decided by its CONTENT;
+              `w-full` then resolves against a width its own content produced.
+              With images blocked the alt text sized the track to 373 px, with
+              them loaded the images sized it to 770 px, and the probe read the
+              difference as unreserved height. A definite width breaks the
+              circularity. See findings. */}
           <Cell caption="what tasks/probes/picture-cls.cjs measures">
-            <div data-id="picture-live" className="w-full min-w-0">
+            <div data-id="picture-live" className="w-[48rem] max-w-full min-w-0">
               <Picture
                 image={ORCHARD}
                 preset="hero"

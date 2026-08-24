@@ -126,7 +126,12 @@ export function headingAttributes({
   return attrs;
 }
 
-/** Mirrors the class merge: `"Heading"`, or `"Heading <existing>"`. */
+/** Mirrors the class merge: `"Heading"`, or `"Heading <existing>"`.
+ *
+ *  STEP 3 note: `extra` now carries the utility string as well as any consumer
+ *  `className`, and `Heading` stays FIRST. That ordering is not cosmetic — the
+ *  residual stylesheet and any consumer rule select on `.Heading`, and the class
+ *  is the part identity the whole `Component-part` convention rests on. */
 export function headingClassName(extra?: string): string {
   return extra && extra.trim() ? `Heading ${extra}` : "Heading";
 }

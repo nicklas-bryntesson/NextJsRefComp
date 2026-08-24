@@ -102,14 +102,31 @@ function MediaPictureGroup({
   pictureClass: string;
   cropUrl: CropUrlResolver;
 }) {
-  const { sources, imgSrc, imgSrcSet, imgSizes } = resolveGroup(group, image, cropUrl);
+  const { sources, imgSrc, imgSrcSet, imgSizes, imgWidth, imgHeight } = resolveGroup(
+    group,
+    image,
+    cropUrl,
+  );
 
   return (
     <picture className={joinClasses(pictureClass, group.cssClass)}>
       {sources.map((s, i) => (
         /* The key is the (type, media, ordinal) triple, which is exactly what
            distinguishes one <source> from another in a group. */
-        <source key={`${s.type ?? "original"}|${s.media ?? ""}|${i}`} type={s.type} media={s.media} srcSet={s.srcSet} sizes={s.sizes} />
+        <source
+          key={`${s.type ?? "original"}|${s.media ?? ""}|${i}`}
+          type={s.type}
+          media={s.media}
+          srcSet={s.srcSet}
+          sizes={s.sizes}
+          /* STEP 2. Per-breakpoint reserved box. `hero` runs 4:5 → 3:4 → 16:9 →
+             21:9, so a single ratio on the <img> would be wrong at three of four
+             viewports; `width`/`height` on <source> is the only markup that can
+             say "this breakpoint has this shape". Absent when the preset
+             declares no aspectRatio, so the attribute is never a guess. */
+          width={s.width}
+          height={s.height}
+        />
       ))}
       {/* Under art direction the source deliberately emits NO srcset/sizes on the
           <img>, so the media-scoped <source> rules are the only selector. Under
@@ -136,6 +153,10 @@ function MediaPictureGroup({
         src={imgSrc}
         srcSet={imgSrcSet}
         sizes={imgSizes}
+        /* STEP 2. The floor: the last source's crop, which is where `src` comes
+           from. A matching <source> overrides it. */
+        width={imgWidth}
+        height={imgHeight}
         alt={altText}
         loading={loading}
         decoding="async"

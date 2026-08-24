@@ -1,39 +1,48 @@
 /* =====================================================
-   HEADING COMPONENT
+   HEADING COMPONENT — the residue after STEP 3.
 
-   STEP 2 — restyled to cursor-DESIGN.md. Structure unchanged from the verbatim
-   copy (commit fbb1026): same class names, same gate selectors, same
-   custom-property seam. Four repairs and one completion, each marked STEP 2 and
-   each recorded in findings/primitives-Heading.md with its measurement.
+   133 lines of source CSS became 12 utilities in `headingUtilities.ts` and the
+   two rules below. Both survive for the SAME reason, and it is the reason Prose
+   could not be converted at all (see findings/primitives-Prose.md):
 
-   Zero `--COLOR-` reads in this file — unlike Button.css, so the semantic bridge
-   in primitive-tokens.css covers it completely and step 1 already looked like
-   ours. Verified: `grep -c -- '--COLOR-' Heading.css` → 0.
+     a utility attaches to an element, so anything a stylesheet says about an
+     element the component does not render, or about a condition rather than an
+     element, has nowhere to attach.
+
+   Rule 1 is a descendant selector over arbitrary inline children.
+   Rule 2 is an `@supports` gate.
+
+   Everything else moved: the reset, the variant voice (family / weight /
+   font-feature-settings), the variant × size metric triple, the colour axis, the
+   alignment axis, the wrap axis and `<mark>`. The `data-*` attributes are still
+   emitted unchanged — they are the documented API and a consumer's stylesheet
+   still reads them — but nothing in this file reads them any more.
+
+   WHAT WAS DELETED AND IS A REAL LOSS: the `@supports not (...)` faux-trim
+   fallback. It read `--_fontSize` and `--_lineHeight`, which the conversion no
+   longer sets, so it could not stay correct. Deleting it changes no computed
+   value — it was unreachable in current Chromium (`text-box-trim` is supported)
+   and it computed to `0px` anyway, because the source's
+   `calc(var(--_marginBlock) + var(--_baselineOffset, 0))` adds a length to a
+   unitless number and is invalid at computed-value time. Measured, all four
+   combinations. See findings/primitives-Heading.md. So the computed-style diff
+   is clean AND the fallback is gone — which is precisely the kind of loss a
+   computed-style diff cannot see, and the reason the finding is written down.
 ===================================================== */
 
 .Heading {
-   --_color: ;
-
-   /* reset */
-   word-wrap: break-word;
-   overflow-wrap: break-word;
-   margin-block: 0;
-
-  /* ================================================
-     TEXT CONTAINER (Typography Engine)
-  ================================================= */
-
-   .heading-link,
-   .heading-text {
-    display: block;
-    /* Redundant after the STEP 2 root declarations below — `--_fontSize` is an
-       absolute rem, so re-declaring it here is idempotent. Kept because the
-       `@supports` fallback branch reads `--_fontSize` from this element and
-       because it is the source's own structure. */
-    font-size: var(--_fontSize);
-    line-height: var(--_lineHeight);
-
-    /* Inline children inherit metrics */
+  /* Inline children inherit the metrics.
+   *
+   * CANNOT BE A UTILITY. `a`, `span`, `strong`, `em`, `b` and `i` inside a
+   * heading come from the consumer — child content, or a highlighted fragment's
+   * neighbours — so the component never sees the element and cannot put a class
+   * on it. The Tailwind-shaped alternative is an arbitrary descendant variant
+   * (`[&_:is(a,span,strong,em,b,i)]:font-[inherit]`), which generates
+   * `.class :is(...)` at specificity (0,1,1) instead of this rule's (0,1,0)+(0,0,1)
+   * — measured on a probe, and the same specificity inflation that decided
+   * Prose's verdict. Kept as CSS. */
+  .heading-link,
+  .heading-text {
     & :where(a, span, strong, em, b, i) {
       font: inherit;
       line-height: inherit;
@@ -41,222 +50,23 @@
     }
   }
 
-  /* STEP 2 — THE TYPE SIZE MOVES TO THE ROOT. Two defects, one cause.
+  /* FEATURE LAYER — TEXT TRIM.
    *
-   * Upstream, `font-size` and `line-height` live ONLY on `.heading-link` /
-   * `.heading-text` — the wrapper the TagHelper emits only in `text` mode. So:
+   * CANNOT BE A UTILITY either, for a different reason: Tailwind can express
+   * `[text-box-trim:trim-both]` as an arbitrary property, but it has no variant
+   * for `@supports`. A bare arbitrary property would apply the declaration in
+   * engines that do not support it, where it is harmless — but the gate itself,
+   * which is the whole point of a progressive-enhancement layer, has no utility
+   * form. So the layer stays, minus its dead fallback branch.
    *
-   *  1. Child content is never sized. Measured on the step-1 build: a
-   *     `variant="display" size="1"` heading rendered its child content at the
-   *     inherited 16px while the sized sibling rendered at 72px. The `data-size`
-   *     attribute was correct and the type was not.
-   *
-   *  2. `letter-spacing` is declared in `em` on the ROOT, whose font-size is
-   *     16px, while the type size is on the child. So display tracking computed
-   *     against 16px instead of against 72px. Measured step 1: -0.48px, where
-   *     cursor-DESIGN.md's display-mega row specifies **-2.16px** — 22% of the
-   *     intended value. "Negative letter-spacing on display only" is one of the
-   *     design's three typographic principles and the source's structure
-   *     silently defeated it.
-   *
-   * Declaring the size on the root fixes both at once and changes nothing about
-   * the `text`-mode rendering, because the child re-declares the same absolute
-   * value. */
-  font-size: var(--_fontSize);
-  line-height: var(--_lineHeight);
-
-  /* =====================================================
-     VARIANT LAYER (voice + baseline offset)
-  ===================================================== */
-
-  &[data-variant="heading"] {
-    --_lineHeight: var(--lineHeight-heading);
-    --_baselineOffset: var(--baseline-offset-heading);
-
-    font-family: var(--fontFamily-heading);
-    font-weight: var(--fontWeight-heading);
-    letter-spacing: var(--letterSpacing-heading);
-    font-feature-settings: var(--fontFeatureSettings-heading);
-
-    /* STEP 2 — per-step tracking, read from the design token that owns each
-       stop. The bridge maps `--fontSize-h1` → `--text-display-lg` but has one
-       `--letterSpacing-heading` for all six steps, which cannot be right when
-       the six steps land on four different roles in cursor-DESIGN.md's table
-       (-0.72px at display-lg, 0 at title-md/sm). Reading the size token's own
-       `--letter-spacing` companion keeps the design system the single source and
-       invents nothing. */
-    &[data-size="1"] { --_fontSize: var(--fontSize-h1); letter-spacing: var(--text-display-lg--letter-spacing); }
-    &[data-size="2"] { --_fontSize: var(--fontSize-h2); letter-spacing: var(--text-display-md--letter-spacing); }
-    &[data-size="3"] { --_fontSize: var(--fontSize-h3); letter-spacing: var(--text-display-sm--letter-spacing); }
-    &[data-size="4"] { --_fontSize: var(--fontSize-h4); letter-spacing: normal; }
-    &[data-size="5"] { --_fontSize: var(--fontSize-h5); letter-spacing: normal; }
-    /* h6 keeps `normal`, NOT the caption role's +0.08em. The bridge lands h6
-       on `--text-caption-uppercase`, whose 0.88px positive tracking only makes
-       sense with the uppercase transform that role also implies — and applying
-       that transform would turn a heading into a section label. So the size is
-       taken and the treatment is not. Reported rather than invented. */
-    &[data-size="6"] { --_fontSize: var(--fontSize-h6); letter-spacing: normal; }
-  }
-
-  &[data-variant="display"] {
-    --_lineHeight: var(--lineHeight-display);
-    --_baselineOffset: var(--baseline-offset-display);
-
-    font-family: var(--fontFamily-display);
-    font-weight: var(--fontWeight-display);
-    letter-spacing: var(--letterSpacing-display);
-    font-feature-settings: var(--fontFeatureSettings-display);
-
-    /* STEP 2 — same reasoning, and here it is the whole point: display-1 lands
-       on display-mega, whose specified tracking is -0.03em / -2.16px. Also the
-       per-step line-height from the design table (1.1 / 1.2 / 1.25), where the
-       bridge has a single 1.1 for all three. */
-    &[data-size="1"] {
-      --_fontSize: var(--fontSize-display-1);
-      --_lineHeight: var(--text-display-mega--line-height);
-      letter-spacing: var(--text-display-mega--letter-spacing);
-    }
-    &[data-size="2"] {
-      --_fontSize: var(--fontSize-display-2);
-      --_lineHeight: var(--text-display-lg--line-height);
-      letter-spacing: var(--text-display-lg--letter-spacing);
-    }
-    &[data-size="3"] {
-      --_fontSize: var(--fontSize-display-3);
-      --_lineHeight: var(--text-display-md--line-height);
-      letter-spacing: var(--text-display-md--letter-spacing);
-    }
-  }
-
-  &[data-variant="body"] {
-    --_lineHeight: var(--lineHeight-body);
-    --_baselineOffset: var(--baseline-offset-body);
-
-    font-family: var(--fontFamily-body);
-    font-weight: var(--fontWeight-body);
-    letter-spacing: var(--letterSpacing-body);
-    font-feature-settings: var(--fontFeatureSettings-body);
-
-    &[data-size="sm"] { --_fontSize: var(--fontSize-body-small); }
-    &[data-size="md"] { --_fontSize: var(--fontSize-body); }
-    &[data-size="lg"] { --_fontSize: var(--fontSize-body-large); }
-  }
-
-  /* =====================================================
-     STEP 2 — COLOUR. The axis existed upstream and did nothing.
-
-     `HeadingTagHelper` validates and emits `data-color` in four values, and
-     the source `Heading.css` has NO `[data-color]` rule at all — it declares
-     `--_color: ;` and never reads it. Measured on the step-1 build: all four
-     values computed the same `rgb(38, 37, 30)`.
-
-     Filled in with our tokens, keeping the blank-property seam the source
-     declared, and SCOPED to `&[data-color]` so a heading without the attribute
-     keeps inheriting exactly as before. That scoping is load-bearing: an
-     unscoped `color: var(--_color)` with `--_color` empty is invalid at
-     computed-value time, which resolves to `unset` → inherit, and would have
-     silently demoted every h1–h4 from `--color-ink` (set by globals.css's base
-     layer) to `--color-body`.
-  ===================================================== */
-
-  /* Voice defaults. cursor-DESIGN.md: "Ink — display, body emphasis". The body
-     voice keeps `--color-body`, which is what a body-voice heading is for. */
-  &[data-variant="heading"],
-  &[data-variant="display"] { color: var(--color-ink); }
-  &[data-variant="body"]    { color: var(--color-body); }
-
-  &[data-color] { color: var(--_color); }
-  &[data-color="primary"] { --_color: var(--color-primary); }
-  &[data-color="dark"]    { --_color: var(--color-ink); }
-  /* "light" is the source's `--text-inverse` role. Ours is a light-dark pair, so
-     it is "the colour that sits on a filled ground" rather than a literal white
-     — and it therefore follows the appearance flip instead of going invisible in
-     dark, which a literal `#fff` would do. */
-  &[data-color="light"]   { --_color: var(--color-on-primary); }
-  &[data-color="inherit"] { --_color: inherit; }
-
-  /* `<mark>` inside a highlighted heading. The UA default is black-on-yellow,
-     which is neither appearance-aware nor ours. Tinted with the brand at low
-     alpha so the ink underneath keeps its own contrast ratio in both
-     appearances — a highlight must not become a contrast problem. */
-  & mark {
-    background-color: color-mix(in oklab, var(--color-primary-brand) 22%, transparent);
-    color: inherit;
-    border-radius: var(--radius-xs);
-    padding-inline: 0.12em;
-  }
-
-  /* =====================================================
-     ALIGNMENT
-  ===================================================== */
-
-  &[data-align="left"]   { text-align: left; }
-  &[data-align="center"] { text-align: center; }
-  &[data-align="right"]  { text-align: right; }
-
-  /* =====================================================
-     WRAP STRATEGIES
-  ===================================================== */
-
-  &[data-wrap="balance"] { text-wrap: balance; }
-  &[data-wrap="pretty"]  { text-wrap: pretty; }
-  &[data-wrap="stable"]  { text-wrap: stable; }
-  /* STEP 2 — completion, not a design decision. `HeadingTagHelper.ValidWraps`
-     accepts "nowrap" and the source stylesheet has no rule for it, so the value
-     validated and then did nothing. `text-wrap: nowrap` is the only CSS that
-     means what the attribute says.
-     NOTE it is a WCAG 1.4.10 hazard BY CONSTRUCTION: an unbreakable heading
-     cannot reflow, so a long one will put horizontal scroll on the document at
-     320px. That is inherent to the option, not to this implementation. */
-  &[data-wrap="nowrap"]  { text-wrap: nowrap; }
-
-  /* =====================================================
-     FEATURE LAYER — TEXT TRIM
-     Completely isolated. Removable in one sweep.
-     Applies ONLY to the text container.
-  ===================================================== */
-
-  /* Native trim branch */
+   * Still "completely isolated, removable in one sweep", as the source intended.
+   * Applies ONLY to the text container. */
   @supports (text-box-trim: trim-both) and (text-box-edge: cap alphabetic) {
-     > .heading-link,
-     > .heading-text {
+    > .heading-link,
+    > .heading-text {
       text-box-trim: trim-both;
       text-box-edge: cap alphabetic;
       margin-block: 0;
     }
   }
-
-  /* Fallback branch */
-  @supports not ((text-box-trim: trim-both) and (text-box-edge: cap alphabetic)) {
-     > .heading-link,
-     > .heading-text {
-         --_effectiveLineHeight: calc(var(--_fontSize) * var(--_lineHeight));
-         --_marginBlock: calc((var(--_fontSize) - var(--_effectiveLineHeight)) / 2);
-
-         /* STEP 2 — `--_baselineOffset` REMOVED from the maths, because upstream
-            it made the whole branch a no-op.
-            `--baseline-offset-*` is a UNITLESS `1` in the source's own
-            typography.semantic.scss, and the source wrote
-            `calc(var(--_marginBlock) + var(--_baselineOffset, 0))`. Length + number
-            is not a valid calc: `CSS.supports('margin-block-start',
-            'calc(-4px + 1)')` → false, and the declaration is invalid at
-            computed-value time, so it resolves to the initial 0. Measured all
-            four combinations in Chromium 141:
-
-              --off: 1,   calc(--m + --off)  → 0px      (not -4px)
-              --off: 1,   calc(--m * --off)  → -4px
-              --off unset, calc(--m + 0)     → 0px      (the numeric FALLBACK is
-                                                         unitless too)
-              --off: 1,   calc(--m + 0px)    → -4px
-
-            So the faux-trim fallback zeroed itself upstream regardless of the
-            token's value, in every browser that took this branch. It is not that
-            our design has no equivalent mechanism — it is that the source's
-            mechanism never ran. Dropping the term is the only change that makes
-            the branch do what its own comment says. Findings.md F-062 was right
-            for a better reason than it gave. */
-         margin-block-start: var(--_marginBlock);
-         margin-block-end: var(--_marginBlock);
-      }
-   }
 }

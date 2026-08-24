@@ -35,6 +35,29 @@ export type SourceDefinition = {
   sizes: string;
   /** Media query for art direction; absent = resolution switching. */
   media?: string;
+  /* ── STEP 2 ADDITION. Not in `record SourceDefinition`. ──────────────────
+   *
+   * The crop's aspect ratio, as `[w, h]`. It exists to fix the port's single
+   * worst measured defect: with no dimensions anywhere, step 1 measured CLS
+   * 0.253 (POOR) and 3998 px of unreserved height across 23 pictures.
+   *
+   * IT BELONGS ON THE SOURCE, NOT ON THE IMG, AND THAT IS THE WHOLE POINT.
+   * Under art direction the crop CHANGES per breakpoint — `hero` runs 4:5 →
+   * 3:4 → 16:9 → 21:9 — so one ratio on the `<img>` is right at one viewport and
+   * wrong at the other three. HTML's answer is `width`/`height` on each
+   * `<source>`, which is what this feeds. It is also the guarantee `next/image`
+   * has no way to express at all: it renders one `<img>` and takes one
+   * width/height pair.
+   *
+   * UPSTREAM THIS NEEDS NO NEW CMS DATA. `GetCropUrl(cropAlias, width, …)`
+   * resolves the named crop, and an Umbraco crop definition carries its own
+   * width and height. `MediaHelper` already knows the ratio implicitly — it
+   * passes a width and lets the height follow — and simply does not emit it.
+   * See findings: this is the port's principal upstream recommendation.
+   *
+   * Optional, and absent means "no reservation", so the extension is opt-in and
+   * honest about the cases where the ratio genuinely is not known. */
+  aspectRatio?: [number, number];
 };
 
 /** One picture element — one or more source definitions.
@@ -76,17 +99,32 @@ export type MediaImage = {
 
 /* ── Presets ──────────────────────────────────────────────────────────────── */
 
-/** Mirrors `MediaHelper.Presets`. Verbatim: same aliases, same width ladders,
- *  same `sizes`, same media queries, same order. The order of `sources` inside a
- *  group is load-bearing — `<source>` is first-match-wins, so `mobile` must
- *  precede `portrait` or the wider `max-width` swallows the narrower. */
+/** Mirrors `MediaHelper.Presets`. Verbatim in every field the source has: same
+ *  aliases, same width ladders, same `sizes`, same media queries, same order.
+ *  The order of `sources` inside a group is load-bearing — `<source>` is
+ *  first-match-wins, so `mobile` must precede `portrait` or the wider
+ *  `max-width` swallows the narrower.
+ *
+ *  `aspectRatio` is the one field the source does not have; see its declaration
+ *  on `SourceDefinition`. Only `horizontal` (1:1) is evidenced by the source —
+ *  Teaser.css declares it. The other five are the ratios the port's fixture set
+ *  is generated at, and upstream they must come from the Umbraco crop
+ *  definitions rather than from here. */
 export const PRESETS: Readonly<Record<string, PicturePreset>> = {
   /* Two pictures, CSS/container-query driven visibility (Teaser responsive). */
   teaser: {
     loading: "lazy",
     groups: [
-      { cssClass: "StackedSources", sources: [{ cropAlias: "stacked", widths: [400, 800], sizes: "100%" }] },
-      { cssClass: "HorizontalSources", sources: [{ cropAlias: "horizontal", widths: [320, 640], sizes: "12rem" }] },
+      {
+        cssClass: "StackedSources",
+        sources: [{ cropAlias: "stacked", widths: [400, 800], sizes: "100%", aspectRatio: [3, 2] }],
+      },
+      {
+        cssClass: "HorizontalSources",
+        /* 1:1 on the authority of Teaser.css: `.Media.HorizontalSources
+           { aspect-ratio: 1 / 1 }`. The only ratio the source states. */
+        sources: [{ cropAlias: "horizontal", widths: [320, 640], sizes: "12rem", aspectRatio: [1, 1] }],
+      },
     ],
   },
 
@@ -97,15 +135,27 @@ export const PRESETS: Readonly<Record<string, PicturePreset>> = {
     groups: [
       {
         sources: [
-          { cropAlias: "mobile", widths: [380, 760], sizes: "100vw", media: "(max-width: 21.24999rem)" },
-          { cropAlias: "portrait", widths: [440, 880], sizes: "100vw", media: "(max-width: 48rem)" },
-          { cropAlias: "mid", widths: [740, 1480], sizes: "100vw", media: "(max-width: 64rem)" },
-          { cropAlias: "wide", widths: [1280, 1512, 1728], sizes: "60vw", media: "(min-width: 64rem)" },
+          { cropAlias: "mobile", widths: [380, 760], sizes: "100vw", media: "(max-width: 21.24999rem)", aspectRatio: [4, 5] },
+          { cropAlias: "portrait", widths: [440, 880], sizes: "100vw", media: "(max-width: 48rem)", aspectRatio: [3, 4] },
+          { cropAlias: "mid", widths: [740, 1480], sizes: "100vw", media: "(max-width: 64rem)", aspectRatio: [16, 9] },
+          { cropAlias: "wide", widths: [1280, 1512, 1728], sizes: "60vw", media: "(min-width: 64rem)", aspectRatio: [21, 9] },
         ],
       },
     ],
   },
 };
+
+/** The `width`/`height` pair to declare for one source, expressed at its
+ *  narrowest candidate. Any consistent pair conveys the ratio — the browser uses
+ *  it to reserve a box, not to size the image, because CSS then overrides both. */
+export function dimensionsFor(
+  source: SourceDefinition,
+  width = source.widths[0],
+): { width: number; height: number } | undefined {
+  if (!source.aspectRatio) return undefined;
+  const [rw, rh] = source.aspectRatio;
+  return { width, height: Math.round((width * rh) / rw) };
+}
 
 /** `MediaHelper.Presets.Keys`, for the TagHelper's error message. */
 export const PRESET_NAMES = Object.keys(PRESETS);
@@ -166,6 +216,11 @@ export type ResolvedSource = {
   media?: string;
   srcSet: string;
   sizes: string;
+  /** STEP 2. `width`/`height` on a `<source>` inside `<picture>` — the HTML
+   *  mechanism for reserving a box per art-direction breakpoint. Absent when the
+   *  source declares no `aspectRatio`. */
+  width?: number;
+  height?: number;
 };
 
 export function resolveSource(
@@ -178,11 +233,14 @@ export function resolveSource(
     { type: "image/webp", format: "webp" },
     { format: null },
   ];
+  const dims = dimensionsFor(source);
   return formats.map(({ type, format }) => ({
     type,
     media: source.media,
     srcSet: buildSrcset(source, image, format, cropUrl),
     sizes: source.sizes,
+    width: dims?.width,
+    height: dims?.height,
   }));
 }
 
@@ -212,6 +270,12 @@ export function resolveGroup(
   /** Present only for resolution switching — absent under art direction. */
   imgSrcSet?: string;
   imgSizes?: string;
+  /** STEP 2. The fallback `<img>`'s own reserved box, from the LAST source's
+   *  crop — because that is where its `src` comes from. Under art direction a
+   *  matching `<source>` overrides this; these are the floor, for the case where
+   *  no `<source>` matches and for a UA that ignores `<source>` dimensions. */
+  imgWidth?: number;
+  imgHeight?: number;
 } {
   const isArtDirection = group.sources.some((s) => s.media != null);
   const lastSource = group.sources[group.sources.length - 1];
@@ -222,16 +286,19 @@ export function resolveGroup(
     width: lastSource.widths[0],
     format: null,
   });
+  const imgDims = dimensionsFor(lastSource);
+
+  const base = {
+    isArtDirection,
+    sources,
+    imgSrc,
+    imgWidth: imgDims?.width,
+    imgHeight: imgDims?.height,
+  };
 
   return isArtDirection
-    ? { isArtDirection, sources, imgSrc }
-    : {
-        isArtDirection,
-        sources,
-        imgSrc,
-        imgSrcSet: buildSrcset(lastSource, image, null, cropUrl),
-        imgSizes: lastSource.sizes,
-      };
+    ? base
+    : { ...base, imgSrcSet: buildSrcset(lastSource, image, null, cropUrl), imgSizes: lastSource.sizes };
 }
 
 /** `string.Join(" ", classes.Where(not blank))` — the figure's class list.

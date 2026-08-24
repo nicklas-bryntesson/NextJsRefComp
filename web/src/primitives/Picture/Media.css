@@ -1,5 +1,68 @@
-:where(.Media) {
+/* Media.css — STEP 2. Restyled to cursor-DESIGN.md.
+ *
+ * Step 1 copied this file byte-identical from
+ * `ClientApp/css/04_ui/Media.css` (sha1 b7f3d8ec…, 18 lines, 415 bytes) and it
+ * needed no repair to compile — the only primitive stylesheet in the set so far
+ * that went through Lightning CSS untouched. It also read ZERO design tokens, of
+ * either tier, so `primitive-tokens.css` had nothing to bridge and F-061's
+ * `--COLOR-` grep came back empty. Step 1 therefore looked exactly like the
+ * source, which for once is the honest baseline rather than a coincidence.
+ *
+ * WHAT STEP 2 CHANGES, and why each one is design rather than taste:
+ *
+ * 1. THE FIGURE BECOMES A CARD. cursor-DESIGN.md has no media component, and its
+ *    two nearest specified surfaces are `ide-mockup-card` ("rounded lg (12px),
+ *    1px hairline border") and `ide-pane` (background `canvas-soft`). The design
+ *    doc is explicit that this system uses "hairline-only depth. No drop
+ *    shadows", so there is none. `overflow: hidden` is required for the radius to
+ *    clip the image, and it is not an invention: Teaser.css already does exactly
+ *    this to its `.MediaContainer` with `border-radius: 0.3em; overflow:
+ *    hidden`. Step 2 replaces that hand-picked 0.3em with the system's `lg`.
+ *
+ * 2. `canvas-soft` IS ALSO THE LOADING GROUND. It is the pane background in the
+ *    design doc and it doubles as what shows through the reserved box before the
+ *    bytes land — which only became a visible surface once (3) reserved one.
+ *
+ * 3. SCOPED TO `figure.Media`, NOT `.Media`. This looks fussy and is load-
+ *    bearing. `BuildFigureHtml` parameterises both class names, and its two
+ *    upstream callers disagree about what `.Media` names: `PictureTagHelper`
+ *    takes the defaults so `.Media` is the FIGURE, while `TeaserTagHelper` passes
+ *    `figureClass: "MediaContainer", pictureClass: "Media"` so `.Media` is the
+ *    PICTURE. The file's existing `:where(.Media) { margin: 0 }` gets away with
+ *    the ambiguity because a stray `margin: 0` on a `<picture>` is harmless; a
+ *    border, radius and background are not. The `figure` qualifier states the
+ *    intent the original comment already claimed ("figure reset") and keeps
+ *    specificity at zero, since a compound inside `:where()` still contributes
+ *    nothing.
+ *
+ * WHAT STEP 2 DELIBERATELY LEAVES ALONE. `height: 100%` on the img is kept
+ * verbatim even though it resolves to `auto` in every default context (a
+ * percentage against an indefinite containing block). Replacing it with `auto`
+ * would be a no-op for `app-picture` and a behaviour change for Teaser's
+ * flow-horizontal state, which puts the picture in a definite-height 1:1 box and
+ * relies on `100%` + `object-fit: cover` to fill it. A no-op that is only a
+ * no-op sometimes is not a cleanup.
+ *
+ * THE RESERVED BOX IS NOT IN THIS FILE, and that is the interesting part. Step 1
+ * measured CLS 0.253 (POOR) with 3998 px of unreserved height across 23
+ * pictures, 0 of which carried `width`/`height` and 0 of which got an
+ * `aspect-ratio` from CSS. The fix could have been a CSS `aspect-ratio` here,
+ * and is not, because under art direction the crop changes per breakpoint and
+ * CSS would need one media query per source — re-deriving in a stylesheet what
+ * the `<source media>` ladder already says. HTML has the right mechanism:
+ * `width`/`height` on each `<source>`. See mediaHelper.ts and MediaFigure.tsx.
+ */
+
+:where(figure.Media) {
     margin: 0; /* figure reset */
+
+    /* cursor-DESIGN.md `ide-mockup-card` / `ide-pane`. Every value is a token,
+       and every token is a light-dark() pair, so the appearance flip is free —
+       no `dark:` variant and no duplicate block. */
+    background-color: var(--color-canvas-soft);
+    border: 1px solid var(--color-hairline);
+    border-radius: var(--radius-lg);
+    overflow: hidden; /* clip the image to the radius — as Teaser.css already does */
 }
 
 :where(.Media-picture) {
