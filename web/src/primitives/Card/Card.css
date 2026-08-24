@@ -1,13 +1,85 @@
+/* Card.css — STEP 2: the source's structure, restyled to cursor-DESIGN.md.
+ *
+ * Step 1 was this file byte-identical from `ClientApp/css/04_ui/Card.css`
+ * (45 lines, md5 7acc86b46b492d3601398ee8fdd697ff, git 0c2020d). EVERY SELECTOR
+ * IS UNCHANGED. Only values moved, plus two declarations added and one axis
+ * deliberately emptied. Four notes, because three of them are findings.
+ *
+ * ── 1. THE BORDER IS THE WHOLE POINT, AND IT DID NOT RENDER IN STEP 1 ───────
+ *
+ * `--COLOR-N30` is this file's only constant-tier read, and it is the border
+ * colour — the one axis with a visual rule in the source stylesheet. The bridge
+ * answers the semantic tier, so `border: 1px solid var(--COLOR-N30)` was invalid
+ * at computed-value time and the whole shorthand reset. Measured in step 1:
+ *
+ *     data-border="true"   →  border-top-style: none,  width 0px
+ *     data-border="false"  →  border-top-style: solid, width 0px
+ *
+ * INVERTED. Tailwind's preflight sets `border-style: solid; border-width: 0` on
+ * everything, so the unbordered card kept a usable `solid` default while the
+ * BORDERED one had it reset to `none` by its own gate. Retinted here to
+ * `--color-hairline`, which is the design's own name for this exact line.
+ *
+ * ── 2. THE ELEVATION AXIS IS NOW INERT, AND THAT IS THE DESIGN'S DECISION ───
+ *
+ * cursor-DESIGN.md is not merely shadow-averse, it rules the axis out by name:
+ * "The system uses hairline-only depth. No drop shadows, NO ELEVATION TIERS.
+ * Cards float above the canvas via 1px hairlines and the slight white-on-cream
+ * contrast." So all four `data-elevation` values now resolve to `none` and the
+ * four gates are visually identical. The attribute is still written, still
+ * selectable, and selects nothing.
+ *
+ * The alternative was to re-express the tiers as hairline weights
+ * (`--color-hairline` → `--color-hairline-strong`), which would have kept the
+ * axis alive using only existing tokens. It was rejected: a hairline weight IS
+ * an elevation tier, and the doc rejects elevation tiers. Inventing one here
+ * would be the same class of move as inventing five surface hues. See findings —
+ * the axis loss is reported, not papered over.
+ *
+ * Teaser's three frames survive the collapse anyway, because what Card
+ * contributes is the SURFACE, not the shadow: `bare` has no Card at all,
+ * `elevated` is a white card on cream, `bordered` is a white card with a
+ * hairline. Three distinguishable frames, no shadows.
+ *
+ * ── 3. TWO DECLARATIONS THE SOURCE DOES NOT HAVE ───────────────────────────
+ *
+ * `background-color` and nothing else. The source Card has NO surface — it is a
+ * transparent box with an optional border, measured `rgba(0, 0, 0, 0)` in step 1
+ * on every one of 25 instances. cursor-DESIGN.md gives all five of its named
+ * cards `{colors.surface-card}`, without exception, so the surface is added.
+ * `color` is deliberately NOT added: the doc's own card entries disagree about it
+ * (`feature-card` and `pricing-tier-card` say `{colors.ink}`, `testimonial-card`
+ * says `{colors.body}`) and Card has no axis to tell them apart, so the colour
+ * stays inherited and the caller's own typography decides. That is the honest
+ * reading of an internally inconsistent spec, and it is also what the source did.
+ *
+ * ── 4. THE PADDING SCALE IS TWO DOC VALUES AND ONE DERIVED ONE ─────────────
+ *
+ * The doc supplies exactly two card paddings — 24px (feature / comparison /
+ * testimonial / code-block-ish) and 32px (pricing-tier) — for a four-value axis.
+ * `md` takes 24 and `lg` takes 32, which is also what makes `padding="lg"` the
+ * right prop for a pricing card. `sm` (16px) is derived work and marked as such;
+ * `none` is 0 in both systems. Same shape as the Button port's missing `sm`.
+ */
+
 :where(.Card) {
-    --_gap:          var(--size-md);
-    --_borderRadius: 0.5rem; /* TODO: radius token */
-    --_borderColor:  var(--COLOR-N30); /* TODO: tone-border-primary */
+    --_gap:          var(--spacing-sm);   /* 12px — the doc specifies no internal
+                                             card gap, so the source's --size-md
+                                             role is kept at its own value. */
+    --_borderRadius: var(--radius-lg);    /* 12px. "Cards use {rounded.lg}." */
+    --_borderColor:  var(--color-hairline);
 
     overflow: hidden;
     display: flex;
     flex-direction: column;
     gap: var(--_gap);
     border-radius: var(--_borderRadius);
+
+    /* ── Surface ─────────────────────────────────────── */
+    /* Added in step 2. See note 3 — every card in cursor-DESIGN.md has one, and
+       the source has none. `light-dark()` comes through the token, so this needs
+       no dark half and no `dark:` variant. */
+    background-color: var(--color-surface-card);
 
     /* ── Border ──────────────────────────────────────── */
 
@@ -25,11 +97,16 @@
     }
 
     &[data-padding="none"] { --_padding: 0; }
-    &[data-padding="sm"]   { --_padding: var(--size-sm); }
-    &[data-padding="md"]   { --_padding: var(--size-md); }
-    &[data-padding="lg"]   { --_padding: var(--size-lg); }
+    &[data-padding="sm"]   { --_padding: var(--spacing-base); }  /* 16px — DERIVED, no doc value */
+    &[data-padding="md"]   { --_padding: var(--spacing-lg); }    /* 24px — feature-card */
+    &[data-padding="lg"]   { --_padding: var(--spacing-xl); }    /* 32px — pricing-tier-card */
 
     /* ── Elevation ───────────────────────────────────── */
+    /* Every gate kept, every gate empty. See note 2: "no drop shadows, no
+       elevation tiers". The four selectors are retained rather than deleted
+       because they are the component's API surface — a consumer's stylesheet can
+       still reach `[data-elevation="lg"]` — and because deleting them in step 2
+       would hide from step 3 whether the gate idiom survives the conversion. */
 
     &[data-elevation="none"],
     &[data-elevation="sm"],
@@ -39,7 +116,7 @@
     }
 
     &[data-elevation="none"] { --_shadow: none; }
-    &[data-elevation="sm"]   { --_shadow: 0 1px 3px oklch(0 0 0 / 0.08), 0 1px 2px oklch(0 0 0 / 0.04); }
-    &[data-elevation="md"]   { --_shadow: 0 4px 12px oklch(0 0 0 / 0.08), 0 1px 3px oklch(0 0 0 / 0.05); }
-    &[data-elevation="lg"]   { --_shadow: 0 10px 24px oklch(0 0 0 / 0.1), 0 4px 8px oklch(0 0 0 / 0.06); }
+    &[data-elevation="sm"]   { --_shadow: none; }
+    &[data-elevation="md"]   { --_shadow: none; }
+    &[data-elevation="lg"]   { --_shadow: none; }
 }

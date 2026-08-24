@@ -36,9 +36,18 @@ const ELEVATIONS: CardElevation[] = ["none", "sm", "md", "lg"];
 /* A Card is a block-level flex column, so unlike a Button it WANTS the full
  * width of its Cell. It does not want the full width of a 1280px viewport, so
  * the demos are boxed — `max-w-full` keeps WCAG 1.4.10 satisfied down to 320px
- * because `Cell` already carries `min-w-0`. */
+ * because `Cell` already carries `min-w-0`.
+ *
+ * `bg-canvas` IS LOAD-BEARING, not decoration. After step 2 a Card's surface is
+ * `--color-surface-card`, and `Block` in the shared chrome uses
+ * `bg-surface-card` too — so every card would be white-on-white and the whole
+ * `border={false}` half of the page would be invisible. cursor-DESIGN.md is
+ * explicit that a card is "white card on cream canvas", so each demo supplies
+ * the cream ground the design puts it on. The Button port hit the mirror image
+ * of this (the chrome is field-shaped); the chrome is also card-coloured, and a
+ * card demo has to opt out of that too. */
 function Boxed({ children }: { children: ReactNode }) {
-  return <div className="w-[17rem] max-w-full">{children}</div>;
+  return <div className="w-[17rem] max-w-full rounded-lg bg-canvas p-base">{children}</div>;
 }
 
 function Filling({ title, body }: { title: string; body: string }) {
@@ -65,7 +74,7 @@ export function CardKitchensink() {
           <Cell caption='border → data-border="true"'>
             <Boxed>
               <Card border>
-                <Filling title="Bordered" body="1px hairline, the design's only depth affordance." />
+                <Filling title="Bordered" body="1px hairline — the design's only depth affordance." />
               </Card>
             </Boxed>
           </Cell>
@@ -83,7 +92,7 @@ export function CardKitchensink() {
           ))}
         </Block>
 
-        <Block title="elevation — omitted vs none | sm | md | lg">
+        <Block title="elevation — omitted vs none | sm | md | lg. After step 2 all five render IDENTICALLY: cursor-DESIGN.md rules out elevation tiers by name, so the axis is inert.">
           <Cell caption="omitted → no data-elevation attribute">
             <Boxed>
               <Card border>
@@ -102,7 +111,7 @@ export function CardKitchensink() {
           ))}
         </Block>
 
-        <Block title="border × elevation — ForbiddenCombinations ships empty, so every pair renders">
+        <Block title="border × elevation — ForbiddenCombinations ships empty, so every pair renders. All four are identical now, for the same reason.">
           {ELEVATIONS.map((elevation) => (
             <Cell key={elevation} caption={`border + elevation="${elevation}"`}>
               <Boxed>
@@ -202,18 +211,45 @@ export function CardKitchensink() {
         id="card-override"
         title="The consumer override seam"
       >
-        <Block title="cursor-DESIGN.md's pricing-tier-featured inverts to ink — Card has no axis for it, so it can only arrive through className">
-          <Cell caption="pricing-tier-card — padding='lg' (32px), the doc's value">
+        <Block title="cursor-DESIGN.md's pricing-tier-featured inverts to ink. Card has no axis for it, so it can only arrive through className — and after step 2 a plain utility LOSES.">
+          <Cell caption={'pricing-tier-card — padding="lg" (32px), the doc’s value'}>
             <Boxed>
               <Card border padding="lg">
                 <Filling title="Pro" body="$20 / month. Everything in Hobby, plus unlimited completions." />
               </Card>
             </Boxed>
           </Cell>
-          <Cell caption="pricing-tier-featured — the same Card + bg-ink text-canvas">
+          {/* THE MEASUREMENT. `bg-ink` here has NO EFFECT, and the reason is not
+              specificity: Card.css wraps everything in `:where(.Card)`, which is
+              specificity ZERO precisely so a consumer can win with one class.
+              But Tailwind v4 emits `.bg-ink` inside `@layer utilities`, and a
+              component stylesheet imported from a module is UNLAYERED — and
+              unlayered normal declarations beat every layer. So the seam
+              `:where()` was written to provide is already closed before step 3
+              gets anywhere near it. Measured: background-color stays
+              rgb(255,255,255). See findings. */}
+          <Cell caption="className='bg-ink' — no effect, and not because of specificity">
             <Boxed>
-              <Card border padding="lg" className="border-ink bg-ink [&_*]:text-canvas">
-                <Filling title="Business" body="$40 / month. The inversion is the consumer's, not the component's." />
+              <Card border padding="lg" className="bg-ink">
+                <Filling title="Business" body="bg-ink is in @layer utilities; Card.css is not, so Card.css wins." />
+              </Card>
+            </Boxed>
+          </Cell>
+          {/* And the only form that DOES win in step 2. An important declaration
+              inverts the layer order, so `bg-ink!` beats the unlayered rule where
+              `bg-ink` cannot. This is F-062's cost arriving one step earlier than
+              predicted: the override does not need step 3 to break, it needs `!`
+              from step 2 onwards.
+
+              The text is flipped in the SAME cell on purpose. Flipping the text
+              without the background — the natural mistake, because `[&_*]:` wins
+              on specificity while `bg-ink` loses on layer — put a real 1.07:1
+              contrast failure on this route in BOTH appearances, 4 nodes. A
+              half-applied override is worse than one that does nothing. */}
+          <Cell caption="className='bg-ink! border-ink!' — the only form that wins">
+            <Boxed>
+              <Card border padding="lg" className="bg-ink! border-ink! [&_*]:text-canvas">
+                <Filling title="Business" body="$40 / month. The inversion is the consumer's, and it costs an important flag." />
               </Card>
             </Boxed>
           </Cell>
