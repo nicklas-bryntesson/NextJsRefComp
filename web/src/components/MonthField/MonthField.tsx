@@ -896,6 +896,24 @@ export function MonthField({
         aria-invalid={ariaInvalid ? "true" : undefined}
         aria-hidden={inputMode === "display" ? undefined : "true"}
         tabIndex={inputMode === "display" ? undefined : -1}
+          /* PRE-HYDRATION HEIGHT RESERVATION — ADR-0008 applied to the state
+           the ADR does not cover. Before the input-mode store resolves there
+           is no `data-input-mode`, so the stylesheet's default branch paints
+           THIS input as the control. Functionally correct (F-046: the native
+           control is fully usable pre-hydration) but the WRONG BOX — a native
+           date/month input paints well under the 2.5rem the custom layer that
+           replaces it is guaranteed, so every instance jumps on hydration.
+           That is Cumulative Layout Shift, and on a shared page it also moves
+           other components' click targets out from under Playwright's aim
+           mid-gesture (F-049). Measured before this: 112px of document shift across 17 instances, CLS 0.0555.
+           Reading the token rather than hardcoding `2.5rem` tracks what the
+           verbatim stylesheet already declares. Dropped once the mode
+           resolves; from then on the custom layer owns the box. */
+        style={
+          inputMode === null
+            ? { minBlockSize: "var(--_mf-field-min-block-size)" }
+            : undefined
+        }
       />
 
       {/* In custom mode the overlay IS the accessible control, so aria-hidden

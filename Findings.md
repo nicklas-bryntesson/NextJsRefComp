@@ -2308,6 +2308,63 @@ production CSS, and the deliverable is the equivalence proof, not the CSS.
 
 ---
 
+### F-060 · ADR-0006's native fallback is functionally right and dimensionally wrong
+
+**Surface:** all five popup fields. **Closes the CLS item opened in F-049.**
+
+ADR-0006 says a custom control falls back to the native one on coarse pointers,
+and F-046 recorded the payoff: because the input-mode store's server snapshot is
+`null`, the stylesheet's default branch paints the native `<input>` as the
+control, so the field is **fully usable before hydration**. That is progressive
+enhancement working exactly as designed.
+
+It is also the wrong box. A native `<input type="date">` paints well under the
+2.5rem that ADR-0008's field-height contract guarantees the custom layer, so
+every instance jumps when the mode resolves. Measured per route, document height
+before and after hydration:
+
+| Field | Instances | Before | After |
+|---|---|---|---|
+| MonthField | 17 | **Δ112 px**, CLS 0.0555 | **Δ0**, CLS 0.0116 |
+| DateField | 17 | **Δ96 px**, CLS 0.031 | **Δ0**, CLS 0.0071 |
+| TimeField | 16 | Δ0 | Δ0, CLS 0.0013 |
+| DateTimeField | 18 | Δ0 | Δ0, CLS 0.0064 |
+| WeekField | 17 | Δ0 | Δ0, CLS 0 |
+
+Two things worth noting about how this was found and closed:
+
+**DateField was never on the list.** F-049 named MonthField and TimeField from the
+ToggleTip port's bisection of the *shared* page. Measuring each field on its own
+route found TimeField already clean and **DateField shifting 96 px** — a component
+nobody had flagged. The earlier attribution was correct about the shared page and
+incomplete about the cause.
+
+**The fix already existed in the port.** DateTimeField's porter reserved the
+pre-hydration height from the stylesheet's own token
+(`min-block-size: var(--_dtf-field-min-block-size)` while `inputMode === null`,
+dropped once it resolves) and landed at Δ0. Applying the identical pattern to
+MonthField and DateField closed both. Reading the token rather than hardcoding
+`2.5rem` means the reservation tracks whatever the verbatim stylesheet declares.
+
+**Why it mattered beyond Core Web Vitals.** This is the mechanism behind F-049:
+Playwright computes a click point and *then* moves the mouse, so a shift landing
+inside that gesture pushed triggers out from under the aim and failed four
+unrelated components with messages accusing their own mechanisms. Fixing the
+shift removes the cause rather than the symptom.
+
+Residual CLS is 0.0064–0.0116, all of it horizontal — the native input and the
+overlay differ by about 5 px of inline size, and there is no token for that.
+Well inside the 0.1 "good" threshold, and left alone rather than hardcoded.
+
+**Upstream suggestion:** ADR-0008 fixes the field's height contract for the
+*resolved* states and says nothing about the pre-resolution state, which is a
+state the contract genuinely has — every SSR consumer renders it. One sentence
+would cover it: *the pre-`attach()` native control reserves the same minimum
+block size as the custom layer that replaces it.* Verified no conformance change:
+**397 / 8** before and after.
+
+---
+
 ## Proposals written for upstream
 
 Where a finding implies a change to the library rather than to this port, the
