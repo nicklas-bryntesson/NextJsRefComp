@@ -1,0 +1,249 @@
+/*
+ * CoverComposition — full-bleed hero with media background and content overlay.
+ *
+ * Layout states:
+ *   STACKED  (≤21.24999rem) — media above, content below, no overlay
+ *   OVERLAY  (>21.25rem)    — content sits on top of full-bleed media
+ *
+ * State detection: container query (preferred) + viewport MQ (fallback)
+ *
+ * Video variant: activated by data-component="CoverCompositionVideo" on .CoverComposition.
+ * JS injects .CoverComposition-videoControls / .CoverComposition-videoToggle into .CoverComposition-media.
+ */
+
+.CoverComposition {
+  position: relative;
+
+  & .media-container {
+    background-color: var(--COLOR-N20);
+    position: relative;
+
+    & .overlay {
+      background-color: color-mix(in oklch, var(--COLOR-B90) 55%, transparent);
+      inline-size: 100%;
+      block-size: 100%;
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+    }
+  
+    & .video-controls {
+      position: absolute;
+      inset-block-start: 1rem;
+      inset-inline-end: 1rem;
+      z-index: 2;
+
+      & .video-toggle {
+        --_size: 2.75rem;
+    
+        display: grid;
+        place-items: center;
+        inline-size: var(--_size);
+        block-size: var(--_size);
+        border: none;
+        border-radius: 50%;
+        background: transparent;
+        color: white;
+        cursor: pointer;
+        backdrop-filter: blur(2px);
+          -webkit-tap-highlight-color: transparent;
+          -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+    
+        &:focus-visible {
+          outline: 2px solid white;
+          outline-offset: 2px;
+        }
+    
+        & svg {
+          inline-size: 1.25rem;
+          block-size: 1.25rem;
+        }
+      }
+    }
+  }
+
+  & .content-container {
+    display: grid;
+    column-gap: var(--grid-layout-gap);
+    grid-template-columns: var(--grid-layout-columns);
+    pointer-events: none;
+
+    & .content {
+      display: flex;
+      flex-direction: column;
+      gap: var(--size-lg);
+      pointer-events: auto;
+
+      & .Prose {
+        max-inline-size: 50ch;
+      }
+
+      @media (max-width: 21.24999rem) {
+
+      }
+
+      @media (min-width: 21.25rem) {
+
+      }
+    }
+  }
+}
+
+/* ── STACKED — narrow screens ───────────────────────── */
+
+@media (max-width: 21.24999rem) {
+  .CoverComposition {
+    margin-block-start: var(--size-lg);
+    row-gap: var(--size-lg);
+
+    & .media-container {
+      grid-row: 1;
+
+      & img,
+      & video {
+        display: block;
+        inline-size: 100%;
+        block-size: auto;
+      }
+    }
+
+    & .content-container {
+      grid-row: 2;
+
+      & .content {
+
+      }
+    }
+  }
+}
+
+/* ── OVERLAY — viewport MQ fallback ─────────────────── */
+
+@supports not (container-type: inline-size) {
+  @media (min-width: 21.25rem) {
+    .CoverComposition {
+      & .media-container {
+        position: relative;
+        grid-column: 1 / -1;
+        grid-row: 1;
+        z-index: 1;
+
+        &::after {
+          position: absolute;
+          inset: 0;
+          content: "";
+        }
+
+        & img,
+        & video {
+          position: absolute;
+          inset: 0;
+          inline-size: 100%;
+          block-size: 100%;
+          object-fit: cover;
+        }
+      }
+
+      & .content-container {
+        position: relative;
+        grid-column: main;
+        grid-row: 1;
+        z-index: 2;
+        padding-block: 30vh;
+      }
+    }
+  }
+}
+
+/* ── OVERLAY — container query (preferred) ──────────── */
+
+@supports (container-type: inline-size) {
+  .CoverComposition {
+    container-type: inline-size;
+  }
+
+  @container (min-width: 21.25rem) {
+    .media-container {
+      position: relative;
+      grid-column: 1 / -1;
+      grid-row: 1;
+      z-index: 1;
+
+      &::after {
+        position: absolute;
+        inset: 0;
+        content: "";
+      }
+
+      & img,
+      & video {
+        position: absolute;
+        inset: 0;
+        inline-size: 100%;
+        block-size: 100%;
+        object-fit: cover;
+      }
+    }
+
+    .content-container {
+      position: relative;
+      grid-row: 1;
+      z-index: 2;
+      padding-block: 30dvh;
+    }
+  }
+
+  @media (min-width: 21.25rem) {
+    .content-container {
+
+    }
+  }
+
+  /* 1col */
+  @media (max-width: 39.9375rem) {
+    .content-container {
+      & .content {
+        grid-column: 1/-1;
+      }
+    }
+  }
+  /* 4col */
+  @media (min-width: 40rem) and (max-width: 47.9375rem) {
+    .content-container {
+
+      & .content {
+        grid-column: 1/-1;
+      }
+    }
+  }
+    /* 8col */
+  @media (min-width: 48rem) and (max-width: 79.9375rem) {
+    .content-container {
+
+      & .content {
+        grid-column: 1/8;
+      }
+    }
+  }
+    /* 12col */
+  @media (min-width: 80rem) and (max-width: 94.937rem) {
+    .content-container { 
+
+      & .content {
+        grid-column: 1/9;
+      }
+    }
+  }
+
+  @media (min-width: 95rem) {
+    .content-container {
+      grid-column: 1/-1;
+
+      & .content {
+        grid-column: 2/9;
+        margin-inline-start: calc(var(--grid-layout-gap) * -1);
+      }
+    }
+  }
+}

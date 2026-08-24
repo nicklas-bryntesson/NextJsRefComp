@@ -1,0 +1,87 @@
+.CircleDiagram {
+    --CircleDiagram-size: 200px;
+    --CircleDiagram-hole: 25%;
+
+    /* Hardcoded palette — swap for tokens later */
+    --CircleDiagram-color-1: #3544b1;
+    --CircleDiagram-color-2: #e8593a;
+    --CircleDiagram-color-3: #2d8a4e;
+    --CircleDiagram-color-4: #f0b429;
+    --CircleDiagram-color-5: #9b59b6;
+    --CircleDiagram-color-6: #16a085;
+
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--size-md);
+    margin-block: var(--size-md);
+}
+
+.CircleDiagram-chart {
+    width: var(--CircleDiagram-size);
+    height: var(--CircleDiagram-size);
+    border-radius: 50%;
+    position: relative;
+    flex-shrink: 0;
+}
+
+/* Donut hole */
+.CircleDiagram-center {
+    position: absolute;
+    inset: var(--CircleDiagram-hole);
+    border-radius: 50%;
+    background: #fff;
+}
+
+.CircleDiagram-caption {
+    display: flex;
+    flex-direction: column;
+    gap: var(--size-xs, 0.5rem);
+}
+
+.CircleDiagram-subtitle {
+    font-family: var(--fontFamily-body);
+    font-size: var(--fontSize-body-small);
+    color: var(--color-text-muted, currentColor);
+    margin: 0;
+}
+
+.CircleDiagram-legend {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--size-xs, 0.5rem);
+}
+
+.CircleDiagram-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: var(--fontFamily-label);
+    font-size: var(--fontSize-label-sm);
+}
+
+.CircleDiagram-legend-swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+.CircleDiagram-legend-label {
+    flex: 1;
+}
+
+.CircleDiagram-legend-value {
+    opacity: 0.7;
+}
+
+/* Side-by-side when space allows */
+@media (min-width: 30rem) {
+    .CircleDiagram {
+        flex-direction: row;
+        align-items: center;
+    }
+}
