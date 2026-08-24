@@ -1,0 +1,394 @@
+/* prettier-ignore */
+.Button {
+  /* invariants */
+  --_fontFamily:      var(--fontFamily-label);
+  --_fontWeight:      var(--fontWeight-label);
+  --_lineHeight:      var(--lineHeight-label);
+  --_fontBaselineOffset: var(--baseline-offset-label);
+  --_borderWidth: 1px;
+  --_borderRadius: ;
+  --_outlineWidth: 2px;
+  --_outlineOffset: 3px;
+  --_outlineColor: var(--COLOR-B50);
+  --_hoverRingColor: color-mix(in oklch, var(--COLOR-B20) 60%, transparent);
+  
+  /* own by tone axis */
+  --_color: ;
+  --_backgroundColor: ;
+  --_borderColor: ;
+  
+  --_color-hover: ;
+  --_backgroundColor-hover: ;
+  --_borderColor-hover: ;
+  
+  --_color-active: ;
+  --_backgroundColor-active: ;
+  --_borderColor-active: ;
+
+  --_color-focus: ;
+  --_backgroundColor-focus: ;
+  --_borderColor-focus: ;
+
+  --_color-disabled: ;
+  --_backgroundColor-disabled: ;
+  --_borderColor-disabled: ;
+
+
+  /* generic styles */
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: var(--_buttonColumns, auto);
+  grid-template-areas: var(--_buttonAreas, "text");
+  align-items: center;
+
+  padding-block: var(--_paddingBlock);
+  padding-inline: var(--_paddingInline);
+  border-style: solid;
+  border-width: var(--_borderWidth);
+  border-color: var(--_borderColor);
+  border-radius: var(--_borderRadius);
+
+  color: var(--_color);
+  background-color: var(--_backgroundColor);
+
+  text-decoration: none;
+  box-sizing: border-box;
+  cursor: pointer;
+  transition: background-color 250ms ease,
+              color            250ms ease,
+              border-color     250ms ease,
+              box-shadow       250ms ease;
+
+  &:hover,
+  &[data-test-state="hover"] {
+    /* PORT EDIT (the only edit to this verbatim file; step 1).
+       Source line reads `color: var();` — an empty var() with no custom-property
+       name. Browsers treat that as a syntax error and DROP the declaration, so
+       upstream it is dead code; Turbopack's Lightning CSS parser treats it as a
+       hard build failure ("Unexpected end of input"), so the file cannot be
+       compiled as-is. Commented out rather than repaired to `var(--_color-hover)`,
+       because repairing it would change rendered behaviour: every emphasis block
+       sets `--_color` (not `--_color-hover`) inside its own :hover, so hover
+       colour already resolves through the base `--_color` and this line was never
+       doing anything. See findings/primitives-Button.md. */
+    /* color:                var(); */
+    background-color:     var(--_backgroundColor-hover);
+    border-color:         var(--_borderColor-hover);
+    box-shadow:           var(--_boxShadow);
+  }
+
+  &:active,
+  &[data-test-state="active"] {
+    color:                var(--_color-active);
+    background-color:     var(--_backgroundColor-active);
+    border-color:         var(--_borderColor-active);
+    box-shadow:           none;
+  }
+
+  /* Remove border/outline for non keyboard interaction */
+  &:focus:not(:focus-visible) {
+    outline: 0;
+  }
+
+  /* Keyboard interaction */
+  &:focus-visible,
+  &[data-test-state="focus"] {
+    color:                var(--_color-focus);
+    background-color:     var(--_backgroundColor-focus);
+    border-color:         var(--_borderColor-focus);
+    box-shadow:           none;
+
+    outline-style:        solid;
+    outline-width:        var(--_outlineWidth);
+    outline-color:        var(--_outlineColor);
+    outline-offset:       var(--_outlineOffset);
+  }
+
+  &:disabled,
+  &[data-test-state="disabled"] {
+    color:                var(--_color-disabled);
+    background-color:     var(--_backgroundColor-disabled);
+    border-color:         var(--_borderColor-disabled);
+    box-shadow:           none;
+    cursor:               not-allowed;
+  }
+
+
+  /* Sizes */
+  &[data-size="sm"] {
+    --_iconSize:                    1.125rem;
+    --_iconMargin:                  0.5rem;
+    --_fontSize:                    var(--fontSize-label-small);
+    --_paddingBlock:                var(--size-sm);
+    --_paddingInline:               1.4em;
+  }
+
+  &[data-size="md"] {
+    --_iconSize:                    1.5rem;
+    --_iconMargin:                  0.75rem;
+    --_fontSize:                    var(--fontSize-label);
+    --_paddingBlock:                var(--size-sm);
+    --_paddingInline:               1.4em;
+  }
+
+  &[data-size="lg"] {
+    --_iconSize:                    1.75rem;
+    --_iconMargin:                  1rem;
+    --_fontSize:                    var(--fontSize-label-large);
+    --_paddingBlock:                0.8em;
+    --_paddingInline:               1.6em;
+  }
+
+  /* Emphasis */
+  &[data-emphasis="primary"] {
+    --_color:                       var(--COLOR-N00);
+    --_backgroundColor:             var(--COLOR-B80);
+    --_borderColor:                 var(--COLOR-B80);
+
+    &:hover,
+    &[data-test-state="hover"] {
+      --_color:                     var(--COLOR-N00);
+      --_backgroundColor-hover:     var(--COLOR-B90);
+      --_borderColor-hover:         var(--COLOR-B90);
+      --_boxShadow:                 0 0 0 4px var(--_hoverRingColor);
+    }
+
+    &:active,
+    &[data-test-state="active"] {
+      --_color-active:              var(--COLOR-N00);
+      --_backgroundColor-active:    var(--COLOR-B80);
+      --_borderColor-active:        var(--COLOR-B80);
+      --_boxShadow:                 0 0 0 4px transparent;
+    }
+
+    &:focus-visible,
+    &[data-test-state="focus"] {
+      /* tbd: does this need to be tied to the emphasis axis? */
+      --_color-focus:               var(--COLOR-N00);
+      --_backgroundColor-focus:     var(--COLOR-B90);
+      --_borderColor-focus:         var(--COLOR-B90);
+      --_boxShadow:                 none;
+      --_boxShadow:                 0 0 0 4px transparent;
+    }
+
+    &:disabled,
+    &[data-test-state="disabled"] {
+      --_color-disabled:            var(--COLOR-N70);
+      --_backgroundColor-disabled:  var(--COLOR-N05);
+      --_borderColor-disabled:      var(--COLOR-N20);
+      --_boxShadow:                 0 0 0 4px transparent;
+
+      background-image: repeating-linear-gradient(
+        45deg,
+        var(--COLOR-N05),
+        var(--COLOR-N20) 0.125rem,
+        transparent 0.125rem,
+        transparent 0.5rem
+      );
+    }
+  }
+
+  &[data-emphasis="secondary"] {
+    --_color:                       var(--COLOR-B80);
+    --_backgroundColor:             transparent;
+    --_borderColor:                 var(--COLOR-B30);
+
+    &:hover,
+    &[data-test-state="hover"] {
+      --_color:                     var(--COLOR-B80);
+      --_backgroundColor-hover:     var(--COLOR-N10);
+      --_borderColor-hover:         var(--COLOR-B80);
+      --_boxShadow:                 0 0 0 4px var(--_hoverRingColor);
+    }
+
+    &:active,
+    &[data-test-state="active"] {
+      --_color-active:              var(--COLOR-B80);
+      --_backgroundColor-active:    transparent;
+      --_borderColor-active:        var(--COLOR-B30);
+      --_boxShadow:                 0 0 0 4px transparent;
+    }
+
+    &:focus-visible,
+    &[data-test-state="focus"] {
+      /* tbd: does this need to be tied to the emphasis axis? */
+      --_color-focus:               var(--COLOR-B80);
+      --_backgroundColor-focus:     var(--COLOR-N10);
+      --_borderColor-focus:         var(--COLOR-B80);
+      --_boxShadow:                 none;
+      --_boxShadow:                 0 0 0 4px transparent;
+    }
+
+    &:disabled,
+    &[data-test-state="disabled"] {
+      --_color-disabled:            var(--COLOR-N70);
+      --_backgroundColor-disabled:  var(--COLOR-N05);
+      --_borderColor-disabled:      var(--COLOR-N20);
+      --_boxShadow:                 0 0 0 4px transparent;
+
+      background-image: repeating-linear-gradient(
+        45deg,
+        var(--COLOR-N05),
+        var(--COLOR-N20) 0.125rem,
+        transparent 0.125rem,
+        transparent 0.5rem
+      );
+    }
+  }
+
+  &[data-emphasis="tertiary"] {
+    --_borderWidth: 0;
+    background: transparent;
+  }
+
+  /* ── Intent ── */
+
+  &[data-emphasis="primary"][data-intent="destructive"] {
+    background-color: var(--COLOR-R60, #d63031);
+    border-color: var(--COLOR-R60, #d63031);
+    color: var(--COLOR-N00);
+  }
+
+  &[data-emphasis="primary"][data-intent="success"] {
+    background-color: var(--COLOR-G60, #00b894);
+    border-color: var(--COLOR-G60, #00b894);
+    color: var(--COLOR-N00);
+  }
+
+  &[data-emphasis="secondary"][data-intent="destructive"] {
+    border-color: var(--COLOR-R60, #d63031);
+    color: var(--COLOR-R60, #d63031);
+  }
+
+  &[data-emphasis="secondary"][data-intent="success"] {
+    border-color: var(--COLOR-G60, #00b894);
+    color: var(--COLOR-G60, #00b894);
+  }
+
+  &[data-emphasis="tertiary"][data-intent="destructive"] {
+    color: var(--COLOR-R60, #d63031);
+  }
+
+  &[data-emphasis="tertiary"][data-intent="success"] {
+    color: var(--COLOR-G60, #00b894);
+  }
+
+  /* ── Shape ── */
+
+  &[data-pill="false"] {
+   --_borderRadius: 0.375em;
+  }
+
+  &[data-pill="true"] {
+    --_borderRadius: 3em;
+  }
+
+  /* ── Icon layout ── */
+
+  &[data-icon-only="true"] {
+    --_buttonColumns: auto;
+    --_buttonAreas: "icon";
+    padding-inline: var(--_paddingBlock);
+  }
+
+  &:not([data-icon-position]) {
+    --_buttonColumns: auto;
+    --_buttonAreas: "text";
+  }
+
+  &[data-icon-position="left"] {
+    --_buttonColumns: auto 1fr;
+    --_buttonAreas: "icon text";
+    --_marginEnd: var(--_iconMargin);
+
+    gap: var(--_marginEnd);
+  }
+
+  &[data-icon-position="right"] {
+    --_buttonColumns: 1fr auto;
+    --_buttonAreas: "text icon";
+    --_marginStart: var(--_iconMargin);
+
+    gap: var(--_marginStart);
+  }
+
+  & > .Button-text {
+    /* prettier-ignore */
+    --_baselineOffset: var(--button--baselineOffset, 0);
+    --_effectiveLineHeight: calc(var(--_fontSize) * var(--_lineHeight));
+    --_marginBlock: calc((var(--_fontSize) - var(--_effectiveLineHeight)) / 2);
+    --_marginBlockStart: calc(var(--_marginBlock) + var(--_baselineOffset));
+    --_marginBlockEnd: calc(var(--_marginBlock) - var(--_baselineOffset));
+
+    position: relative;
+    color: inherit;
+    grid-area: text;
+    font-size: var(--_fontSize);
+    font-family: var(--_fontFamily);
+    font-weight: var(--_fontWeight);
+    line-height: var(--_lineHeight);
+    /* negative margin compensating for line-height above and below while still keeping line-height inside the button text, with baseline offset */
+    margin-block-start: var(--_marginBlockStart);
+    margin-block-end: var(--_marginBlockEnd);
+    word-break: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+
+  & > .Button-icon {
+    display: inline;
+    block-size: var(--_iconSize);
+    inline-size: auto;
+    width: auto;
+    max-width: fit-content;
+    position: relative;
+    /* force icon to not take up any height */
+
+    margin-block: calc((var(--_iconSize) / 2 ) * -1);
+  }
+}
+
+/* Developer debug styles here: */
+:where(.Button[data-test-state="debug"]) {
+  &::before {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    inset-block-start: 0;
+    width: 100%;
+    height: var(--_paddingBlock);
+    background-color: rgba(64, 190, 64, 0.2);
+  }
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    inset-block-end: 0;
+    width: 100%;
+    height: var(--_paddingBlock);
+    background-color: rgba(64, 190, 64, 0.2);
+  }
+
+  & > .Button-text {
+    position: relative;
+    outline: 0.0625rem dashed rgba(0, 255, 0, 0.703);
+
+    &::after {
+      content: "";
+      position: absolute;
+      inset-inline: 0;
+      inset-block: 0;
+
+      /* Show the height of the text after line-height compensation */
+      height: calc(
+        100% - (2 * var(--_marginAdjustment))
+      ); /* Subtract top & bottom */
+      transform: translateY(var(--_marginAdjustment)); /* Shift it down */
+
+      width: 100%;
+      background-color: rgba(223, 79, 31, 0.2);
+      z-index: 0;
+    }
+  }
+}

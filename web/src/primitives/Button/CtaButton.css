@@ -1,0 +1,93 @@
+:where(.CtaButton) {
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: 1fr;
+  grid-template-areas: "text";
+  align-items: center;
+  justify-items: center;
+
+  padding-block: var(--spacing-cta-block, 1rem);
+  padding-inline: var(--spacing-cta-inline, 2rem);
+  border-radius: 3em;
+
+  font-size: var(--fontSize-cta, 1.25rem);
+  font-family: var(--fontFamily-button);
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+
+  cursor: pointer;
+  box-sizing: border-box;
+
+  /* Keyboard focus */
+  &:focus:not(:focus-visible) {
+    outline: 0;
+  }
+
+  &:focus-visible,
+  &[data-test-state="focus"] {
+    outline-width: 2px;
+    outline-style: solid;
+    outline-color: var(--COLOR-B50);
+    outline-offset: 3px;
+  }
+
+  &:disabled,
+  &[data-test-state="disabled"] {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  /* ── Shared child layout ── */
+
+  & > .CtaButton-text {
+    grid-area: text;
+    position: relative;
+    z-index: 1;
+  }
+
+  & > .CtaButton-icon {
+    position: relative;
+    z-index: 1;
+    block-size: 1.25em;
+    inline-size: auto;
+    width: auto;
+  }
+
+  & > .CtaButton-border {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    border: 1px solid currentColor;
+    opacity: 0.3;
+    pointer-events: none;
+  }
+
+  /* ── Variant: glow ── */
+
+  &[data-variant="glow"] {
+    background-color: var(--COLOR-B80);
+    color: var(--COLOR-N00);
+
+    & > .CtaButton-glow {
+      position: absolute;
+      inset: -0.5rem;
+      border-radius: inherit;
+      background: radial-gradient(ellipse at center, var(--COLOR-B50, #74b9ff) 0%, transparent 70%);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
+    }
+
+    &:hover > .CtaButton-glow,
+    &[data-test-state="hover"] > .CtaButton-glow {
+      opacity: 0.6;
+    }
+
+    &:active > .CtaButton-glow,
+    &[data-test-state="active"] > .CtaButton-glow {
+      opacity: 0.9;
+    }
+  }
+}
