@@ -771,7 +771,7 @@ export function DateField({
        focuses a cell directly (`days.nth(1).focus()`) without going through us
        (ADR-0009: the contract is the DOM). */
     const focusedISO = popupRef.current
-      ?.querySelector<HTMLButtonElement>(".grid td button:focus")
+      ?.querySelector<HTMLButtonElement>(".calendar-grid td button:focus")
       ?.dataset.date;
     if (!focusedISO) return;
     const from = parseISODate(focusedISO);
@@ -828,7 +828,7 @@ export function DateField({
   useEffect(() => {
     if (!open || roving.focus === 0 || !rovingISO) return;
     popupRef.current
-      ?.querySelector<HTMLButtonElement>(`.grid td button[data-date="${rovingISO}"]`)
+      ?.querySelector<HTMLButtonElement>(`.calendar-grid td button[data-date="${rovingISO}"]`)
       ?.focus();
     /* `rovingISO` is deliberately read as the value from the render that bumped
        `focus`; adding it to the deps would re-steal focus every time the default
@@ -974,7 +974,7 @@ export function DateField({
       month.destroy();
       year.destroy();
       wheelsRef.current = null;
-      /* WheelColumn injected `.ring` / `.option` / `.band` imperatively, so
+      /* WheelColumn injected `.cylinder` / `.option` / `.band` imperatively, so
          React does not know about them and will not clean them up. */
       monthHost.replaceChildren();
       yearHost.replaceChildren();
@@ -1229,7 +1229,7 @@ export function DateField({
                     keys `display` off both values and an attribute's removal
                     cannot be transitioned. */}
                 <div className="panel" data-panel="calendar" data-active={panel === "calendar"}>
-                  <table className="grid" role="grid">
+                  <table className="calendar-grid" role="grid">
                     <thead>
                       <tr role="row">
                         {weekdayShort.map((short, i) => (

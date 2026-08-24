@@ -780,6 +780,17 @@ export function TimeField({
       tabStops: () => popupTabStops(popup),
       signal: controller.signal,
     });
+
+    /* An `aria-modal` dialog opened with a MOUSE has to take focus — upstream
+       `cbc7598`, and the fix for what this port filed as F-043. The Escape
+       handler lives inside the popup, so with focus left on the trigger the key
+       never reached it and Escape did nothing at all; a keyboard user was fine
+       only because Tab happened to carry them inside. Focus the first tab stop,
+       reusing the order the trap already computes, so the entry point and the
+       cycle cannot disagree. MonthField and TimeField were the two outliers —
+       DateField, DateTimeField and WeekField already did this. */
+    popupTabStops(popup)[0]?.focus();
+
     return () => controller.abort();
   }, [open]);
 

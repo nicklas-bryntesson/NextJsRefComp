@@ -291,7 +291,7 @@ export function RangeScaleKitchensink() {
       </Block>
 
       <Block title="Variants">
-        <Cell caption="no readout (the <output>'s presence is the switch)">
+        <Cell caption="no readout, unit from data-suffix on the lane">
           <Slot>
             <RangeScale
               id="rs-no-output"
@@ -299,7 +299,13 @@ export function RangeScaleKitchensink() {
               label="Volume (no readout)"
               defaultValue={50}
               output={false}
-              valueText="50 %"
+              /* This cell used to author `valueText="50 %"`, faithfully copied
+                 from the reference demo — and it was the reference demo's own
+                 defect, which upstream `ae6086f` names: the static string went
+                 stale the moment anyone moved the handle, announcing 50 for a
+                 value of 57. `suffix` puts the unit on the lane instead, and
+                 `sync()` keeps `aria-valuetext` on the value. */
+              suffix="%"
             />
           </Slot>
         </Cell>

@@ -28,3 +28,39 @@
 .FileUpload .item-error {
   white-space: normal;
 }
+
+/* FileUpload — WCAG 1.4.3, the drop hint fails AA in LIGHT only.
+ *
+ * `.FileUpload[data-drop-zone="true"] .drop-label { opacity: 0.7 }` is verbatim
+ * upstream, and it does not fail upstream. Measured here, `--color-body`
+ * rgb(90,88,82) dimmed to 70%:
+ *
+ *              light          dark
+ *   plain       3.45 ✗        4.59 ✓     (axe: 3.44)
+ *   dragging    3.24 ✗        4.81 ✓     (axe: 3.23)
+ *
+ * At full opacity the same text is 7.11 and 6.34 in light. So the token is not
+ * the problem and neither is the reference's rule in isolation — the problem is
+ * that they compose. This is the general lesson and it is worth more than the
+ * fix: OPACITY ON TEXT IS A CONTRAST MULTIPLIER THAT A DESIGN SYSTEM CANNOT SEE.
+ * Upstream's body text is near-black, where 0.7 still leaves ~8.6:1, so the rule
+ * is invisible there. Any token calibrated to sit just above 4.5 — which is what
+ * a carefully tuned palette does — fails the moment a component dims it, and
+ * nothing in the `--ui-*` seam can express "this text will be shown at 70%".
+ *
+ * THE FIX IS TO DROP THE OPACITY, not to raise it. The hint is already
+ * differentiated by `font-size: 0.875rem`, and every opacity that clears AA in
+ * light (≥ 0.88 on the plain ground, ≥ 0.87 on the dragging tint) is visually
+ * indistinguishable from 1 — so the declaration buys no hierarchy and spends the
+ * whole contrast margin.
+ *
+ * Found only because upstream `#64` RE-ENABLED `color-contrast` in the FileUpload
+ * suite, which had been suppressed with a reason ("disabled states are visually
+ * intentional") that pointed at other components' nodes dragged in by an
+ * unqualified `.kitchensink-section` scope. The suppression outlived its cause
+ * and hid a real defect in this component for the rule's whole life. F-085.
+ *
+ * Drop this rule when it lands upstream. */
+.FileUpload[data-drop-zone="true"] .drop-label {
+  opacity: 1;
+}

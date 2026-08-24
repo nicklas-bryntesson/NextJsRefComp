@@ -111,12 +111,13 @@ export type RangeScaleProps = {
   /** The `<output>`'s presence is the switch — there is no attribute, because a
    *  state that cannot be authored cannot be wrong. Default: it is rendered. */
   output?: boolean;
-  /** `data-suffix` on the output carries the unit. A convenience for simple
+  /** The unit. Emitted as `data-suffix` on the LANE (the general form, which
+   *  works with no readout at all) and on the output. A convenience for simple
    *  cases; anything locale-sensitive is the host's `Intl.NumberFormat`. */
   suffix?: string;
-  /** An authored `aria-valuetext` for a lane with NO readout. The lane mirrors
-   *  only when it has an output — overwriting a host's value would be a
-   *  regression, not a sync. */
+  /** An authored `aria-valuetext` for a lane with NO readout AND NO suffix. The
+   *  lane mirrors whenever the unit is knowable; with neither source, the value
+   *  is the host's and overwriting it would be a regression, not a sync. */
   valueText?: string;
 
   lane?: "inset" | "flush";
@@ -167,6 +168,16 @@ function mount(root: LaneElement): RangeScaleInstance | null {
   const readout = root.querySelector<HTMLOutputElement>("output.value");
   const digits = readout?.querySelector(".digits") ?? null;
 
+  /* Where the unit comes from, or `null` when nothing declares one — upstream
+     `ae6086f`. `data-suffix` on the LANE is the general form and works with or
+     without a visible readout; on the output it is the older, narrower spelling
+     and stays supported, with the root winning when both are present. An output
+     carrying no unit still means "we own the readout", so the announcement is
+     the bare number, which is true. With neither source we leave
+     `aria-valuetext` alone: a value we cannot format belongs to the host. */
+  const suffixSource: string | null =
+    root.dataset.suffix ?? readout?.dataset.suffix ?? (readout ? "" : null);
+
   const positionOf = (field: HTMLInputElement) =>
     normalise(field.valueAsNumber, Number(field.min || 0), Number(field.max || 100));
 
@@ -183,16 +194,24 @@ function mount(root: LaneElement): RangeScaleInstance | null {
 
     root.style.setProperty("--_rs-p", String(positions[positions.length - 1]));
 
-    /* Mirrored ONLY when the lane actually has a readout, and never for a
-     * pair: a span's spoken value is a statement about the pair, which
-     * whatever owns the pair has to write. */
-    if (readout && fields.length === 1) {
+    /* Never for a pair: a span's spoken value is a statement about the pair,
+     * which whatever owns the pair has to write.
+     *
+     * The readout and the announcement are now separate conditions. The digits
+     * are written when there IS a readout; `aria-valuetext` is written whenever
+     * the unit is KNOWABLE. A lane with no readout but `data-suffix` on the root
+     * is exactly the case that used to need a static authored `aria-valuetext`,
+     * which then drifted: the reference demo shipped "50 %" and seven arrow
+     * presses later announced 50 for a value of 57. */
+    if (fields.length === 1) {
       const raw = fields[0].value;
       digits?.replaceChildren(raw);
-      fields[0].setAttribute(
-        "aria-valuetext",
-        readout.dataset.suffix ? `${raw} ${readout.dataset.suffix}` : raw,
-      );
+      if (suffixSource !== null) {
+        fields[0].setAttribute(
+          "aria-valuetext",
+          suffixSource ? `${raw} ${suffixSource}` : raw,
+        );
+      }
     }
   };
 
@@ -310,6 +329,12 @@ export function RangeScale({
         className="RangeScale"
         data-component="RangeScale"
         data-id={dataId}
+        /* The unit belongs to the LANE, not to the readout — upstream `ae6086f`.
+           A lane with no visible readout still has a unit, and this is what lets
+           it announce one without an authored `aria-valuetext` going stale. Still
+           emitted on the output too, which is the older spelling upstream keeps
+           supporting; `mount()` gives the root precedence when both are set. */
+        data-suffix={suffix}
         data-lane={lane}
         data-ticks={ticks}
         data-fill={fill}
@@ -340,10 +365,16 @@ export function RangeScale({
           disabled={disabled}
           aria-invalid={invalid ? "true" : undefined}
           aria-describedby={hintId}
-          /* Server-rendered so the announced value is right before hydration.
-             With a readout the lane owns it; without one it is the host's. */
+          /* Server-rendered so the announced value is right before hydration,
+             and gated on the same "is the unit knowable" test `sync()` uses: a
+             readout, or a `suffix`. With neither, an authored `valueText` is the
+             host's and the lane must not overwrite it. */
           aria-valuetext={
-            hasOutput ? (suffix ? `${defaultValue} ${suffix}` : String(defaultValue)) : valueText
+            suffix
+              ? `${defaultValue} ${suffix}`
+              : hasOutput
+                ? String(defaultValue)
+                : valueText
           }
           data-invalid={invalid ? "true" : undefined}
           data-orientation={orientation}
@@ -370,7 +401,13 @@ export function RangeScale({
         ) : null}
 
         {hasOutput ? (
-          <output className="value" htmlFor={id} data-suffix={suffix}>
+          /* `aria-live="off"` is AUTHORED MARKUP, not something the component
+             adds at runtime — a bare <output> computes to role=status with
+             live=polite and atomic=true, so the focused slider's own
+             announcement would be duplicated, and repeated at every step of a
+             drag. The suite asserts the computed `live` property through CDP,
+             not the attribute, so this cannot be satisfied by writing it later. */
+          <output className="value" aria-live="off" htmlFor={id} data-suffix={suffix}>
             <span className="digits">{defaultValue}</span>
             {suffix ? ` ${suffix}` : ""}
           </output>

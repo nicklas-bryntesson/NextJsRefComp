@@ -119,7 +119,7 @@ interface Slot {
 export class WheelColumn {
   private opts: WheelColumnOptions;
   private el: HTMLElement;
-  private ring!: HTMLDivElement;
+  private cylinder!: HTMLDivElement;
   private slots: Slot[] = [];
 
   /** Fractional row position. Public in the reference; treat it as internal. */
@@ -193,23 +193,23 @@ export class WheelColumn {
 
     const doc = this.el.ownerDocument;
 
-    this.ring = doc.createElement("div");
-    this.ring.className = "ring";
-    this.ring.style.transformStyle = "preserve-3d";
-    this.ring.style.transform = `translateZ(${-this.radius}px)`;
+    this.cylinder = doc.createElement("div");
+    this.cylinder.className = "cylinder";
+    this.cylinder.style.transformStyle = "preserve-3d";
+    this.cylinder.style.transform = `translateZ(${-this.radius}px)`;
 
     for (let o = -HALF; o <= HALF; o++) {
       const slotEl = doc.createElement("div");
       slotEl.className = "option";
       slotEl.setAttribute("aria-hidden", "true");
-      this.ring.appendChild(slotEl);
+      this.cylinder.appendChild(slotEl);
       this.slots.push({ el: slotEl, o });
     }
 
     const band = doc.createElement("div");
     band.className = "band";
 
-    this.el.appendChild(this.ring);
+    this.el.appendChild(this.cylinder);
     this.el.appendChild(band);
   }
 
@@ -339,7 +339,14 @@ export class WheelColumn {
     this._velocity = 0;
     this._externalSet = false;
 
-    this.pos -= e.deltaY / 120;
+    // Scroll model, not grab model — upstream `06f5db9`. A wheel is not a
+    // finger: every other scrollable surface moves FORWARD through content on
+    // wheel-down, and so does this component's own keyboard, where `stepBy(+1)`
+    // is bound to ArrowDown. The two used to disagree inside one control.
+    // The drag keeps the grab model on purpose (see the pointer-move handler):
+    // a finger holds the cylinder and the content follows it. Same physical
+    // direction, opposite mapping, because the gestures mean different things.
+    this.pos += e.deltaY / 120;
     this._clampPos();
     this.render();
 

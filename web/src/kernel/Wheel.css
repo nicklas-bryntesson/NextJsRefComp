@@ -1,6 +1,6 @@
 /* Shared 3D wheel / spinner — driven by src/kernel/js/WheelColumn.ts.
    Used by DateField, DateTimeField, TimeField and MonthField. The host element
-   carries .Wheel; WheelColumn injects .ring / .option / .band. Every part is a
+   carries .Wheel; WheelColumn injects .cylinder / .option / .band. Every part is a
    flat, fully-qualified `.Wheel .element` rule (ADR-0019). */
 
 .Wheel {
@@ -29,7 +29,7 @@
   outline-offset: -2px;
 }
 
-.Wheel .ring {
+.Wheel .cylinder {
   position: absolute;
   inset: 0;
   transform-style: preserve-3d;

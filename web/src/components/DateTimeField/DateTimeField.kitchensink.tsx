@@ -2,10 +2,21 @@
  * exact `data-id` anchors the conformance suite needs.
  *
  * TWO ids are contractual, not decorative:
- *   - `meeting-time` — `e2e-helpers/target.js` hard-codes
- *     `DateTimeField: '[data-component="DateTimeField"][data-id="meeting-time"]'`.
- *     `TimeField` uses the SAME `data-id` with its own `data-component`; the two
- *     coexist deliberately and the selector disambiguates them. Do not "fix" it.
+ *   - `meeting-datetime` — `e2e-helpers/target.js` hard-codes
+ *     `DateTimeField: '[data-component="DateTimeField"][data-id="meeting-datetime"]'`
+ *     as of submodule bd55f52 (upstream `#59`). It used to be `meeting-time`,
+ *     which is what TimeField still uses.
+ *
+ *     THIS NOTE USED TO SAY the two coexisted deliberately and that the
+ *     `data-component` selector disambiguated them, so do not "fix" it. That was
+ *     wrong, and precisely half-right in the way that hides a defect: the
+ *     SELECTOR was disambiguated, the `id` ATTRIBUTE was not. Both components put
+ *     `meeting-time` on a real input, so the shared page carried a duplicate id,
+ *     the browser resolved every reference to the first match, and one field
+ *     silently wore the other's label. Upstream renamed it and shipped
+ *     `tests/id-integrity.e2e.test.js` to make the class of defect visible —
+ *     axe cannot, because its duplicate-id rules were deprecated in axe-core 4.x.
+ *
  *     It must start EMPTY — the spec asserts `native` has value `''`.
  *   - `dtf-12h` — the spec navigates to it by hand for the AM/PM tests and
  *     asserts the seeded value `2026-05-27T14:35`.
@@ -142,9 +153,9 @@ export function DateTimeFieldKitchensink() {
       </Block>
 
       <Block title="Live demo (e2e target)">
-        <Cell caption='data-id="meeting-time"'>
+        <Cell caption='data-id="meeting-datetime"'>
           <DateTimeField
-            id="meeting-time"
+            id="meeting-datetime"
             label="Meeting time"
             locale="en-GB"
             min={fifteenthOfThisMonth()}

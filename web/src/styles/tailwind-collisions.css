@@ -7,8 +7,8 @@
  * utilities. Generic single words are also exactly what a utility framework
  * generates, so several of them collide head-on with Tailwind:
  *
- *   .grid   → Tailwind's `display: grid`
- *   .ring   → Tailwind's `--tw-ring-shadow: 0 0 0 calc(1px + …) currentcolor`
+ *   .grid   → Tailwind's `display: grid`          [FIXED UPSTREAM, bd55f52]
+ *   .ring   → Tailwind's `--tw-ring-shadow: …`      [FIXED UPSTREAM, bd55f52]
  *   (.container and .table are also Tailwind utilities; neither is currently
  *    styled by a component, so neither bites yet.)
  *
@@ -37,18 +37,31 @@
  * utility ever again) or declaring these defaults explicitly.
  */
 
-/* The calendar grid is a <table> and must lay out as one. */
-.DateField .popup .grid,
-.DateTimeField .popup .grid,
-.MonthField .popup .grid,
-.WeekField .popup .grid {
-  display: table;
-}
-
-/* The wheel's positioning ring carries no visual treatment of its own. */
-.Wheel .ring {
-  box-shadow: none;
-}
+/* ── BOTH REPAIRS ARE GONE, because upstream fixed the cause ──────────────────
+ *
+ * Submodule bd55f52 (`#65`, "a part name may not be a CSS behaviour") renamed
+ * both colliding parts at the source:
+ *
+ *   .grid → .calendar-grid   (DateField.css; DateTimeField and WeekField were
+ *                             already spelling it that way, so the fix converged
+ *                             a name rather than inventing one)
+ *   .ring → .cylinder        (kernel/css/Wheel.css + WheelColumn.ts)
+ *
+ * Neither new name is a utility in any framework, so the collision cannot recur.
+ * Upstream also shipped `tests/utility-name-collisions.unit.test.ts` as a
+ * standing guard, which is the part that makes this durable rather than a
+ * one-time patch — F-057 came from this port, and the answer arrived as a rule.
+ *
+ * Two things worth recording honestly:
+ *
+ *  - My `.grid` repair listed four components. Only DateField ever needed it;
+ *    DateTimeField, MonthField and WeekField were no-ops. Over-broad, but it is
+ *    why the rename touched one file and not four.
+ *  - Upstream's own note is more precise than mine was about WHY specificity did
+ *    not save us: "the utility does not have to beat our rule, it only has to set
+ *    a property our rule does not mention."
+ *
+ * ─────────────────────────────────────────────────────────────────────────── */
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * The popup arrow's outline — progressive enhancement, deliberately.

@@ -236,14 +236,14 @@ describe('WheelColumn — destroy', () => {
 /* ── [ADDED] claims from WheelColumn.md / Wheel.md the reference suite omits ── */
 
 describe('[ADDED] WheelColumn — injected DOM contract', () => {
-  it('injects one .ring with nine .option slots, and a .band as the ring\'s sibling', () => {
+  it('injects one .cylinder with nine .option slots, and a .band as the cylinder\'s sibling', () => {
     const { el } = makeWheel()
-    const ring = el.querySelector('.ring')
-    expect(ring).not.toBeNull()
-    expect(ring!.querySelectorAll('.option')).toHaveLength(9) // HALF=4 → -4…+4
+    const cylinder = el.querySelector('.cylinder')
+    expect(cylinder).not.toBeNull()
+    expect(cylinder!.querySelectorAll('.option')).toHaveLength(9) // HALF=4 → -4…+4
     const band = el.querySelector('.band')
     expect(band).not.toBeNull()
-    expect(band!.parentElement).toBe(el)      // sibling of the ring, not inside it
+    expect(band!.parentElement).toBe(el)      // sibling of the cylinder, not inside it
     expect(el.children.length).toBe(2)
   })
 
@@ -320,8 +320,8 @@ describe('[ADDED] WheelColumn — rendered rows', () => {
     // fallback is what keeps a CSS-less environment from dividing by zero.
     const { el } = makeWheel()
     const radius = 19 / Math.tan((10 * Math.PI) / 180) // rowH/2 / tan(STEP_DEG/2)
-    const ring = el.querySelector<HTMLElement>('.ring')!
-    const z = Number(/translateZ\((-?[\d.]+)px\)/.exec(ring.style.transform)![1])
+    const cylinder = el.querySelector<HTMLElement>('.cylinder')!
+    const z = Number(/translateZ\((-?[\d.]+)px\)/.exec(cylinder.style.transform)![1])
     expect(z).toBeCloseTo(-radius, 2)
     expect(radius).toBeCloseTo(107.75, 1)
   })
@@ -362,7 +362,11 @@ describe('[ADDED] WheelColumn — cross-column wheel lock', () => {
     const a = makeWheel({ value: 0 })
     const b = makeWheel({ value: 0 })
     a.el.dispatchEvent(wheelEvent(120))
-    expect(a.wheel.pos).toBeCloseTo(-1, 5)
+    // +1, not -1: upstream `06f5db9` gave the wheel the scroll model. What this
+    // test asserts is the LOCK, so the sign is incidental — but it has to be the
+    // real one, or the test fails before `destroy()` and leaks the module lock
+    // into every wheel test that follows.
+    expect(a.wheel.pos).toBeCloseTo(1, 5)
     b.el.dispatchEvent(wheelEvent(120))
     expect(b.wheel.pos).toBe(0) // ignored — a holds the lock
     a.wheel.destroy()
@@ -381,7 +385,7 @@ describe('[ADDED] WheelColumn — cross-column wheel lock', () => {
 
     const b = makeWheel({ value: 0 })
     b.el.dispatchEvent(wheelEvent(120))
-    expect(b.wheel.pos).toBeCloseTo(-1, 5)
+    expect(b.wheel.pos).toBeCloseTo(1, 5)
     b.wheel.destroy()
   })
 
@@ -421,7 +425,7 @@ describe('[ADDED] WheelColumn — destroy', () => {
     // not create it — it only aborts listeners. The host is unmounted by React.
     const { el, wheel } = makeWheel()
     wheel.destroy()
-    expect(el.querySelector('.ring')).not.toBeNull()
+    expect(el.querySelector('.cylinder')).not.toBeNull()
   })
 })
 
@@ -580,5 +584,61 @@ describe('WheelColumn — the spinbutton cannot lag its own value', () => {
       expect(el.getAttribute('aria-valuenow')).toBe(String(wheel.value))
     }
     wheel.destroy()
+  })
+})
+
+/* Upstream `06f5db9` — the wheel and the keyboard used to disagree inside one
+ * control. Ported verbatim in intent: the first assertion is the INVARIANT
+ * (wheel agrees with ArrowDown) rather than a hardcoded sign, because agreement
+ * is the property that broke, not the direction. */
+describe('WheelColumn — gesture direction', () => {
+  function wheelEvent(el: HTMLElement, deltaY: number): void {
+    el.dispatchEvent(new WheelEvent('wheel', { deltaY, bubbles: true, cancelable: true }))
+  }
+  function drag(el: HTMLElement, fromY: number, toY: number): void {
+    ;(el as unknown as { setPointerCapture: () => void }).setPointerCapture = () => {}
+    ;(el as unknown as { releasePointerCapture: () => void }).releasePointerCapture = () => {}
+    el.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, clientY: fromY }))
+    el.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientY: toY }))
+    el.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, clientY: toY }))
+  }
+
+  it('wheel-down moves the same way as ArrowDown', () => {
+    const a = makeWheel({ min: 0, max: 11, value: 0 })
+    const b = makeWheel({ min: 0, max: 11, value: 0 })
+
+    const beforeWheel = a.wheel.pos
+    wheelEvent(a.el, 120)
+    const wheelDelta = Math.sign(a.wheel.pos - beforeWheel)
+
+    const beforeStep = b.wheel.pos
+    b.wheel.stepBy(1) // what ArrowDown is bound to
+    const stepDelta = Math.sign(b.wheel.pos - beforeStep)
+
+    expect(wheelDelta).not.toBe(0)
+    expect(wheelDelta, 'the wheel and the keyboard must agree').toBe(stepDelta)
+
+    a.wheel.destroy()
+    b.wheel.destroy()
+  })
+
+  it('wheel-down advances and wheel-up retreats', () => {
+    const { el, wheel: w } = makeWheel({ min: 0, max: 11, value: 5 })
+    const start = w.pos
+    wheelEvent(el, 120)
+    expect(w.pos).toBeGreaterThan(start)
+
+    const mid = w.pos
+    wheelEvent(el, -120)
+    expect(w.pos).toBeLessThan(mid)
+    w.destroy()
+  })
+
+  it('dragging keeps the grab model — down brings earlier values', () => {
+    const { el, wheel: w } = makeWheel({ min: 0, max: 11, value: 5 })
+    const start = w.pos
+    drag(el, 100, 160) // downward
+    expect(w.pos).toBeLessThan(start)
+    w.destroy()
   })
 })

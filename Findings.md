@@ -3198,6 +3198,188 @@ F-052 was found.
 ---
 
 
+### F-085 · Opacity on text is a contrast multiplier the design system cannot see — and a suppression outlived the defect it was hiding
+
+**Surface:** `FileUpload`, both drop-zone states. Found because upstream `#64`
+**re-enabled** a rule its own suite had switched off.
+
+FileUpload's spec used to disable `color-contrast` for both of its axe runs, with
+a stated reason: WCAG 1.4.3 exempts disabled components, and axe does not honour
+`aria-disabled` on a group container. Upstream then found the reason was pointing
+at the wrong nodes — the four that actually failed were **WeekField's and
+AffixField's** disabled instances, dragged in by an unqualified
+`.kitchensink-section` selector that resolved to the first section in the
+document rather than FileUpload's. With the scope corrected there was nothing to
+exempt, so the rule came back on. It immediately failed, on a real defect in this
+component, which the suppression had hidden **for the rule's entire life**.
+
+The defect, measured here in both appearances:
+
+| | light | dark |
+|---|---|---|
+| `.drop-label`, plain ground | **3.45** ✗ | 4.59 ✓ |
+| `.drop-label`, dragging tint | **3.24** ✗ | 4.81 ✓ |
+| same text at full opacity | 7.11 ✓ | — |
+
+axe independently reported 3.44 and 3.23, so the instrument agrees to within
+rounding.
+
+The cause is `.FileUpload[data-drop-zone="true"] .drop-label { opacity: 0.7 }`,
+verbatim upstream — **and it does not fail upstream.** Their body text is
+near-black, where 0.7 still leaves roughly 8.6:1. It fails here because our
+`--color-body` is calibrated to sit just above AA, and 70% of "just above AA" is
+below it.
+
+**That is the finding, and it generalises well past this component: opacity on
+text is a contrast multiplier, and nothing in the `--ui-*` seam can express "this
+text will be shown at 70%".** A consumer tunes a palette against the ratio the
+token achieves at full strength — which is what a careful palette does — and any
+component that dims text silently spends the whole margin. The seam carries
+colour; the multiplier lives in the component's own stylesheet, out of reach. A
+token that measures 4.6:1 is not safe; it is safe *only where nobody dims it*.
+
+**Decision: drop the opacity, do not raise it.** `inherited-repairs.css` now sets
+`opacity: 1`. Raising it was the obvious fix and it is the wrong one — the
+threshold for AA is ≥ 0.88 on the plain ground and ≥ 0.87 on the tint, and at
+those values the declaration is visually indistinguishable from 1. It buys no
+hierarchy and spends the entire margin. The hint is already differentiated by
+`font-size: 0.875rem`, which costs no contrast at all.
+
+**And the same lesson applied to our own apparatus.** `axe-dark.cjs` carried this
+node in a `KNOWN_PHASE_A` exemption list, honestly — it printed
+`[known Phase A] color-contrast: 2 node(s) inherited verbatim` on every run
+rather than silencing it. With the repair applied the list is now **empty**, and
+it stays empty by rule: an entry is removed the day its repair lands, not the day
+someone notices. That is the discipline whose absence is the first half of this
+finding.
+
+One correction to my own reporting: I said earlier in this session that our
+page-level axe "reported zero violations" and therefore contradicted the
+component suite. It did not. It reported zero *new* violations and listed this
+one as known, with these exact ratios. I misread its summary line, which is a
+smaller version of the same mistake — trusting a headline over the body of a
+measurement.
+
+---
+
+### F-086 · The submodule bump, second time: upstream acted on six findings, and the drift cost 52 mechanical failures
+
+**Surface:** submodule `c2d12c2` → `bd55f52`, eight commits.
+
+Six of the eight act on findings this port filed:
+
+| Upstream | Our finding |
+|---|---|
+| `#65` a part name may not be a CSS behaviour | **F-057** |
+| `#64` make the seams work, stop standing rules down | **F-019**, **F-027** |
+| `#63` resolve with a locator, then evaluate on the element | **F-050** |
+| `#62` silence the readout, and let the lane own the unit | **F-031** |
+| `#59` a unique id per instance, and a popup that takes the focus it claims | **F-043** + the undocumented unique `.Wheel` id |
+| `#60` the wheel scrolls, the finger grabs | — (found upstream) |
+
+`#61` is documentation, and it contains **our measurements verbatim**: PORTING.md
+now carries a *"Server-rendered ports: paint attributes ship early, behaviour
+gates ship late"* section quoting the dead-control windows this port measured —
+WeekField 90–95 ms, RangeGroup ~100 ms, MonthField 68 ms, ScrollArea 6–11 ms,
+TimeField none. That is F-035, F-047 and F-049 turned into the library's own
+porting guidance.
+
+**Three of the fixes are structural rather than local, and those are the ones
+worth reporting.**
+
+- **F-019 is gone entirely.** `grep -rln "goto('/')"` across every spec now
+  returns **nothing**. All nine specs that hard-coded the root and made
+  `TARGET_PATH` silently inert honour `targetPath()`. Our workaround — serving the
+  aggregate kitchensink at `/` — is now redundant rather than load-bearing, though
+  it stays, because `tests/id-integrity.e2e.test.js` genuinely needs every
+  component on one page.
+- **F-057 was fixed by renaming the parts, and then by a standing guard.**
+  `.grid` → `.calendar-grid`, `.ring` → `.cylinder`, plus
+  `tests/utility-name-collisions.unit.test.ts`, which fails if any element class
+  is a bare utility token. That is the part that makes it durable: our
+  `tailwind-collisions.css` repairs are now **deleted**, not merely obsolete.
+  Upstream's own note is sharper than mine was about why specificity never
+  helped: *"the utility does not have to beat our rule, it only has to set a
+  property our rule does not mention."*
+- **F-031 was answered with authored markup, not runtime code.** `<output
+  aria-live="off">`, because a bare `<output>` computes to `role="status"` with
+  `live="polite"`. And the new suite asserts the **computed `live` property
+  through CDP**, not the attribute — so a port cannot satisfy it by writing the
+  attribute later. `data-suffix` also moved from the output to the lane root, so a
+  lane with no readout can still announce a unit instead of needing a static
+  `aria-valuetext` that goes stale.
+
+**The drift, measured honestly.** Conformance against the new pin with no port
+changes: **352 passed / 60 failed**, down from 397/8. Fifty-two new failures, and
+every one of them mechanical:
+
+| | before fixes | after |
+|---|---|---|
+| DateTimeField | 0/39 | 38/1 |
+| DateField | 42/8 | 49/1 |
+| RangeScale | 30/3 | 33/0 |
+| MonthField | 33/2 | 34/1 |
+| TimeField | 39/1 | 40/0 |
+| FileUpload | 19/2 | 21/0 (see F-085) |
+
+**Final: 411 passed / 8 failed**, up from 397/8 — the eight are the same eight as
+before the bump (four locale/ICU, AffixField's style-string spacing, ThemeSwitch
+×2, text-spacing), and the net +14 is the new assertions upstream added. The new
+`id-integrity` suite passed **7/7 on the first run**, which is the one number here
+I did not expect: the duplicate id it exists to catch was real and in our tree
+(F-087), and fixing that one anchor was enough for the whole suite.
+
+DateTimeField's whole suite failed on one changed character — `meeting-time` →
+`meeting-datetime` in `e2e-helpers/target.js` — which is what a 39/39 failure
+usually is not, and worth remembering before diagnosing anything else.
+
+**The conclusion this bump supports, which the first one only suggested: a
+submodule you can re-pin is a two-way channel, and the return trip is the
+valuable half.** Ten findings from this port are now upstream behaviour, upstream
+tests or upstream documentation, and the cost of collecting them was one
+afternoon of mechanical drift repair. The pristine-and-disposable rule is what
+makes that possible — every fix arrived as a file we could re-copy rather than a
+patch we had to reconcile.
+
+---
+
+### F-087 · My own port note argued the defect was intentional, and was exactly half right
+
+**Surface:** `DateTimeField.kitchensink.tsx`.
+
+The note I wrote at port time said:
+
+> `TimeField` uses the SAME `data-id` with its own `data-component`; the two
+> coexist deliberately and the selector disambiguates them. **Do not "fix" it.**
+
+Upstream fixed it. The reasoning was correct about the *selector* and wrong about
+the *document*: both components put `meeting-time` on a real `<input>`, so the
+shared page carried a duplicate `id`, the browser resolved every reference to the
+first match, and one field silently wore the other's label. A `data-component`
+qualifier disambiguates a query; it does nothing whatsoever for `getElementById`.
+
+Two things make this worth an entry rather than a quiet correction.
+
+**It was invisible to everything we run.** axe deprecated its duplicate-id rules
+in axe-core 4.x, so a duplicate `id` is not a violation of any rule it ships, and
+a dangling `aria-describedby` is not either. Both suites were green over it, in
+both appearances, for the whole port. Upstream's answer was a new site-level
+suite, `tests/id-integrity.e2e.test.js`, which walks the document for duplicate
+ids and for references that resolve to nothing — including inside the five date
+popups, opened one at a time, since a `<template>`-cloned popup's internals are
+not in the document until it opens. It is now part of `npm run conformance`.
+
+**And the shape of the error is the reusable part.** A note that says "do not fix
+this" is the most expensive kind to get wrong, because it is written precisely to
+stop the next person from looking. Mine was confident, reasoned, and load-bearing
+in the wrong direction. The reasoning was even *sound* — it just answered a
+different question than the one that mattered. Where a port note forbids a
+change, it should say which observation would overturn it; this one said nothing
+that could be checked, so nothing checked it.
+
+---
+
+
 ## Proposals written for upstream
 
 Where a finding implies a change to the library rather than to this port, the
@@ -3307,7 +3489,7 @@ everything else first.
 | [`findings/ScrollArea.md`](findings/ScrollArea.md) | 7 | The focus-ring contrast defect axe structurally cannot see, the enhancement-window measurements in frames, the three tiers of appearance-awareness |
 | [`findings/RangeField.md`](findings/RangeField.md) | 5 | The px-scale defect that turned out to be ours (F-026); the anti-DRY result |
 
-**178 fragment entries across 17 fragments, plus 84 project-level entries — 262 findings in total.**
+**178 fragment entries across 17 fragments, plus 87 project-level entries — 265 findings in total.**
 
 ### How to read a finding
 

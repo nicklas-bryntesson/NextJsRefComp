@@ -24,7 +24,10 @@ BASE="http://localhost:$PORT"
 COMPONENTS=(AffixField ChoiceField ChoiceGroup DateField DateTimeField FileUpload
             MonthField MotionRegion Notice Picklist RangeField RangeGroup
             RangeScale ScrollArea ThemeSwitch TimeField ToggleTip WeekField)
-SITE=(appearance text-spacing)
+# id-integrity arrived with submodule bd55f52 (upstream `#59`). It needs the
+# AGGREGATE page — it opens the popup of all five date components — which is
+# what this runner uses, since it sets no TARGET_PATH.
+SITE=(appearance text-spacing id-integrity)
 
 # Match the RUNNER, not the pattern. `pgrep -f "playwright test"` also matches
 # every shell that merely mentions it — a wait loop, another agent's guard, this

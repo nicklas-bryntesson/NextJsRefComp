@@ -1,7 +1,8 @@
 /* ── PORT NOTE (Phase A) ─────────────────────────────────────────────────────
    Copied BYTE-IDENTICALLY from
    `reference-components/src/partials/components/DateField/DateField.css`
-   (sha1 2b1b5d36b6fac63104043ecaebcde8139a00a21c), then the two init-gate rules
+   (sha1 a45c72f16408b36c1d2c72be309177dbdc543eed, submodule bd55f52 — the `.grid` →
+   `.calendar-grid` rename of upstream `#65` is included), then the two init-gate rules
    were removed — the ONLY edit PORTING.md sanctions, and the one it names this
    component in:
 
@@ -216,11 +217,11 @@
   text-align: center;
 }
 
-.DateField .popup .grid {
+.DateField .popup .calendar-grid {
   width: 100%;
   border-collapse: collapse;
 }
-.DateField .popup .grid th {
+.DateField .popup .calendar-grid th {
   border: 0;
   padding: 0;
   padding-block-end: 0.25rem;
@@ -229,11 +230,11 @@
   color: var(--_df-calendar-color-muted);
   min-inline-size: 2rem;
 }
-.DateField .popup .grid td {
+.DateField .popup .calendar-grid td {
   border: 0;
   padding: 0;
 }
-.DateField .popup .grid td button {
+.DateField .popup .calendar-grid td button {
   display: block;
   inline-size: 2rem;
   block-size: 2rem;
@@ -243,22 +244,22 @@
   border-radius: 2px;
   font-variant-numeric: tabular-nums;
 }
-.DateField .popup .grid td button:focus-visible {
+.DateField .popup .calendar-grid td button:focus-visible {
   outline: 2px solid;
   outline-offset: 2px;
 }
-.DateField .popup .grid td[data-today="true"] button {
+.DateField .popup .calendar-grid td[data-today="true"] button {
   font-weight: bold;
 }
-.DateField .popup .grid td[data-selected="true"] button {
+.DateField .popup .calendar-grid td[data-selected="true"] button {
   background-color: var(--ui-primary);
   color: var(--ui-primary-foreground);
 }
-.DateField .popup .grid td[data-disabled="true"] button {
+.DateField .popup .calendar-grid td[data-disabled="true"] button {
   color: var(--_df-calendar-color-muted);
   cursor: not-allowed;
 }
-.DateField .popup .grid td[data-outside-month="true"] button {
+.DateField .popup .calendar-grid td[data-outside-month="true"] button {
   color: var(--_df-calendar-color-muted);
 }
 
