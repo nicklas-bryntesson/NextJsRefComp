@@ -14,18 +14,26 @@
  * dropping it would be a silent behaviour change rather than a cleanup.
  */
 
-export function ButtonIcon({ icon }: { icon: string }) {
+export function ButtonIcon({ icon, className }: { icon: string; className?: string }) {
   return (
-    <svg className="Button-icon" aria-hidden="true" focusable="false">
+    /* STEP 3: `Button-icon` stays first — it is the part identity and the only
+       handle a consumer has. The size/layout utilities arrive from the caller,
+       because the icon's height and its compensating negative margin depend on
+       the BUTTON's size, which this component does not know. In step 2 the
+       stylesheet read `--_iconSize` off the ancestor and needed no such
+       plumbing: inheritance did it. That is a small but exact illustration of
+       what the utility layer cannot do — a utility has no access to the
+       cascade. */
+    <svg className={`Button-icon${className ? ` ${className}` : ""}`} aria-hidden="true" focusable="false">
       <use href={`#${icon}`} />
     </svg>
   );
 }
 
 /** `CtaButtonHelper` emits the same element under the CtaButton lexicon. */
-export function CtaButtonIcon({ icon }: { icon: string }) {
+export function CtaButtonIcon({ icon, className }: { icon: string; className?: string }) {
   return (
-    <svg className="CtaButton-icon" aria-hidden="true" focusable="false">
+    <svg className={`CtaButton-icon${className ? ` ${className}` : ""}`} aria-hidden="true" focusable="false">
       <use href={`#${icon}`} />
     </svg>
   );

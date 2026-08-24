@@ -30,22 +30,26 @@ const ROUTE = '/primitives/button';
  * again. `transition` is included because Button.css declares it on the root and
  * a utility conversion is very likely to drop it silently. */
 const ROOT_PROPS = [
-  'display', 'grid-template-columns', 'grid-template-areas', 'align-items', 'gap',
+  'display', 'grid-template-columns', 'grid-template-areas', 'align-items',
+  'justify-items', 'justify-self', 'gap',
   'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
-  'border-top-width', 'border-style', 'border-top-color', 'border-radius',
+  'border-top-width', 'border-left-width', 'border-style', 'border-top-color',
+  'border-left-color', 'border-radius',
   'color', 'background-color', 'background-image', 'box-shadow',
   'outline-width', 'outline-style', 'outline-color', 'outline-offset',
   'text-decoration-line', 'cursor', 'box-sizing', 'transition',
-  'width', 'height', 'font-size', 'white-space',
+  'width', 'height', 'min-height', 'min-width', 'font-size', 'font-weight',
+  'white-space', 'opacity', 'transition-property', 'transition-duration',
 ];
 const TEXT_PROPS = [
   'grid-area', 'color', 'font-size', 'font-family', 'font-weight', 'line-height',
   'letter-spacing', 'margin-top', 'margin-bottom', 'word-break', 'overflow-wrap',
-  'hyphens', 'position', 'z-index',
+  'hyphens', 'position', 'z-index', 'width', 'height',
 ];
 const ICON_PROPS = [
   'display', 'block-size', 'inline-size', 'width', 'max-width', 'position',
   'margin-top', 'margin-bottom', 'grid-area', 'color', 'z-index',
+  'aspect-ratio', 'height',
 ];
 
 async function measure() {
@@ -59,7 +63,24 @@ async function measure() {
        taken mid-transition on a `[data-test-state="hover"]` pin is a moving
        target — and the pins are applied at parse time, so the transition has
        ALREADY started by the time playwright's `load` resolves. */
-    await page.addStyleTag({ content: '*,*::before,*::after{transition:none!important;animation:none!important}' });
+    /* `transition-duration: 0s`, NOT `transition: none`.
+       `transition: none` resets transition-property too, so `transition` would
+       compute to "none" on every instance and the snapshot could not see a
+       transition being dropped by the Tailwind conversion — a false green in the
+       exact property most likely to be lost. Zeroing only the duration freezes
+       the animation while keeping the property list observable. */
+    await page.addStyleTag({ content: '*,*::before,*::after{transition-duration:0s!important;animation-duration:0s!important}' });
+    /* AND WAIT PAST THE TRANSITION ANYWAY.
+       The duration override above is not sufficient on its own once the values
+       come from Tailwind: `transition-[…]` routes the duration through
+       `--tw-duration`, and flipping `data-appearance` starts a 250ms colour
+       transition on every button before the override lands. Measured
+       mid-transition, a dark primary read rgb(203,67,3) — an oklab waypoint
+       between the light and dark fills — and produced 518 phantom diffs that
+       looked exactly like a broken dark palette. Waiting longer than the
+       longest declared transition makes the probe correct whether or not the
+       override takes. */
+    await page.waitForTimeout(400);
     await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
 
     out[appearance] = await page.evaluate(({ ROOT_PROPS, TEXT_PROPS, ICON_PROPS }) => {

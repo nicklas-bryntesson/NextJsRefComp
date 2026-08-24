@@ -25,6 +25,21 @@ import {
   type Size,
 } from "./buttonAttributes";
 import { ButtonIcon } from "./ButtonIcon";
+import {
+  BUTTON_ICON,
+  BUTTON_ROOT,
+  BUTTON_TEXT,
+  cx,
+  ICON_LAYOUT,
+  PILL,
+  SIZE_ICON,
+  SIZE_ICON_GAP,
+  SIZE_ICON_ONLY,
+  SIZE_PX,
+  SIZE_ROOT,
+  SIZE_TEXT,
+  TONE,
+} from "./buttonUtilities";
 import { hasContent } from "./hasContent";
 
 export type ActionButtonProps = {
@@ -69,11 +84,31 @@ export function ActionButton({
 
   if (!hasChildContent && !hasIcon && !ariaLabel) return null;
 
+  const iconOnly = hasIcon && !hasChildContent;
+
   return (
     <button
       type={buttonType}
       disabled={disabled || undefined}
-      className={buttonClassName("Button", className)}
+      /* STEP 3. `Button` stays first and unchanged — it is the part identity.
+         The utilities that follow are what the emphasis/intent/size/pill gates
+         used to be, resolved here because a utility cannot override a utility.
+         See buttonUtilities.ts. */
+      className={buttonClassName(
+        cx(
+          "Button",
+          BUTTON_ROOT,
+          TONE[emphasis][intent],
+          SIZE_ROOT[size],
+          /* Mutually exclusive — see the note on SIZE_PX. Emitting both lets
+             Tailwind's stylesheet order decide, which it did wrongly. */
+          iconOnly ? SIZE_ICON_ONLY[size] : SIZE_PX[size],
+          PILL[pill ? "true" : "false"],
+          hasIcon ? ICON_LAYOUT[iconPosition] : ICON_LAYOUT.none,
+          hasIcon && SIZE_ICON_GAP[size],
+        ),
+        className,
+      )}
       {...sharedButtonAttributes({
         emphasis,
         intent,
@@ -82,12 +117,14 @@ export function ActionButton({
         icon,
         iconPosition,
         ariaLabel,
-        iconOnly: hasIcon && !hasChildContent,
+        iconOnly,
       })}
       data-test-state={testState}
     >
-      {hasChildContent && <span className="Button-text">{children}</span>}
-      {icon && <ButtonIcon icon={icon} />}
+      {hasChildContent && (
+        <span className={cx("Button-text", BUTTON_TEXT, SIZE_TEXT[size])}>{children}</span>
+      )}
+      {icon && <ButtonIcon icon={icon} className={cx(BUTTON_ICON, SIZE_ICON[size])} />}
     </button>
   );
 }

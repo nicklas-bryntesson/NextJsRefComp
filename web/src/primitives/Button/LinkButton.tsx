@@ -27,6 +27,21 @@ import {
   type Size,
 } from "./buttonAttributes";
 import { ButtonIcon } from "./ButtonIcon";
+import {
+  BUTTON_ICON,
+  BUTTON_ROOT,
+  BUTTON_TEXT,
+  cx,
+  ICON_LAYOUT,
+  PILL,
+  SIZE_ICON,
+  SIZE_ICON_GAP,
+  SIZE_ICON_ONLY,
+  SIZE_PX,
+  SIZE_ROOT,
+  SIZE_TEXT,
+  TONE,
+} from "./buttonUtilities";
 import { hasContent } from "./hasContent";
 
 export type LinkButtonProps = {
@@ -72,9 +87,28 @@ export function LinkButton({
 
   if (!hasChildContent && !hasIcon && !ariaLabel) return null;
 
+  const iconOnly = hasIcon && !hasChildContent;
+
   return (
     <a
-      className={buttonClassName("Button", className)}
+      /* STEP 3 — see ActionButton and buttonUtilities.ts. This component has no
+         intent axis (the source passes `intent: null`), so it always reads the
+         `neutral` row. */
+      className={buttonClassName(
+        cx(
+          "Button",
+          BUTTON_ROOT,
+          TONE[emphasis].neutral,
+          SIZE_ROOT[size],
+          /* Mutually exclusive — see the note on SIZE_PX. Emitting both lets
+             Tailwind's stylesheet order decide, which it did wrongly. */
+          iconOnly ? SIZE_ICON_ONLY[size] : SIZE_PX[size],
+          PILL[pill ? "true" : "false"],
+          hasIcon ? ICON_LAYOUT[iconPosition] : ICON_LAYOUT.none,
+          hasIcon && SIZE_ICON_GAP[size],
+        ),
+        className,
+      )}
       href={href}
       {...linkTargetAttributes(target)}
       {...sharedButtonAttributes({
@@ -85,12 +119,14 @@ export function LinkButton({
         icon,
         iconPosition,
         ariaLabel,
-        iconOnly: hasIcon && !hasChildContent,
+        iconOnly,
       })}
       data-test-state={testState}
     >
-      {hasChildContent && <span className="Button-text">{children}</span>}
-      {icon && <ButtonIcon icon={icon} />}
+      {hasChildContent && (
+        <span className={cx("Button-text", BUTTON_TEXT, SIZE_TEXT[size])}>{children}</span>
+      )}
+      {icon && <ButtonIcon icon={icon} className={cx(BUTTON_ICON, SIZE_ICON[size])} />}
     </a>
   );
 }

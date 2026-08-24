@@ -1,159 +1,31 @@
-/* CtaButton.css — STEP 2: restyled to cursor-DESIGN.md.
+/* CtaButton.css — STEP 3: what is LEFT after the Tailwind conversion.
  *
- * Step 1 was byte-identical to `AiPoc/ClientApp/css/04_ui/CtaButton.css`
- * (git 82a5e64). Values only have changed; the `:where(.CtaButton)` wrapper, the
- * part names, the four-child stacking order and the `data-variant` gate are the
- * source's.
+ * Nothing. Every declaration in the step-2 file (git a99829c) moved onto a
+ * utility in `buttonUtilities.ts`: the ink fill and canvas text, the 44px box,
+ * the 8px radius, the `{typography.button}` type, the focus ring, the inset
+ * hairline `.CtaButton-border`, and the glow — whose `radial-gradient` became a
+ * `bg-[…]` bracket value and whose hover/active response became Tailwind's
+ * `group-hover:` / `group-active:` pair.
  *
- * WHICH DOC COMPONENT THIS IS. cursor-DESIGN.md has five button entries and the
- * `.Button` lexicon absorbs four of them (primary, primary-active, secondary,
- * tertiary-text). The fifth — `button-download`, "Larger ink-canvas CTA.
- * Background ink, text canvas, padding 12px × 20px, height 44px. Used for
- * 'Download for macOS' type CTAs" — has no home in `.Button`, because the
- * source's emphasis axis has no ink-filled variant and its intent axis is for
- * semantic state, not for a second brand fill. `.CtaButton` IS that component:
- * a standalone, larger, ink-on-canvas call to action. That mapping is the reason
- * this file needed no new tokens.
+ * Two things about that result are worth recording rather than celebrating.
  *
- * Two things move against the source rather than merely being retinted, and both
- * are recorded in findings/primitives-Button.md:
- *   · the radius drops from `3em` (a pill) to `{rounded.md}` 8px, because the
- *     doc gives 8px for every CTA and calls it the developer dialect;
- *   · the type drops from 1.25rem/600 to `{typography.button}` 14px/500, which
- *     is what `button-download` specifies. "Larger" is the BOX, not the label.
+ * · The `:has(> .CtaButton-icon)` layout gate had no utility form, so the
+ *   decision moved into `CtaLinkButton.tsx`. The CSS version worked for any icon
+ *   that landed in the slot; the component version only works for icons this
+ *   component itself renders. The conversion narrowed the contract.
+ *
+ * · The glow now needs `group` on the root — a class whose only purpose is to be
+ *   referenced by a descendant's variant. The CSS version (`&:hover >
+ *   .CtaButton-glow`) needed no marker at all. That is a class added to the DOM
+ *   to compensate for the utility layer's inability to express a relationship,
+ *   which is the mirror image of the class names step 3 was supposed to be
+ *   replacing.
+ *
+ * THE FILE IS KEPT, EMPTY, ON PURPOSE. `CtaLinkButton.tsx` still imports it, so
+ * deleting it would be a second change tangled into the same commit, and the
+ * import is the thing that makes the component's styling deletable in one move
+ * (the convention this repo uses for every port). If step 3 is accepted, the
+ * import and this file go together.
+ *
+ * See findings/primitives-Button.md.
  */
-
-:where(.CtaButton) {
-  position: relative;
-  display: inline-grid;
-  /* Source: `grid-template-columns: 1fr` / `grid-template-areas: "text"`, with
-     no area for `.CtaButton-icon`. An unplaced grid item is auto-placed, so the
-     icon landed in an implicit SECOND ROW below the label — measured on the step-1
-     snapshot. Repaired here with `:has()` rather than a new attribute, so the
-     component's props do not change. */
-  grid-template-columns: 1fr;
-  grid-template-areas: "text";
-  align-items: center;
-  justify-items: center;
-
-  min-block-size: 2.75rem;                          /* 44px — button-download */
-  padding-block: var(--spacing-cta-block, var(--spacing-sm));   /* 12px */
-  padding-inline: var(--spacing-cta-inline, var(--spacing-md)); /* 20px */
-  /* "Compact 8px CTA radius — developer dialect." */
-  border-radius: var(--radius-md);
-
-  /* `{typography.button}` — 14px / 500 / line-height 1. */
-  font-size: var(--fontSize-cta, var(--text-button));
-  font-family: var(--fontFamily-label);
-  font-weight: var(--text-button--font-weight);
-  line-height: var(--text-button--line-height);
-  letter-spacing: 0;
-  text-decoration: none;
-  white-space: nowrap;
-
-  cursor: pointer;
-  box-sizing: border-box;
-
-  &:has(> .CtaButton-icon) {
-    grid-template-columns: auto auto;
-    grid-template-areas: "text icon";
-    gap: var(--spacing-xs);
-  }
-
-  /* Keyboard focus */
-  &:focus:not(:focus-visible) {
-    outline: 0;
-  }
-
-  &:focus-visible,
-  &[data-test-state="focus"] {
-    outline-width: 2px;
-    outline-style: solid;
-    /* Same ring as `.Button` and as the reference-components ports. */
-    outline-color: var(--color-primary);
-    outline-offset: 3px;
-  }
-
-  &:disabled,
-  &[data-test-state="disabled"] {
-    cursor: not-allowed;
-    opacity: 0.5;
-  }
-
-  /* ── Shared child layout ── */
-
-  & > .CtaButton-text {
-    grid-area: text;
-    position: relative;
-    z-index: 1;
-  }
-
-  & > .CtaButton-icon {
-    grid-area: icon;
-    position: relative;
-    z-index: 1;
-    block-size: 1.25em;
-    /* Same repair as `.Button-icon`: the sprite `<svg>` carries no viewBox, so
-       `inline-size: auto` resolves to the 300px replaced-element default. See
-       the long note in Button.css. */
-    aspect-ratio: auto 1 / 1;
-    inline-size: auto;
-    width: auto;
-  }
-
-  & > .CtaButton-border {
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    /* Left as `currentColor` at low alpha. On an ink fill that resolves to the
-       canvas cream at 30%, which IS a hairline — and it is the only depth
-       cursor-DESIGN.md allows ("Hairline-only depth; no drop shadows"). It also
-       needs no token, so it survives the appearance flip for free. */
-    border: 1px solid currentColor;
-    opacity: 0.3;
-    pointer-events: none;
-  }
-
-  /* ── Variant: glow ── */
-
-  &[data-variant="glow"] {
-    /* `button-download`: background ink, text canvas. 14.33:1 light,
-       15.42:1 dark — the highest-contrast surface in the whole design. */
-    background-color: var(--color-ink);
-    color: var(--color-canvas);
-
-    & > .CtaButton-glow {
-      position: absolute;
-      inset: -0.5rem;
-      border-radius: inherit;
-      /* THE ONE PLACE `--color-primary-brand` (#f54e00) BELONGS in this port.
-         F-001 confines the true brand hue to decorative use where the floor is
-         3:1, and a radial gradient behind an opaque button carries no text and
-         conveys no information — it is the definition of decorative. The
-         AA-safe `--color-primary` is used for every other role in both
-         stylesheets. */
-      background: radial-gradient(
-        ellipse at center,
-        var(--color-primary-brand) 0%,
-        transparent 70%
-      );
-      opacity: 0;
-      transition: opacity 0.3s ease;
-      pointer-events: none;
-    }
-
-    /* Toned down from the source's 0.6 / 0.9. cursor-DESIGN.md is a
-       hairline-depth system that uses the brand voltage "scarcely"; a halo at
-       0.9 reads as the glow-heavy dark-IDE voice the doc explicitly rejects
-       ("editorial calm over IDE-darkness"). */
-    &:hover > .CtaButton-glow,
-    &[data-test-state="hover"] > .CtaButton-glow {
-      opacity: 0.35;
-    }
-
-    &:active > .CtaButton-glow,
-    &[data-test-state="active"] > .CtaButton-glow {
-      opacity: 0.5;
-    }
-  }
-}

@@ -26,6 +26,16 @@ import {
   type CtaVariant,
 } from "./ctaButtonAttributes";
 import { CtaButtonIcon } from "./ButtonIcon";
+import {
+  CTA_BORDER,
+  CTA_GLOW,
+  CTA_ICON,
+  CTA_LAYOUT,
+  CTA_ROOT,
+  CTA_TEXT,
+  CTA_VARIANT,
+  cx,
+} from "./buttonUtilities";
 import { hasContent } from "./hasContent";
 import { linkTargetAttributes } from "./buttonAttributes";
 
@@ -60,17 +70,27 @@ export function CtaLinkButton({
       /* The source assigns `class="CtaButton"` with SetAttribute, which
          overwrites rather than merges — unlike the other two helpers, an author
          `class` on `app-cta-link-button` is silently discarded. Reproduced: no
-         `className` prop exists. */
-      className="CtaButton"
+         `className` prop exists.
+         STEP 3: the step-2 stylesheet chose the icon layout with
+         `&:has(> .CtaButton-icon)`. `:has()` has no utility form, so the
+         decision moves into the component — which is strictly less capable,
+         because the CSS version worked for ANY consumer who put an icon in the
+         slot, and this version only works for icons this component renders. */
+      className={cx(
+        "CtaButton",
+        CTA_ROOT,
+        CTA_VARIANT[variant],
+        icon ? CTA_LAYOUT.textIcon : CTA_LAYOUT.text,
+      )}
       href={href}
       {...linkTargetAttributes(target)}
       {...ctaButtonAttributes({ variant, ariaLabel })}
       data-test-state={testState}
     >
-      <span className={ctaEffectClassName(variant)} aria-hidden="true" />
-      <span className="CtaButton-border" aria-hidden="true" />
-      <span className="CtaButton-text">{children}</span>
-      {icon && <CtaButtonIcon icon={icon} />}
+      <span className={cx(ctaEffectClassName(variant), CTA_GLOW)} aria-hidden="true" />
+      <span className={cx("CtaButton-border", CTA_BORDER)} aria-hidden="true" />
+      <span className={cx("CtaButton-text", CTA_TEXT)}>{children}</span>
+      {icon && <CtaButtonIcon icon={icon} className={CTA_ICON} />}
     </a>
   );
 }
