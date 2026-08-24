@@ -1,106 +1,121 @@
-/* src/partials/components/Notice/Notice.css */
-/*
- * Notice — a presentational message (severity + icon + text).
+/* Notice — PHASE B (translated). The Phase A verbatim copy is
+ * `reference-components/src/partials/components/Notice/Notice.css`; diff against
+ * that, not against a copy in this tree, which is the reason the submodule is
+ * kept pristine.
  *
- * PAYLOAD ONLY: no live role, no announcement, no dismissal/timing. To announce
- * it, the CONTEXT renders it into a persistent live region (`.notice-region`,
- * role="alert"|"status", present and empty at load, content swapped in). See Notice.md.
+ * ── WHAT MOVED, AND THE RULE THAT DECIDED IT ──────────────────────────────────
  *
- * Composable, from basic to enriched — three independent boolean data-* toggles
- * over one coloured base:
- *   base            surface tint (accent-derived) + icon. Coloured but calm.
- *   data-icon       icon on/off.
- *   data-border     a full border in the accent (icon) colour.
- *   data-emphasis   the "styled" hook — a thick leading accent bar (the richest look).
- * Severity is carried by the icon (shape + colour), never by chrome alone.
+ * Utilities took every declaration that is a VALUE. This file kept every
+ * declaration that is a DERIVATION — something computed from another custom
+ * property. That line turned out to be the whole story of the translation, and
+ * it is not the line I expected to find (Findings.md F-088).
  *
- * Icons are inline SVG using currentColor (pointed at the accent on .icon), so the
- * mark re-tints with the variant — no sprite sheet dependency, fully portable.
+ *   moved to utilities   display/grid/columns, column-gap, max-inline-size,
+ *                        padding, border-radius, the icon's flex, the svg's
+ *                        size, the content column, the title's weight, AND all
+ *                        three data-* state toggles (Tailwind's `data-[x=y]:`
+ *                        variant expresses those exactly).
+ *   kept here            `--_nt-*` declarations, the `color-mix()` tint derived
+ *                        from the accent, per-variant accent assignment, the SVG
+ *                        stroke presentation, and the forced-colors block.
  *
- * Root carries tokens + root props only; every part is a flat, fully-qualified
- * `.Notice .element` rule below (ADR-0019).
+ * A utility can set `background-color` to a token. It cannot say "8% of whatever
+ * this element's accent turns out to be, over the surface" — the value does not
+ * exist until the cascade has resolved `--_nt-accent`, which is set by a sibling
+ * rule keyed on `[data-variant]`. That is not a Tailwind limitation to work
+ * around; it is what a derived design system looks like, and the `--_*` private
+ * convention (ADR-0017) is exactly the seam that makes it possible.
+ *
+ * ── THREE DESIGN CHANGES, deliberate and recorded ─────────────────────────────
+ *
+ * 1. `--_nt-text-color: CanvasText` → `var(--ui-surface-foreground)`.
+ *    Measured before: body text resolved to rgb(0,0,0) in light and
+ *    rgb(255,255,255) in dark — appearance-aware but NOT design-system-aware,
+ *    the middle of the three tiers CLAUDE.md describes. Our body colour is
+ *    rgb(90,88,82) / rgb(185,183,175).
+ * 2. `Canvas` → `var(--ui-surface)` as the tint's ground, and the neutral accent
+ *    `CanvasText` → `var(--ui-surface-foreground)`. Before, a neutral Notice
+ *    derived to a pure grey `srgb 0.92 0.92 0.92`, off-palette against this
+ *    system's warm canvas.
+ * 3. `--_nt-radius: 0.375rem` → the `rounded-lg` utility, 0.75rem.
+ *    cursor-DESIGN.md assigns `--radius-lg` to "cards, panes, popovers" and a
+ *    Notice is a pane. This is a VISIBLE change, not a translation: 0.375rem is
+ *    our `--radius-sm`, so keeping the reference value was available and was not
+ *    chosen. Flagged as such.
+ *
+ * The forced-colors block keeps its system colours untouched. That is the one
+ * place `Canvas`/`CanvasText` are correct rather than a bypass, because there the
+ * user has replaced the palette on purpose.
  */
 
 .Notice {
-  /* ── Public API ──────────────────────────────────────────────────────── */
-  --_nt-accent: CanvasText;                                  /* per-variant below */
-  --_nt-bg: color-mix(in srgb, var(--_nt-accent) 8%, Canvas); /* base tint, derived from accent */
-  --_nt-text-color: CanvasText;
-  --_nt-title-color: currentColor;                           /* bold; accent-free by default */
-  --_nt-border-width: 1px;                                   /* data-border (accent-coloured) */
-  --_nt-bar-width: 0.25rem;                                  /* data-emphasis leading bar */
-  --_nt-radius: 0.375rem;
-  --_nt-padding: 1rem;
-  --_nt-gap: 1rem;                                           /* icon → content */
-  --_nt-content-gap: 0.25rem;                                /* title → body */
+  /* ── Public API — values a host may override ──────────────────────────── */
+  --_nt-accent: var(--ui-surface-foreground);
+  /* The one thing no utility can express: a tint derived from whatever the
+     accent resolves to, over this system's surface rather than the UA's. */
+  --_nt-bg: color-mix(in srgb, var(--_nt-accent) 8%, var(--ui-surface));
+  --_nt-text-color: var(--ui-surface-foreground);
+  --_nt-title-color: currentColor;
   --_nt-icon-size: 1.5rem;
-  --_nt-max-inline-size: 50rem;
 
-  display: grid;
-  grid-template-columns: auto 1fr;
-  column-gap: var(--_nt-gap);
-  max-inline-size: var(--_nt-max-inline-size);
-  padding: var(--_nt-padding);
-  border-radius: var(--_nt-radius);
-  background-color: var(--_nt-bg);   /* base: coloured */
+  background-color: var(--_nt-bg);
   color: var(--_nt-text-color);
-  /* no border by default — data-border / data-emphasis add chrome */
 }
 
 /* ── Icon ──────────────────────────────────────────────────────────────── */
+/* The colour is the derivation; `flex`/`items-start` are utilities on the
+   element itself. */
 .Notice .icon {
   color: var(--_nt-accent);
-  display: flex;
-  align-items: flex-start;   /* top-align with the first line of content */
 }
+/* SVG presentation attributes have no utility equivalent, and `stroke:
+   currentColor` is what makes the mark re-tint with the variant — the reason
+   Notice.md gives for inline SVG over a sprite. The size moved to utilities;
+   everything here is paint. */
 .Notice .icon svg {
-  display: block;
-  inline-size: var(--_nt-icon-size);
-  block-size: var(--_nt-icon-size);
   fill: none;
-  stroke: currentColor;    /* inherits --_nt-accent from .icon */
+  stroke: currentColor;
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
-/* ── Content ───────────────────────────────────────────────────────────── */
-.Notice .content {
-  display: flex;
-  flex-direction: column;
-  gap: var(--_nt-content-gap);
-  min-inline-size: 0;        /* let long words wrap instead of overflowing */
-}
-
 .Notice .title {
   color: var(--_nt-title-color);
-  font-weight: 600;
 }
 
-/* ── Independent toggles (data-* is the API, gated not :has()) ──────────── */
-
-/* Icon on/off */
-.Notice[data-icon="false"] { grid-template-columns: 1fr; }
-.Notice[data-icon="false"] .icon { display: none; }
-
-/* Full border in the accent (icon) colour */
-.Notice[data-border="true"] { border: var(--_nt-border-width) solid var(--_nt-accent); }
-
-/* The "styled" hook — a thick leading accent bar (richest look) */
-.Notice[data-emphasis="true"] { border-inline-start: var(--_nt-bar-width) solid var(--_nt-accent); }
-
 /* ── Variants: set only the accent; tint + icon + chrome derive ─────────── */
-.Notice[data-variant="error"]   { --_nt-accent: var(--ui-destructive,   #c0362c); }
-.Notice[data-variant="warning"] { --_nt-accent: var(--ui-warning, #a85a00); }
-.Notice[data-variant="success"] { --_nt-accent: var(--ui-success, #1a7f37); }
-.Notice[data-variant="info"]    { --_nt-accent: var(--ui-info,    #0b6bcb); }
+.Notice[data-variant="error"] {
+  --_nt-accent: var(--ui-destructive, #c0362c);
+}
+.Notice[data-variant="warning"] {
+  --_nt-accent: var(--ui-warning, #a85a00);
+}
+.Notice[data-variant="success"] {
+  --_nt-accent: var(--ui-success, #1a7f37);
+}
+.Notice[data-variant="info"] {
+  --_nt-accent: var(--ui-info, #0b6bcb);
+}
 .Notice[data-variant="neutral"],
-.Notice:not([data-variant])     { --_nt-accent: CanvasText; }
+.Notice:not([data-variant]) {
+  --_nt-accent: var(--ui-surface-foreground);
+}
 
-/* Forced colors: the tint collapses to Canvas, so give every Notice a boundary,
-   and draw chrome from system colours. Meaning stays with the per-variant icon. */
+/* Forced colors: the tint collapses, so give every Notice a boundary and draw
+   chrome from system colours. Meaning stays with the per-variant icon.
+   `forced-colors:` is a Tailwind variant, so this COULD be utilities — it stays
+   here because it is a coherent override block, and splitting one policy across
+   five class attributes makes it deletable in five places instead of one. */
 @media (forced-colors: active) {
-  .Notice { border: 1px solid CanvasText; background-color: Canvas; }
-  .Notice[data-emphasis="true"] { border-inline-start-color: CanvasText; }
-  .Notice .icon { color: CanvasText; }
+  .Notice {
+    border: 1px solid CanvasText;
+    background-color: Canvas;
+  }
+  .Notice[data-emphasis="true"] {
+    border-inline-start-color: CanvasText;
+  }
+  .Notice .icon {
+    color: CanvasText;
+  }
 }

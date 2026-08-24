@@ -64,3 +64,167 @@
 .FileUpload[data-drop-zone="true"] .drop-label {
   opacity: 1;
 }
+
+/* ── The popup arrow's outline ────────────────────────────────────────────────
+ *
+ * The arrow is a square rotated 45°, filled with the bubble's surface colour and
+ * carrying no border. So the bubble's 1px outline has a notch in it exactly where
+ * the arrow joins, and the arrow reads as a filled blob hanging off an outlined
+ * panel. Measured at 8×: the horizontal border runs to the arrow and stops, with
+ * a clean gap the width of the arrow's diagonal.
+ *
+ * ── Which two borders ────────────────────────────────────────────────────────
+ *
+ * `rotate(45deg)` sends the BOTTOM-RIGHT corner to bottom-centre — which is why
+ * the reference already rounds `border-end-end-radius` for `direction="top"` and
+ * `border-start-start-radius` for `direction="bottom"`: that corner is the
+ * outward tip. The two edges meeting at it are the two outward faces, and they
+ * are the only two that need drawing:
+ *
+ *   direction="top"     tip points down   → border-bottom + border-right
+ *   direction="bottom"  tip points up     → border-top    + border-left
+ *
+ * `box-sizing: border-box` means those borders grow inward, so the arrow's box
+ * stays exactly `--_tt-arrow-size` and no geometry moves.
+ *
+ * ── The seam offset is DERIVED, not tuned ────────────────────────────────────
+ *
+ * Drawing the two borders leaves a small artefact at each junction, and the first
+ * version of this fix hid it with a literal `-1px` chosen by looking at
+ * screenshots. That is the wrong kind of answer, and exaggerating the border
+ * showed why: at 3px the artefact was 3× bigger and `-1px` no longer helped.
+ *
+ * The quantity is the VERTICAL EXTENT OF THE MITRE CUT. With `border-top: b`
+ * drawn and `border-right: 0`, CSS still mitres the band's end, cutting it from
+ * the outer corner (s, 0) to the inner corner (s, b). Rotating the square 45°
+ * about its centre sends (s, 0) to page y = 0 — the popup's outer border edge,
+ * because `top: calc(size * -0.5)` puts the element's centre exactly on that edge
+ * — and sends (s, b) to page y = b·√2/2. So the cut hangs `b·√2/2` past the
+ * outline. Lift the arrow by precisely that and it lands flush.
+ *
+ *     offset = border-width × √2/2
+ *
+ * Verified at border widths 1, 2, 3 and 5px: with the formula all four render an
+ * unbroken stroke; with any fixed literal, only one of them does. For a 1px
+ * border it works out to 0.71px — which is why "about half a pixel" was the right
+ * instinct and the wrong constant.
+ *
+ * ── Why not `border-shape` ───────────────────────────────────────────────────
+ *
+ * The note this replaces (in `tailwind-collisions.css`) proposed `border-shape:
+ * shape(…)` behind an `@supports` gate, reasoning that only a new spec could
+ * stroke a bubble and its arrow as one continuous outline. True of the goal,
+ * wrong about the requirement: nothing needs one stroke. The arrow's background
+ * covers the bubble's border where they overlap, and the arrow's own two borders
+ * carry the outline across the gap — so it only has to LOOK continuous, which two
+ * straight edges already do. Progressive enhancement was the right instinct
+ * applied to the wrong problem. This needs no feature detection, works in every
+ * browser, and is six declarations.
+ *
+ * Credit: the project owner proposed the two-border approach, the outward nudge,
+ * and that the nudge should be calculated rather than measured.
+ *
+ * Drop these rules when they land upstream. F-089. */
+toggle-tip .arrow {
+  /* The popup hard-codes `border: 1px`; naming it here keeps the offset and the
+     stroke from drifting apart, and one edit changes both. */
+  --_arrow-border-width: 1px;
+  /* √2/2 — the mitre cut's vertical extent per unit of border width. */
+  --_arrow-seam: calc(var(--_arrow-border-width) * 0.70710678);
+}
+
+toggle-tip[data-direction="top"] .arrow {
+  border-bottom: var(--_arrow-border-width) solid var(--_tt-border-color);
+  border-right: var(--_arrow-border-width) solid var(--_tt-border-color);
+  bottom: calc(var(--_tt-arrow-size) * -0.5 - var(--_arrow-seam));
+}
+
+toggle-tip[data-direction="bottom"] .arrow {
+  border-top: var(--_arrow-border-width) solid var(--_tt-border-color);
+  border-left: var(--_arrow-border-width) solid var(--_tt-border-color);
+  top: calc(var(--_tt-arrow-size) * -0.5 - var(--_arrow-seam));
+}
+
+/* The same repair for the five date fields. The structure is IDENTICAL in all
+ * six components — a 45°-rotated square positioned at `size * -0.5`, with the
+ * outward corner rounded — so the fix is the same six declarations with a
+ * different `--_*` prefix. That sameness is the anti-DRY design of ADR-0004
+ * working as intended for the library and against a consumer: six copies of one
+ * repair, because there is no shared arrow to repair once. Recorded in F-089
+ * rather than abstracted away, because a mixin here would be this project
+ * inventing a seam the library deliberately does not have. */
+
+.DateField .arrow {
+  --_arrow-border-width: 1px;
+  --_arrow-seam: calc(var(--_arrow-border-width) * 0.70710678);
+}
+.DateField[data-direction="top"] .arrow {
+  border-bottom: var(--_arrow-border-width) solid var(--_df-calendar-border-color);
+  border-right: var(--_arrow-border-width) solid var(--_df-calendar-border-color);
+  bottom: calc(var(--_df-arrow-size) * -0.5 - var(--_arrow-seam));
+}
+.DateField[data-direction="bottom"] .arrow {
+  border-top: var(--_arrow-border-width) solid var(--_df-calendar-border-color);
+  border-left: var(--_arrow-border-width) solid var(--_df-calendar-border-color);
+  top: calc(var(--_df-arrow-size) * -0.5 - var(--_arrow-seam));
+}
+
+.DateTimeField .arrow {
+  --_arrow-border-width: 1px;
+  --_arrow-seam: calc(var(--_arrow-border-width) * 0.70710678);
+}
+.DateTimeField[data-direction="top"] .arrow {
+  border-bottom: var(--_arrow-border-width) solid var(--_dtf-calendar-border-color);
+  border-right: var(--_arrow-border-width) solid var(--_dtf-calendar-border-color);
+  bottom: calc(var(--_dtf-arrow-size) * -0.5 - var(--_arrow-seam));
+}
+.DateTimeField[data-direction="bottom"] .arrow {
+  border-top: var(--_arrow-border-width) solid var(--_dtf-calendar-border-color);
+  border-left: var(--_arrow-border-width) solid var(--_dtf-calendar-border-color);
+  top: calc(var(--_dtf-arrow-size) * -0.5 - var(--_arrow-seam));
+}
+
+.MonthField .arrow {
+  --_arrow-border-width: 1px;
+  --_arrow-seam: calc(var(--_arrow-border-width) * 0.70710678);
+}
+.MonthField[data-direction="top"] .arrow {
+  border-bottom: var(--_arrow-border-width) solid var(--_mf-popup-border-color);
+  border-right: var(--_arrow-border-width) solid var(--_mf-popup-border-color);
+  bottom: calc(var(--_mf-arrow-size) * -0.5 - var(--_arrow-seam));
+}
+.MonthField[data-direction="bottom"] .arrow {
+  border-top: var(--_arrow-border-width) solid var(--_mf-popup-border-color);
+  border-left: var(--_arrow-border-width) solid var(--_mf-popup-border-color);
+  top: calc(var(--_mf-arrow-size) * -0.5 - var(--_arrow-seam));
+}
+
+.TimeField .arrow {
+  --_arrow-border-width: 1px;
+  --_arrow-seam: calc(var(--_arrow-border-width) * 0.70710678);
+}
+.TimeField[data-direction="top"] .arrow {
+  border-bottom: var(--_arrow-border-width) solid var(--_tf-popup-border-color);
+  border-right: var(--_arrow-border-width) solid var(--_tf-popup-border-color);
+  bottom: calc(var(--_tf-arrow-size) * -0.5 - var(--_arrow-seam));
+}
+.TimeField[data-direction="bottom"] .arrow {
+  border-top: var(--_arrow-border-width) solid var(--_tf-popup-border-color);
+  border-left: var(--_arrow-border-width) solid var(--_tf-popup-border-color);
+  top: calc(var(--_tf-arrow-size) * -0.5 - var(--_arrow-seam));
+}
+
+.WeekField .arrow {
+  --_arrow-border-width: 1px;
+  --_arrow-seam: calc(var(--_arrow-border-width) * 0.70710678);
+}
+.WeekField[data-direction="top"] .arrow {
+  border-bottom: var(--_arrow-border-width) solid var(--_wf-popup-border-color);
+  border-right: var(--_arrow-border-width) solid var(--_wf-popup-border-color);
+  bottom: calc(var(--_wf-arrow-size) * -0.5 - var(--_arrow-seam));
+}
+.WeekField[data-direction="bottom"] .arrow {
+  border-top: var(--_arrow-border-width) solid var(--_wf-popup-border-color);
+  border-left: var(--_arrow-border-width) solid var(--_wf-popup-border-color);
+  top: calc(var(--_wf-arrow-size) * -0.5 - var(--_arrow-seam));
+}

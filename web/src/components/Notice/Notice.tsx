@@ -110,7 +110,32 @@ export function Notice({
      suite asserts `getAttribute('role')` is null on the first Notice. */
   return (
     <div
-      className={className ? `Notice ${className}` : "Notice"}
+      className={
+        /* PHASE B. `.Notice` is contractual and comes FIRST; utilities are
+           layered alongside it, never instead of it (F-008). Every one of these
+           replaced a declaration in Notice.css — see that file's header for the
+           value/derivation split that decided what could move.
+           The three `data-[…]:` variants are the interesting result: Tailwind
+           expresses the library's own data-attribute state API directly, so the
+           toggles did not need a stylesheet at all. */
+        [
+          "Notice",
+          "grid grid-cols-[auto_1fr] gap-x-base p-base max-w-[50rem]",
+          /* 0.75rem, not the reference's 0.375rem: cursor-DESIGN.md gives
+             --radius-lg to "cards, panes, popovers". A visible change, recorded. */
+          "rounded-lg",
+          /* `data-icon="false"` collapses the grid to one column. */
+          "data-[icon=false]:grid-cols-[1fr]",
+          /* A full border in the accent colour. The WIDTH is a value (utility);
+             the COLOUR is `--_nt-accent`, resolved per variant by the stylesheet. */
+          "data-[border=true]:border data-[border=true]:border-[color:var(--_nt-accent)]",
+          /* The emphasis bar: 0.25rem inline-start, same accent. */
+          "data-[emphasis=true]:border-s-4 data-[emphasis=true]:border-s-[color:var(--_nt-accent)]",
+          className,
+        ]
+          .filter(Boolean)
+          .join(" ")
+      }
       data-variant={variant}
       /* The one attribute whose API value is the literal string "false". */
       data-icon={icon ? undefined : "false"}
@@ -119,8 +144,9 @@ export function Notice({
       data-id={dataId}
     >
       {icon && (
-        <div className="icon" aria-hidden="true">
+        <div className="icon flex items-start" aria-hidden="true">
           <svg
+            className="block w-6 h-6"
             width="24"
             height="24"
             viewBox="0 0 24 24"
@@ -131,8 +157,8 @@ export function Notice({
           </svg>
         </div>
       )}
-      <div className="content">
-        {title != null && <strong className="title">{title}</strong>}
+      <div className="content flex min-w-0 flex-col gap-xxs">
+        {title != null && <strong className="title font-semibold">{title}</strong>}
         {typeof children === "string" ? <p>{children}</p> : children}
       </div>
     </div>

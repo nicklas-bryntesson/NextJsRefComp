@@ -3380,6 +3380,161 @@ that could be checked, so nothing checked it.
 ---
 
 
+### F-088 · Phase B, measured: utilities take every VALUE, and cannot take a single DERIVATION
+
+**Surface:** `Notice`, the first component translated to Tailwind. Chosen by
+measurement rather than instinct — see the table below.
+
+**The predictor, run over all eighteen components.** Comments stripped first, so
+port notes do not inflate anything:
+
+| | decls | `calc()` | pseudo-states | `[a][b]` | `--_*` | hard-coded colours |
+|---|---|---|---|---|---|---|
+| MotionRegion | 22 | 0 | 1 | 0 | 1 | 3 |
+| ChoiceGroup | 39 | 0 | 2 | 0 | 6 | 2 |
+| **Notice** | **49** | **0** | **1** | **0** | **12** | **12** |
+| AffixField | 51 | 3 | 5 | 0 | 16 | 3 |
+| ScrollArea | 52 | 2 | 2 | 0 | 7 | 3 |
+| ChoiceField | 62 | 4 | 25 | 0 | 12 | 9 |
+| RangeField | 69 | 1 | 5 | 1 | 11 | 8 |
+| ThemeSwitch | 81 | 0 | 17 | 0 | 11 | 7 |
+| FileUpload | 91 | 0 | 5 | 1 | 8 | 13 |
+| ToggleTip | 99 | 9 | 0 | 0 | 29 | 6 |
+| **Picklist** | **117** | **0** | **30** | **8** | **21** | **12** |
+| MonthField | 154 | 5 | 8 | 0 | 21 | 3 |
+| **RangeScale** | **161** | **17** | **13** | **11** | **30** | **12** |
+| TimeField / DateField / WeekField / DateTimeField | 153–227 | 5 | 8–12 | 0–3 | 22–24 | 3 |
+
+Two cheap columns and two expensive ones. `calc()` and two-attribute selectors are
+what a utility cannot express; pseudo-state count is what it expresses *well*
+(one variant each). So `RangeScale` (17 `calc()`, 11 two-attribute selectors, 30
+private properties) is the worst case in the library and `Notice` is the cheapest
+one that still teaches something, because its 12 hard-coded colours make it a
+test of the token seam and not just of geometry.
+
+**The result. 134 elements, 52 computed properties, both appearances. Five
+properties changed, and all five were declared in advance:**
+
+| property | nodes | why |
+|---|---|---|
+| `color` | 136 | `CanvasText` → `var(--ui-surface-foreground)` — declared |
+| `borderTopColor`, `outlineColor` | 136, 132 | follow `currentColor`; nothing draws them |
+| `borderRadius` | 32 | 6px → 12px — declared |
+| `backgroundColor` | 17 | tint ground `Canvas` → `var(--ui-surface)` — declared |
+
+**Zero geometry moved. `0 gone, 0 new` keys.** Every layout, spacing and
+typography declaration that left the stylesheet for a utility produced a
+byte-identical computed value. Notice's suite stayed 7/7 and page-level axe stayed
+at zero violations in both appearances, with body text now at 11.13–13.90:1 on
+every variant tint.
+
+**The line that decided what could move is `value` vs `derivation`, and it is not
+the line I expected.** I expected the split to be "colour vs geometry", or
+"static vs stateful". Neither survived:
+
+- **The state toggles moved cleanly.** All three of Notice's `data-*` booleans
+  became `data-[icon=false]:grid-cols-[1fr]`,
+  `data-[border=true]:border`, `data-[emphasis=true]:border-s-4`. Tailwind's
+  `data-[…]` variant expresses the library's own data-attribute API *directly*,
+  so the toggles needed no stylesheet at all. This is the single most encouraging
+  result in the translation: the thing that looked most CSS-shaped was the
+  easiest.
+- **One declaration could not move, and it is the important one:**
+  `--_nt-bg: color-mix(in srgb, var(--_nt-accent) 8%, var(--ui-surface))`. A
+  utility can set `background-color` to a token. It cannot say "8% of whatever
+  this element's accent turns out to be" — the value does not exist until the
+  cascade has resolved `--_nt-accent`, which a *sibling rule keyed on
+  `[data-variant]`* sets. Five variants, one tint rule. As utilities that is five
+  literal colours, computed by hand, per appearance — ten values replacing one
+  expression, and every one of them a place the palette can drift.
+
+**So the honest answer to the original question is a split, not a verdict.**
+49 declarations became 9 plus twelve utility classes. What stayed is exactly the
+cascade-dependent part: the `--_nt-*` block, the derived tint, the per-variant
+accent, the SVG paint, and the forced-colors override. What left is everything a
+designer would call a value. The library's `--_*` private-property convention
+(ADR-0017) turns out to be the thing that makes the residue coherent rather than
+arbitrary — the properties that must stay are precisely the ones it names.
+
+**Method note, because it is the part that generalises.** The net PORTING.md
+prescribes was built first and **validated against itself** — two snapshots of an
+unchanged page, diffed, expecting zero. It found zero. Without that control run a
+subsequent empty diff proves nothing, and this project has already shipped four
+probes that reported success because they were measuring nothing. The net also
+had to normalise class lists before keying on them: the translation's whole
+effect is *adding utility classes*, so a key that includes them makes every
+element look new and the diff comes back empty by construction.
+
+---
+
+### F-089 · The popup arrow's outline: two borders and a derived offset, not a new CSS spec
+
+**Surface:** all six popup components. **Proposed by the project owner**, whose
+suggestion was better than the plan already recorded here, and who also caught the
+part I got wrong.
+
+The arrow is a square rotated 45°, filled with the bubble's surface colour and
+carrying no border, so the bubble's 1px outline has a gap exactly where the arrow
+joins. Photographed at 8×: the horizontal border runs up to the arrow and stops.
+
+**The fix is two borders.** `rotate(45deg)` sends the bottom-right corner to
+bottom-centre — which is why the reference already rounds `border-end-end-radius`
+for `direction="top"` and `border-start-start-radius` for `direction="bottom"`:
+that corner is the outward tip. The two edges meeting at it are the two outward
+faces, so `border-bottom` + `border-right` (tip down) and `border-top` +
+`border-left` (tip up) draw the whole visible outline and nothing else. With
+`box-sizing: border-box` they grow inward and no geometry moves.
+
+**What I had planned instead, and why it was wrong.** `tailwind-collisions.css`
+carried a design for `border-shape: shape(…)` behind an `@supports` gate,
+reasoning that only a new spec could stroke a bubble and its arrow as one
+continuous outline. That was true of the goal and wrong about the requirement:
+*nothing needs one continuous stroke*. The arrow's background covers the bubble's
+border where they overlap, and the arrow's own two borders carry the outline
+across the gap — so it only has to **look** continuous, which two straight edges
+already do. Progressive enhancement was the right instinct pointed at the wrong
+problem, and it would have shipped a feature-gated fallback for a defect that
+plain CSS closes in six declarations, in every browser.
+
+**The offset is derived, and my first version of it was not.** Drawing the borders
+leaves a small artefact where each diagonal meets the horizontal band, and I first
+hid it with `-1px` chosen by looking at screenshots. The owner's response —
+*"det bör nog calcas fram"* — was correct, and exaggerating the border proved it:
+at 3px the artefact was 3× larger and `-1px` no longer helped.
+
+The quantity is the **vertical extent of the mitre cut**. With `border-top: b`
+drawn and `border-right: 0`, CSS still mitres the band's end, cutting from the
+outer corner `(s, 0)` to the inner corner `(s, b)`. Rotating the square 45° about
+its centre sends `(s, 0)` to page `y = 0` — the popup's outer border edge, because
+`top: calc(size * -0.5)` puts the element's centre exactly on it — and sends
+`(s, b)` to `y = b·√2/2`. The cut therefore hangs `b·√2/2` past the outline:
+
+```
+offset = border-width × √2/2
+```
+
+Verified by rendering at border widths **1, 2, 3 and 5px**: with the formula all
+four produce an unbroken stroke; with any fixed literal, only one does. For a 1px
+border it is 0.71px — which is why "roughly half a pixel" was the right instinct
+and the wrong constant.
+
+**Cost of the rollout, which is itself a finding.** Six components, six identical
+copies of the same six declarations, differing only in the `--_*` prefix and the
+border-colour token name. That is ADR-0004's anti-DRY design working exactly as
+intended for the library and exactly against a consumer: there is no shared arrow
+to repair once, so there is no way to repair it once. I left the six copies rather
+than abstracting them, because a mixin here would be this project inventing a seam
+the library deliberately does not have — but it is the clearest example so far of
+what anti-DRY costs downstream, and it is a candidate for the upstream fix, where
+one edit would serve all six.
+
+Measured after: all six arrows draw both outward borders in `--ui-border`
+(rgb(128,125,114)), the computed offset is `-6.70711px` in every one, and ToggleTip
+stays 11/11 with no axe violations.
+
+---
+
+
 ## Proposals written for upstream
 
 Where a finding implies a change to the library rather than to this port, the
@@ -3489,7 +3644,7 @@ everything else first.
 | [`findings/ScrollArea.md`](findings/ScrollArea.md) | 7 | The focus-ring contrast defect axe structurally cannot see, the enhancement-window measurements in frames, the three tiers of appearance-awareness |
 | [`findings/RangeField.md`](findings/RangeField.md) | 5 | The px-scale defect that turned out to be ours (F-026); the anti-DRY result |
 
-**178 fragment entries across 17 fragments, plus 87 project-level entries — 265 findings in total.**
+**178 fragment entries across 17 fragments, plus 89 project-level entries — 267 findings in total.**
 
 ### How to read a finding
 
