@@ -12,7 +12,7 @@ const READS = [
   const b = await chromium.launch();
   for (const appearance of ['light', 'dark']) {
     const p = await b.newPage({ viewport: { width: 1280, height: 900 } });
-    await p.goto('http://localhost:3200/primitives/table', { waitUntil: 'load' });
+    await p.goto('http://localhost:3210/primitives/table', { waitUntil: 'load' });
     await p.evaluate((a) => document.documentElement.setAttribute('data-appearance', a), appearance);
     const r = await p.evaluate((READS) => {
       const cs = getComputedStyle(document.documentElement);
@@ -44,7 +44,7 @@ const READS = [
     '/primitives/circlediagram': ['.CircleDiagram', '.CircleDiagram-chart', '.CircleDiagram-center', '.CircleDiagram-subtitle', '.CircleDiagram-legend-item'],
   })) {
     const p = await b.newPage({ viewport: { width: 1280, height: 900 } });
-    await p.goto('http://localhost:3200' + route, { waitUntil: 'load' });
+    await p.goto('http://localhost:3210' + route, { waitUntil: 'load' });
     await p.waitForTimeout(300);
     const r = await p.evaluate((sels) => sels.map((s) => {
       const el = document.querySelector(s);

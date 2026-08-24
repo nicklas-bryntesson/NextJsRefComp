@@ -98,9 +98,26 @@ export function CoverCompositionVideo({
   const mediaRef = useRef<HTMLDivElement>(null);
 
   /* Driven by media events and observers, never set synchronously in an effect,
-   * so plain `useState` is correct here (the lint rule targets only the latter). */
+   * so plain `useState` is correct here (`set-state-in-effect` targets only the
+   * latter). */
   const [state, setState] = useState<VideoState>("idle");
-  const [userPaused, setUserPaused] = useState(false);
+
+  /* NOT MIRRORED FROM STATE. The first version was
+   *   const [userPaused, setUserPaused] = useState(false);
+   *   const userPausedRef = useRef(false);
+   *   useEffect(() => { userPausedRef.current = userPaused; }, [userPaused]);
+   * which is the standard "give my event listeners a fresh value" idiom, and
+   * `react-hooks/immutability` rejects it: "Modifying a value used previously in
+   * an effect function or as an effect dependency is not allowed."
+   *
+   * The rule was right and the fix is smaller than the thing it replaced. Nothing
+   * in the render tree reads `userPaused` — only the pause handler and the policy
+   * arbiter do — so the `useState` was never state, and mirroring it into a ref
+   * was a workaround for having declared it as state in the first place. One ref,
+   * written only from event handlers, and the mirroring effect disappears along
+   * with a render per user pause. F-089.
+   */
+  const userPausedRef = useRef(false);
 
   const play = useCallback(async () => {
     const video = videoRef.current;
@@ -139,12 +156,6 @@ export function CoverCompositionVideo({
     };
   }, []);
 
-  /* `react-hooks/refs`: read the ref inside the handler, never during render. */
-  const userPausedRef = useRef(false);
-  useEffect(() => {
-    userPausedRef.current = userPaused;
-  }, [userPaused]);
-
   /* Policy arbitration: visibility × reduced motion × connection × autoplay. */
   useEffect(() => {
     const root = mediaRef.current;
@@ -181,10 +192,10 @@ export function CoverCompositionVideo({
     const video = videoRef.current;
     if (!video) return;
     if (video.paused) {
-      setUserPaused(false);
+      userPausedRef.current = false;
       void play();
     } else {
-      setUserPaused(true);
+      userPausedRef.current = true;
       video.pause();
     }
   };

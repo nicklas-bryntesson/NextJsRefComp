@@ -8,6 +8,7 @@
  * (criterion 1: the table itself must NOT be focusable — see F-073).
  */
 const { chromium } = require('playwright');
+const guard = require('./orphans-guard.cjs');
 const { injectAxe, getViolations } = require('axe-playwright');
 
 const ROUTES = process.argv.slice(2).length
@@ -20,7 +21,7 @@ const ROUTES = process.argv.slice(2).length
   for (const route of ROUTES) {
     for (const appearance of ['light', 'dark']) {
       const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
-      await page.goto('http://localhost:3200' + route, { waitUntil: 'load' });
+      await page.goto('http://localhost:3210' + route, { waitUntil: 'load' });
       await page.evaluate((a) => document.documentElement.setAttribute('data-appearance', a), appearance);
       await page.addStyleTag({ content: '*,*::before,*::after{transition-duration:0s!important;animation-duration:0s!important}' });
       await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
@@ -28,6 +29,7 @@ const ROUTES = process.argv.slice(2).length
          toggle), so wait for the enhancement to land before auditing: auditing
          mid-swap measures a tree that exists for one frame. */
       await page.waitForTimeout(500);
+      await guard(page, { sentinelSelector: 'body', sentinelProperty: 'background-color', sentinelMustNotBe: 'rgba(0, 0, 0, 0)' });
       await injectAxe(page);
       const v = await getViolations(page, undefined, {
         axeOptions: { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa'] } },

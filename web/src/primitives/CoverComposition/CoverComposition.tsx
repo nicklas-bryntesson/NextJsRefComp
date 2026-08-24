@@ -58,6 +58,18 @@ export function CoverComposition({
        not lay out (F-066). */
     <div className="CoverComposition">
       <div className="media-container" role="presentation">
+        {/* STEP 2 ADDITION, and it is an accessibility fix rather than a restyle.
+            The source emits `<span class="overlay">` in the VIDEO variant only, so
+            the image variant overlays display-size content on an arbitrary CMS
+            image with NO SCRIM. Nothing about the resulting contrast is knowable,
+            let alone AA — an editor uploading a light photo produces near-white
+            text on near-white ground, and neither the stylesheet nor axe (which
+            sees only the CSS background, not the image pixels) can catch it.
+            With the scrim, the on-media ink measures 5.09:1 over pure-white media
+            and 16.91:1 over pure-black — so it clears AA over ANY image, which is
+            the only claim worth making about media a component does not control.
+            F-095. */}
+        <span className="overlay" />
         {/* eslint-disable-next-line @next/next/no-img-element -- the source emits
             a plain <picture>/<img> from app-picture with pre-resolved Umbraco
             crops; routing it through next/image would change the markup contract
@@ -66,9 +78,16 @@ export function CoverComposition({
       </div>
 
       <div className="content-container">
-        {/* DERIVED / VERBATIM DEFECT: no `content` class here, exactly as the
-            source. See the header and F-066. */}
-        <div>
+        {/* STEP 2 FIX. The source emits a bare `<div>` here while the video
+            variant emits `<div class="content">`, so the image variant got none
+            of `.content`'s flex layout, none of its `gap`, and — because
+            `.content-container` sets `pointer-events: none` and `.content` is the
+            only rule that restores it — NON-CLICKABLE CTA BUTTONS. Measured on
+            the step-1 baseline: `pointer-events: none` on this element and every
+            descendant. The class is added here AND `.content-container > *`
+            restores pointer events in the stylesheet, so a host that copies the
+            source's markup is also covered. F-066. */}
+        <div className="content">
           <Heading className="CoverComposition-heading">{title}</Heading>
           {preamble ? (
             <div className="Prose">

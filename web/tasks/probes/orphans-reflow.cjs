@@ -9,6 +9,7 @@
  * 169 px of horizontal scroll on the shared page at 320 px.
  */
 const { chromium } = require('playwright');
+const guard = require('./orphans-guard.cjs');
 
 const WIDTHS = [320, 360, 480, 768, 1024, 1280];
 const ROUTES = process.argv.slice(2);
@@ -22,8 +23,9 @@ const ROUTES = process.argv.slice(2);
     console.log(`\n=== ${route} ===`);
     for (const width of WIDTHS) {
       const page = await browser.newPage({ viewport: { width, height: 900 } });
-      await page.goto(`http://localhost:3200${route}`, { waitUntil: 'load' });
+      await page.goto(`http://localhost:3210${route}`, { waitUntil: 'load' });
       await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+      await guard(page, { sentinelSelector: 'body', sentinelProperty: 'background-color', sentinelMustNotBe: 'rgba(0, 0, 0, 0)' });
       const r = await page.evaluate(() => {
         const d = document.documentElement;
         const overflow = d.scrollWidth - d.clientWidth;

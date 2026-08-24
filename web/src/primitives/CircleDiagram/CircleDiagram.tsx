@@ -33,6 +33,9 @@ export type CircleDiagramProps = {
   accessibleName?: string;
 };
 
+/** How many `--CircleDiagram-color-N` custom properties the stylesheet defines. */
+const PALETTE_SIZE = 6;
+
 /** Matches the Razor's `@seg.Percentage.ToString("0.#")` and `{v:0.##}`. */
 function fixed(value: number, places: 1 | 2): string {
   return String(Number(value.toFixed(places)));
@@ -49,16 +52,39 @@ export function CircleDiagram({
   const total = segments.reduce((sum, s) => sum + s.value, 0);
   if (total === 0) return null;
 
-  let cumulative = 0;
+  /* NO ACCUMULATOR. The obvious way to lay out a conic gradient is
+   * `let cumulative = 0` and `cumulative += percentage` in a `map` — the
+   * idiomatic charting loop, and how the Razor does it. `react-hooks/immutability`
+   * rejects it: "Cannot reassign variable after render completes". So the running
+   * total is derived instead of mutated: each segment's start angle is the sum of
+   * every value BEFORE it, computed from the array rather than carried in a
+   * closure variable. Same output, O(n^2) on a list that is at most a handful of
+   * segments. F-089.
+   */
+  const cumulativeBefore = segments.reduce<number[]>(
+    (acc, segment, i) => [...acc, (acc[i] ?? 0) + segment.value],
+    [0],
+  );
+
   const computed = segments.map((segment, i) => {
     const percentage = (segment.value / total) * 100;
-    const start = cumulative;
-    cumulative += percentage;
+    const start = (cumulativeBefore[i] / total) * 100;
+    const end = (cumulativeBefore[i + 1] / total) * 100;
+    /* STEP 2 FIX. The source indexes the palette by raw segment ordinal, and the
+       palette has six entries — so a seventh segment emitted
+       `var(--CircleDiagram-color-7)`, which resolves to nothing, which makes that
+       conic-gradient stop invalid, which invalidates the WHOLE gradient and
+       renders the chart BLANK. One extra segment in the CMS and the graphic
+       disappears. Wrapping the index degrades to a repeated colour instead,
+       which is survivable precisely because the legend carries the data as text
+       (see the stylesheet header). F-074. */
+    const paletteIndex = (i % PALETTE_SIZE) + 1;
     return {
       ...segment,
       index: i + 1,
+      paletteIndex,
       percentage,
-      stop: `var(--CircleDiagram-color-${i + 1}) ${fixed(start, 2)}% ${fixed(cumulative, 2)}%`,
+      stop: `var(--CircleDiagram-color-${paletteIndex}) ${fixed(start, 2)}% ${fixed(end, 2)}%`,
     };
   });
 
@@ -95,7 +121,7 @@ export function CircleDiagram({
               <span
                 className="CircleDiagram-legend-swatch"
                 aria-hidden="true"
-                style={{ background: `var(--CircleDiagram-color-${segment.index})` }}
+                style={{ background: `var(--CircleDiagram-color-${segment.paletteIndex})` }}
               />
               <span className="CircleDiagram-legend-label">{segment.label}</span>
               <span className="CircleDiagram-legend-value">{fixed(segment.percentage, 1)}%</span>

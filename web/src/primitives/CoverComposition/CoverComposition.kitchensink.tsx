@@ -1,5 +1,13 @@
 /* CoverComposition.kitchensink.tsx — the inspection surface for both variants.
  *
+ * SECTION TITLES ARE SHORT ON PURPOSE. The first draft used
+ * `Video variant — data-component="CoverCompositionVideo"`, and
+ * `data-component="CoverCompositionVideo"` is one unbreakable token rendered at
+ * `text-display-md`: min-content 467px, which set the DOCUMENT width to 483px at
+ * a 320px viewport — 163px of horizontal scroll, a WCAG 1.4.10 failure caused
+ * entirely by the demo page's own prose while the component under test reflowed
+ * perfectly. axe reported zero violations throughout. F-086.
+ *
  * `Cell` and `Block` from the shared chrome are NOT used for the cover demos.
  * `Block` is a padded card with `flex-wrap` and `items-end`; `CoverComposition`
  * is a full-bleed hero whose whole contract is "fill the inline axis and put
@@ -55,7 +63,7 @@ const ACTIONS = (
 export function CoverCompositionKitchensink() {
   return (
     <>
-      <Section id="cover-image" title="Image variant — the source's else-branch">
+      <Section id="cover-image" title="Image variant">
         <Frame caption="h1, preamble, two CTAs">
           <CoverComposition
             headingLevel="h1"
@@ -84,7 +92,7 @@ export function CoverCompositionKitchensink() {
         </Frame>
       </Section>
 
-      <Section id="cover-video" title="Video variant — data-component=&quot;CoverCompositionVideo&quot;">
+      <Section id="cover-video" title="Video variant">
         <Frame caption="autoplay=policy — plays when visible, unless reduced motion or a metered connection objects">
           <CoverCompositionVideo
             headingLevel="h2"

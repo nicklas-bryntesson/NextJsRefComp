@@ -1,12 +1,63 @@
-  table {
-    --_border: 1px solid var(--COLOR-N30);
-    --_borderRadius: 1rem;
+/* Tables.css — step 2: restyled to cursor-DESIGN.md.
+ *
+ * Step 1 was byte-identical to `ClientApp/css/04_ui/Tables.css`. The diff from
+ * that baseline is COLOUR, RADIUS and three repairs, nothing structural: every
+ * selector, every `@supports` branch and every `:has()` gate is unchanged.
+ *
+ * WHY SO FEW PROPERTIES CARRIED SO MUCH. `--_border` is
+ * `1px solid var(--COLOR-N30)`, and `--COLOR-N30` does not exist in this app —
+ * the bridge answers the SEMANTIC tier and this file reads the CONSTANT tier
+ * (F-061, all over again). An invalid `var()` inside a shorthand is
+ * invalid-at-computed-value-time, so the whole `border` shorthand fell to its
+ * initial value and computed `border-top-width: 0px`. That ONE token took out
+ * the entire border and radius system — 190 of 224 lines — plus the header
+ * band, the footer band and the row-header hatch. Measured, see F-077.
+ *
+ * MAPPING (source constant -> ours):
+ *   --COLOR-N30  #c2cfe2 cool grey border  -> --color-hairline      hairline-only depth
+ *   --COLOR-N10  #f1f5fc lightest tint     -> --color-canvas        one step off the card
+ *   --COLOR-N80  #262b33 near-black text   -> --text-primary        (= --color-ink)
+ *   --_borderRadius 1rem                   -> --radius-lg  0.75rem  cards/panes
+ * `--color-canvas` for the band is the mapping that needs stating: in light it is
+ * cream (#f7f7f4) on a white card, in dark it is #1a1a17 on a #232320 card — one
+ * step AWAY from the surface in both directions, which is the relationship the
+ * source's N10-on-N00 had. All of these are `light-dark()` pairs, so the table
+ * follows `color-scheme` with no `dark:` variants and no duplicate blocks.
+ *
+ * Radius `lg` for the corner system, hairline-only depth, no shadows — the
+ * source had none either, so on depth the two design systems already agreed.
+ *
+ * THREE REPAIRS, all source defects rather than design changes:
+ *  · `text-align: middle` on the caption is not a valid value for that property,
+ *    so the browser drops the declaration. Repaired to `center`. F-078.
+ *  · The scroll declaration on `table` was silently forced to `visible` by the
+ *    engine — a table box is not a scroll container. Measured: computed
+ *    `visible` in Chromium, in both appearances. Moved to `.table-scroll`, which
+ *    is what `TableScroll.tsx` is for, and it is the whole reason a 12-column
+ *    table can reflow at 320 px. F-072.
+ *  · `border-spacing: var(--borderWidth)` in the no-`:has()` fallback read a
+ *    token that is undefined IN THE SOURCE APP TOO. Set to 0, which is the value
+ *    the invalid var already produced.
+ *
+ * NOT SCOPED. Every selector is still the bare `table` element, because that IS
+ * the contract this stylesheet has (F-070). The consequence in Next.js is that
+ * "component CSS" means ROUTE-scoped, not element-scoped, and five ported
+ * reference components render `<table>`. Measured collision count in F-079.
+ */
 
-    overflow-x: auto;
+  table {
+    --_border: 1px solid var(--color-hairline);
+    --_borderRadius: var(--radius-lg);
+
+    /* REPAIR: the horizontal-scroll declaration lived here and computed to
+       `visible` — the engine forces that, because a table box is not a scroll
+       container. The real scroll container is `.table-scroll`, at the bottom
+       of this file. F-072. */
 
     & caption {
       caption-side: bottom;
-      text-align: middle;
+      color: var(--text-secondary);
+      text-align: center; /* REPAIR: `middle` is not valid here. F-078. */
       margin-block-start: 0.5rem;
     }
 
@@ -14,7 +65,7 @@
     & th {
       padding-block: 0.5rem;
       padding-inline: 1rem;
-      color: var(--COLOR-N80);
+      color: var(--text-primary);
     }
 
     & th {
@@ -23,15 +74,15 @@
 
     /* Left diagonal line pattern for column headers */
     & tbody th[scope="col"] {
-      background-color: var(--COLOR-N10);
+      background-color: var(--color-canvas);
     }
 
     /* Right diagonal line pattern for row headers */
     & tbody th[scope="row"] {
       background-image: repeating-linear-gradient(
         45deg,
-        /* Diagonal line from top right to bottom left */ var(--COLOR-N10),
-        var(--COLOR-N10) 0.125rem,
+        /* Diagonal line from top right to bottom left */ var(--color-canvas),
+        var(--color-canvas) 0.125rem,
         transparent 0.125rem,
         transparent 0.5rem
       );
@@ -57,10 +108,10 @@
     table {
       border: var(--_border);
       border-collapse: collapse;
-      border-spacing: var(--borderWidth);
+      border-spacing: 0; /* was an undefined var in the source app too */
 
       & thead th {
-        background-color: var(--COLOR-N10);
+        background-color: var(--color-canvas);
       }
 
       & th {
@@ -140,7 +191,7 @@
         thead {
           & tr {
             & th {
-              background-color: var(--COLOR-N10);
+              background-color: var(--color-canvas);
               border-block-start: var(--_border); /* border top */
               border-inline-start: var(--_border); /* border left */
             }
@@ -183,7 +234,7 @@
         tfoot {
           & th,
           & td {
-            background-color: var(--COLOR-N10);
+            background-color: var(--color-canvas);
             border-block-end: var(--_border);
             border-inline-start: var(--_border); /* border left */
           }
@@ -223,3 +274,45 @@
       }
     }
   }
+
+/* ── .table-scroll — the horizontal scroll region ─────────────────────────────
+ *
+ * NOT in the source. It exists because the scroll declaration on `table` is
+ * inert (see the repair note above) and a 12-column table therefore pushed the
+ * DOCUMENT sideways: measured 578 px of horizontal overflow at a 320 px viewport
+ * on this route, a WCAG 1.4.10 Reflow failure, with axe reporting zero
+ * violations the whole time. axe does not test reflow at all.
+ *
+ * `overscroll-behavior-x: contain` keeps a sideways swipe inside the table
+ * instead of triggering the browser's back gesture. The focus ring is the design
+ * system's, and it is on the WRAPPER — atomica11y's `table.md` criterion 1
+ * requires the table itself not to be focusable, while WCAG 2.1.1 requires the
+ * scroll region to be reachable by keyboard. Both hold only if the wrapper is
+ * the focus target. F-073.
+ */
+.table-scroll {
+  max-inline-size: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  /* A scroll container is a formatting context, so the table's bottom caption
+     and its border radius stay inside it. */
+  border-radius: var(--radius-lg);
+}
+
+.table-scroll:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* `caption-side: bottom` puts the caption inside the scroller, so it scrolls out
+   of view with the table. Sticking it to the inline start keeps the table's
+   accessible name visible at every scroll offset — which matters more here than
+   anywhere else, because the caption IS how a screen-reader user knows what the
+   region contains. */
+.table-scroll table > caption {
+  position: sticky;
+  inset-inline-start: 0;
+  inline-size: max-content;
+  max-inline-size: 100%;
+  text-align: start;
+}

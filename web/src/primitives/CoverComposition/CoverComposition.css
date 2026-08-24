@@ -1,3 +1,72 @@
+/* CoverComposition.css — step 2: restyled to cursor-DESIGN.md.
+ *
+ * Step 1 was byte-identical to `ClientApp/css/04_ui/CoverComposition.css`. The
+ * source's own header comment is kept below, unedited, because two of the three
+ * class names it documents do not exist anywhere in the source app — that
+ * mismatch is part of what made the contract MEDIUM confidence (F-065).
+ *
+ * FOUR THINGS CHANGED, and one of them is a genuine mechanism, not a repaint.
+ *
+ * 1. AN "ON-MEDIA" SURFACE, AND A MECHANISM THAT DID NOT WORK.
+ *
+ *    A hero's content sits on MEDIA, and media does not flip with the appearance.
+ *    The source hard-codes the consequence — `color: white`, `outline: 2px solid
+ *    white` on the video toggle — which is correct in light, correct in dark, and
+ *    unreachable by any token in our bridge.
+ *
+ *    THE ATTEMPT: set `color-scheme: dark` on `.media-container` so that every
+ *    `light-dark()` token used inside resolves to its dark half regardless of the
+ *    page appearance. Elegant, no literals, keeps `light-dark()` working.
+ *
+ *    IT DOES NOT WORK, and the measurement is the finding. `light-dark()` is
+ *    resolved at the computed-value time of the declaration it appears in — and
+ *    every one of these tokens is declared on `:root` in `design-tokens.css`. So
+ *    the pair is resolved against the ROOT's `color-scheme`, and the already-
+ *    resolved colour is what gets substituted downstream. Measured with
+ *    `color-scheme: dark` confirmed live on `.media-container`, light appearance:
+ *      overlay  oklch(0.9753 …) — a NEARLY WHITE scrim
+ *      toggle   rgb(38, 37, 30) — near-black text on it
+ *      heading over the scrim   1.36:1
+ *    `color-scheme` changes UA-rendered things inside the subtree (scrollbars, and
+ *    the native `controls` the SSR pass ships) and nothing at all about a
+ *    `light-dark()` token declared elsewhere. F-080.
+ *
+ *    WHAT SHIPS INSTEAD: two component-local properties holding an
+ *    appearance-INDEPENDENT on-media pair, written as `oklch()` in the design's
+ *    own warm hue so they match `--color-canvas`/`--color-ink`'s dark halves
+ *    (#1a1a17 / #f2f1ec) without depending on a token that flips. `color-scheme:
+ *    dark` is KEPT, for the UA surfaces it does govern.
+ *
+ *    This is a MISSING BRIDGE ROLE, not a component decision. `design-tokens.css`
+ *    and `primitive-tokens.css` have no `on-media` / scrim family, and per the
+ *    file boundaries this port does not add one. Open question in F-080.
+ *
+ * 2. COLOUR (source constant -> ours):
+ *      --COLOR-N20 #e0e9f6 media placeholder -> --color-surface-strong
+ *      --COLOR-B90 #00112e scrim base        -> --_on-media-ground (see note 1)
+ *      color: white (video toggle)           -> --_on-media-ink
+ *      outline: 2px solid white              -> --_on-media-ink
+ *
+ * 3. THE UNDEFINED GRID TOKENS GET FALLBACKS. `--grid-layout-gap` and
+ *    `--grid-layout-columns` are undefined in THIS app and undefined in the
+ *    SOURCE app too — nothing anywhere in `ClientApp/css` assigns them, so
+ *    `.content-container` has been a single-column grid with `column-gap: normal`
+ *    since it was written. Given fallbacks rather than replacements, which keeps
+ *    the override seam F-062 says a utility conversion destroys: a host that
+ *    defines the tokens still wins. F-081.
+ *
+ * 4. THE `.content` DEFECT IS FIXED. `.content-container` sets
+ *    `pointer-events: none` and only `.content` restored it — but the source's
+ *    IMAGE variant emits a bare `<div>` with no `content` class, so its CTA
+ *    buttons computed `pointer-events: none` and were not clickable. Measured on
+ *    the step-1 baseline. The fix is `.content-container > *`, which covers both
+ *    variants without renaming anything. F-066.
+ *
+ * Radius: none. A full-bleed hero has no corners; the kitchensink's own frame
+ * supplies `radius-lg`. Depth: hairline only, no shadows — the source had none.
+ *
+ * ── the source's own header comment follows, verbatim ──────────────────────── */
+
 /*
  * CoverComposition — full-bleed hero with media background and content overlay.
  *
@@ -12,14 +81,62 @@
  */
 
 .CoverComposition {
+  /* The appearance-INDEPENDENT on-media pair. See note 1 in the header for why
+     these are `oklch()` and not `var(--color-*)`: every colour token in this
+     design system is a `light-dark()` pair resolved at `:root`, so there is no
+     token that stays dark when the page goes light. These two values ARE the dark
+     halves of `--color-canvas` (#1a1a17) and `--color-ink` (#f2f1ec), expressed
+     in the same warm hue, so the hero matches the dark appearance exactly and
+     does not invent a colour. They are custom properties rather than inline
+     values so a host can still re-tint the hero in one rule — the override seam
+     F-062 found a utility conversion destroys. */
+  --_on-media-ground: oklch(0.2 0.006 85);
+  --_on-media-ink: oklch(0.955 0.004 85);
+
   position: relative;
 
+  /* `display: grid` IS THE FIX FOR THE IMAGE VARIANT, and it is the second half
+     of F-066. The source's base rule is `position: relative` and nothing else;
+     the grid comes from a SEPARATE utility class, `grid-container`, which the
+     Razor puts on the VIDEO variant and omits from the IMAGE variant. Without a
+     grid, the overlay branch's `grid-row: 1` on both children is inert, so the
+     content-container lays out AFTER the media instead of on top of it.
+
+     Consequences measured on the step-2 build before this line existed: the media
+     box was 1166x0 (the absolutely-positioned img had no row to fill), the
+     content sat below it on the page ground, and because the content had already
+     been retinted for media, axe found 11 contrast failures at 1.06:1 —
+     `#f1f0ed` on `#f7f7f4`. The retint was not the bug; it exposed one.
+
+     A container query cannot match its own container, so this is unconditional.
+     That is harmless: a grid with implicit rows and no placement stacks its
+     children vertically, which is exactly the STACKED layout the source's
+     `<21.25rem` branch describes. And `grid-container` is not portable anyway —
+     `--grid-container-columns` is undefined in the source app too (F-081). */
+  display: grid;
+
+  /* ONE EXPLICIT COLUMN, and this is the subtle half. The overlay branch places
+     the media with `grid-column: 1 / -1`. On an IMPLICIT grid, `-1` resolves to
+     the end of the EXPLICIT grid — which, with no `grid-template-columns`, is
+     line 1. So `1 / -1` degenerates to a single span in column 1, the
+     content-container auto-places into a NEW column 2, and the two sit side by
+     side instead of stacking. Measured before this line: root
+     `grid-template-columns: 332px 932px`, media 332x118 in column 1, content
+     932x118 in column 2 — no overlay, and the retinted on-media text landing on
+     the page canvas at 1.06:1 across 11 nodes.
+     Declaring one explicit column makes `-1` mean what the source's author
+     plainly intended. F-094. */
+  grid-template-columns: minmax(0, 1fr);
+
   & .media-container {
-    background-color: var(--COLOR-N20);
+    /* See note 1 in the header: everything below this line is on media, so it
+       resolves against the dark half of every token in both appearances. */
+    color-scheme: dark;
+    background-color: var(--color-surface-strong);
     position: relative;
 
     & .overlay {
-      background-color: color-mix(in oklch, var(--COLOR-B90) 55%, transparent);
+      background-color: color-mix(in oklch, var(--_on-media-ground) 66%, transparent);
       inline-size: 100%;
       block-size: 100%;
       position: absolute;
@@ -41,17 +158,19 @@
         place-items: center;
         inline-size: var(--_size);
         block-size: var(--_size);
-        border: none;
         border-radius: 50%;
-        background: transparent;
-        color: white;
+        background: color-mix(in oklch, var(--_on-media-ground) 55%, transparent);
+        /* 1.4.11 non-text contrast: a bare transparent circle over arbitrary
+           media has no guaranteed 3:1 boundary. A hairline gives it one. */
+        border: 1px solid color-mix(in oklch, var(--_on-media-ink) 45%, transparent);
+        color: var(--_on-media-ink);
         cursor: pointer;
         backdrop-filter: blur(2px);
           -webkit-tap-highlight-color: transparent;
           -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
     
         &:focus-visible {
-          outline: 2px solid white;
+          outline: 2px solid var(--_on-media-ink);
           outline-offset: 2px;
         }
     
@@ -65,9 +184,19 @@
 
   & .content-container {
     display: grid;
-    column-gap: var(--grid-layout-gap);
-    grid-template-columns: var(--grid-layout-columns);
+    /* Fallbacks, not replacements — see note 3. Both tokens are undefined in
+       the source app as well, so these values are the first time this grid has
+       had any columns at all. */
+    column-gap: var(--grid-layout-gap, var(--size-lg));
+    grid-template-columns: var(--grid-layout-columns, repeat(12, minmax(0, 1fr)));
     pointer-events: none;
+
+    /* F-066: `.content` was the only rule restoring pointer events, and the
+       source's image variant never emits that class, so its CTAs were dead.
+       `> *` covers both variants and renames nothing. */
+    & > * {
+      pointer-events: auto;
+    }
 
     & .content {
       display: flex;
@@ -147,10 +276,14 @@
 
       & .content-container {
         position: relative;
-        grid-column: main;
+        grid-column: 1 / -1;
         grid-row: 1;
         z-index: 2;
-        padding-block: 30vh;
+        /* On media in this branch, so the dark half applies — see note 1. */
+        color-scheme: dark;
+        /* 30vh was the source value. Clamped to the design's section rhythm so a
+           short viewport does not turn the hero into three screens of padding. */
+        padding-block: clamp(var(--size-2xl), 22vh, 10rem);
       }
     }
   }
@@ -189,8 +322,20 @@
     .content-container {
       position: relative;
       grid-row: 1;
+      /* MUST be placed explicitly, and the source could not know it. Upstream
+         this reads `grid-column: main` — a NAMED grid line supplied by the
+         `.grid-container` utility, whose `--grid-container-columns` is undefined
+         everywhere in the source app (F-081). With no such line, the
+         content-container AUTO-PLACES, and auto-placement will not stack it on an
+         occupied cell: it opened an implicit column 2 and the hero rendered as two
+         side-by-side columns (measured `grid-template-columns: 0px 1166px`, media
+         0 wide). Naming the same span as the media is what makes the overlay an
+         overlay. F-094. */
+      grid-column: 1 / -1;
       z-index: 2;
-      padding-block: 30dvh;
+      /* On media in this branch, so the dark half applies — see note 1. */
+      color-scheme: dark;
+      padding-block: clamp(var(--size-2xl), 22dvh, 10rem);
     }
   }
 
@@ -242,8 +387,122 @@
 
       & .content {
         grid-column: 2/9;
-        margin-inline-start: calc(var(--grid-layout-gap) * -1);
+        margin-inline-start: calc(var(--grid-layout-gap, var(--size-lg)) * -1);
       }
+    }
+  }
+}
+
+
+/* ── Type and spacing for the parts the TagHelpers used to supply ─────────────
+ *
+ * The source composes `app-heading`, `app-prose` and `app-link-button` inside
+ * `.content`, so the heading's type came from HeadingTagHelper and never lived
+ * in this stylesheet. Those three primitives are separate ports; until they are
+ * composed here, the hero needs its own display type or it renders at body size
+ * over a full-bleed image. Scoped to `.CoverComposition` so it cannot leak.
+ */
+.CoverComposition {
+  & .CoverComposition-heading {
+    margin: 0;
+    font-family: var(--fontFamily-display);
+    /* display-1 is `--text-display-mega`, 4.5rem. `min()` against 9vw keeps it
+       from setting the document width at 320 px — the reflow failure this
+       component had before it was clamped. */
+    font-size: min(var(--fontSize-display-1), 9vw);
+    font-weight: var(--fontWeight-display);   /* 400 — never bold */
+    line-height: var(--lineHeight-display);
+    letter-spacing: var(--letterSpacing-display);
+    color: var(--_on-media-ink);
+    /* `overflow-wrap` rather than `hyphens`: a long compound word in a hero must
+       break instead of widening the document, and hyphenation is locale data we
+       do not have here. */
+    overflow-wrap: break-word;
+  }
+
+  & .Prose {
+    font-family: var(--fontFamily-body);
+    font-size: var(--fontSize-body-large);
+    line-height: var(--lineHeight-body);
+    color: var(--_on-media-ink);
+
+    & p {
+      margin: 0;
+    }
+  }
+
+  & .link-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--size-md);
+  }
+}
+
+/* Demo-only CTA styling. The real component composes `app-link-button`, which is
+   `primitives/Button`'s job; this exists so the kitchensink can show a CTA on
+   media without this port taking a dependency on another port in flight. */
+.CoverComposition-demoCta {
+  display: inline-grid;
+  place-items: center;
+  min-block-size: 2.75rem;
+  padding-inline: var(--size-xl);
+  border-radius: var(--radius-md);
+  background-color: var(--brand-primary);
+  color: var(--text-inverse);
+  font-family: var(--fontFamily-label);
+  font-size: var(--fontSize-label);
+  font-weight: var(--fontWeight-label);
+  text-decoration: none;
+}
+
+.CoverComposition-demoCta--quiet {
+  background-color: color-mix(in oklch, var(--_on-media-ground) 55%, transparent);
+  color: var(--_on-media-ink);
+  border: 1px solid color-mix(in oklch, var(--_on-media-ink) 55%, transparent);
+}
+
+.CoverComposition-demoCta:focus-visible {
+  outline: 2px solid var(--_on-media-ink);
+  outline-offset: 2px;
+}
+
+
+/* ── STACKED: the content is NOT on media ─────────────────────────────────────
+ *
+ * Below 21.25 rem the source stacks — media above, content below — so the
+ * content sits on the PAGE ground and must follow the page appearance. Every
+ * `--_on-media-*` use above has to revert here or a light page gets near-white
+ * text on cream. This is the reason the on-media pair is scoped to the overlay
+ * layout rather than to the component: an appearance-independent surface is a
+ * property of the LAYOUT STATE, not of the component. Container query first,
+ * viewport MQ as the `@supports not` fallback — the source's own idiom.
+ */
+@supports (container-type: inline-size) {
+  @container (max-width: 21.24999rem) {
+    .CoverComposition-heading,
+    .CoverComposition .Prose {
+      color: var(--text-primary);
+    }
+
+    .CoverComposition-demoCta--quiet {
+      background-color: var(--color-surface-card);
+      color: var(--text-primary);
+      border-color: var(--color-hairline-strong);
+    }
+  }
+}
+
+@supports not (container-type: inline-size) {
+  @media (max-width: 21.24999rem) {
+    .CoverComposition-heading,
+    .CoverComposition .Prose {
+      color: var(--text-primary);
+    }
+
+    .CoverComposition-demoCta--quiet {
+      background-color: var(--color-surface-card);
+      color: var(--text-primary);
+      border-color: var(--color-hairline-strong);
     }
   }
 }

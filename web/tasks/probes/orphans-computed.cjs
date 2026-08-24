@@ -21,8 +21,9 @@
  */
 const fs = require('fs');
 const { chromium } = require('playwright');
+const guard = require('./orphans-guard.cjs');
 
-const BASE = process.env.BASE_URL || 'http://localhost:3200';
+const BASE = process.env.BASE_URL || 'http://localhost:3210';
 
 const BOX = [
   'display', 'position', 'box-sizing',
@@ -81,6 +82,7 @@ async function measure() {
       /* Longer than any declared transition, because a Tailwind duration routed
          through --tw-duration can start before the override lands. */
       await page.waitForTimeout(400);
+      await guard(page, { sentinelSelector: 'body', sentinelProperty: 'background-color', sentinelMustNotBe: 'rgba(0, 0, 0, 0)' });
       await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
 
       out[appearance][route] = await page.evaluate(({ selectors, BOX }) => {

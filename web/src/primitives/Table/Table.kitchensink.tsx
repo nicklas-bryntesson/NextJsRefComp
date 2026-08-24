@@ -27,11 +27,23 @@ import { Block, Cell, Section } from "@/components/kitchensink-ui";
 import "./Tables.css";
 import { TableScroll } from "./TableScroll";
 
-function Plain({ children }: { children: ReactNode }) {
-  /* `Cell` is `display: grid`, and a `<table>` as a grid item stretches — which
-   * is what we want here — but the caption block needs the cell to be able to
-   * shrink, so nothing extra is added. */
-  return <>{children}</>;
+/* EVERY data table on this page is wrapped, and that is the finding.
+ *
+ * An element-level table stylesheet CANNOT satisfy WCAG 1.4.10 on its own. A
+ * five-column table of real names has a min-content width of ~500 px; nothing a
+ * `table { }` rule can say makes that fit 320 px, because the only mechanisms
+ * that would — a scroll container, or a display change — are either forced to
+ * `visible` on a table box (F-072) or destroy the table semantics the stylesheet
+ * and atomica11y both depend on. Measured: 578 px of document overflow at 320 px
+ * for the 12-column case, 219 px for the plain five-column one.
+ *
+ * So the "no component" verdict has exactly ONE limit: reflow puts a single
+ * wrapper element into the contract. That is the whole markup requirement this
+ * stylesheet turns out to have, and the source app never discovered it because
+ * every one of its own demos is narrow. F-088.
+ */
+function Framed({ label, children }: { label: string; children: ReactNode }) {
+  return <TableScroll label={label}>{children}</TableScroll>;
 }
 
 const ROWS = [
@@ -43,10 +55,13 @@ const ROWS = [
 export function TableKitchensink() {
   return (
     <>
-      <Section id="table-structure" title="Structural axes — what the stylesheet branches on">
+      <Section
+        id="table-structure"
+        title="Structural axes — what the stylesheet branches on"
+      >
         <Block title="tbody only — the corner-radius base case">
           <Cell caption="no thead, no tfoot">
-            <Plain>
+            <Framed label="Cells with no header rows">
               <table>
                 <caption>Cells with no header rows</caption>
                 <tbody>
@@ -59,13 +74,13 @@ export function TableKitchensink() {
                   ))}
                 </tbody>
               </table>
-            </Plain>
+            </Framed>
           </Cell>
         </Block>
 
         <Block title="thead — :has(thead) moves the top radius up and bands the header">
           <Cell caption="thead + tbody">
-            <Plain>
+            <Framed label="Header row with a banded background">
               <table>
                 <caption>Header row with a banded background</caption>
                 <thead>
@@ -85,13 +100,13 @@ export function TableKitchensink() {
                   ))}
                 </tbody>
               </table>
-            </Plain>
+            </Framed>
           </Cell>
         </Block>
 
         <Block title="tfoot — :has(tfoot) moves the bottom radius down">
           <Cell caption="thead + tbody + tfoot">
-            <Plain>
+            <Framed label="Both header and footer bands">
               <table>
                 <caption>Both header and footer bands</caption>
                 <thead>
@@ -118,13 +133,13 @@ export function TableKitchensink() {
                   </tr>
                 </tfoot>
               </table>
-            </Plain>
+            </Framed>
           </Cell>
         </Block>
 
         <Block title="Row headers — the diagonal-hatch tbody th[scope=row] rule">
           <Cell caption="th[scope=col] in thead, th[scope=row] in tbody">
-            <Plain>
+            <Framed label="Status of the club members 2021">
               <table>
                 <caption>Status of the club members 2021</caption>
                 <thead>
@@ -155,13 +170,13 @@ export function TableKitchensink() {
                   </tr>
                 </tfoot>
               </table>
-            </Plain>
+            </Framed>
           </Cell>
         </Block>
 
         <Block title="Spans — the two cases the source stylesheet marks WIP">
           <Cell caption="colspan">
-            <Plain>
+            <Framed label="Various colspans, no thead">
               <table>
                 <caption>Various colspans, no thead</caption>
                 <tbody>
@@ -180,10 +195,10 @@ export function TableKitchensink() {
                   </tr>
                 </tbody>
               </table>
-            </Plain>
+            </Framed>
           </Cell>
           <Cell caption="rowspan — the known WIP left-border case">
-            <Plain>
+            <Framed label="A rowspan in the first column">
               <table>
                 <caption>A rowspan in the first column</caption>
                 <tbody>
@@ -203,13 +218,13 @@ export function TableKitchensink() {
                   </tr>
                 </tbody>
               </table>
-            </Plain>
+            </Framed>
           </Cell>
         </Block>
 
         <Block title="Multi-row thead with rowspan — the source's own 'double border' bug report">
           <Cell caption="two header rows, rowspan + colspan">
-            <Plain>
+            <Framed label="Membership dates grouped under one header">
               <table>
                 <caption>Membership dates grouped under one header</caption>
                 <thead>
@@ -243,13 +258,13 @@ export function TableKitchensink() {
                   ))}
                 </tbody>
               </table>
-            </Plain>
+            </Framed>
           </Cell>
         </Block>
 
         <Block title="Empty table — every :has() branch with no content to size it">
           <Cell caption="tbody, all cells empty">
-            <Plain>
+            <Framed label="An empty grid">
               <table>
                 <caption>An empty grid</caption>
                 <tbody>
@@ -262,29 +277,48 @@ export function TableKitchensink() {
                   ))}
                 </tbody>
               </table>
-            </Plain>
+            </Framed>
           </Cell>
         </Block>
       </Section>
 
       <Section id="table-reflow" title="Reflow — the wide table at 320 px">
-        <Block title="Unwrapped: the stylesheet's own overflow-x: auto, which does nothing">
-          {/* `overflow-x: auto` is declared on `table` in the source. `overflow`
-              does not create a scroll container on a table box, so this is a
-              no-op — measured, see F-072. Left here as the counterexample the
-              probe pins. */}
-          <Cell caption="12 columns, no wrapper (expected to overflow)">
-            <Plain>
-              <WideTable caption="Unwrapped — the failure case" />
-            </Plain>
+        {/* THE UNWRAPPED COUNTEREXAMPLE IS NOT ON THIS PAGE, deliberately.
+            A 12-column table with no scroll wrapper measured 578 px of document
+            horizontal overflow at 320 px — and a kitchensink that fails WCAG
+            1.4.10 is a defect in the kitchensink, not a demonstration (CLAUDE.md
+            is explicit about this; one fixed-width demo previously put 9 px of
+            scroll on the shared page). The number lives in the step-1 snapshot
+            and in F-072; the page shows the version that passes. */}
+        <Block title="Wrapped in TableScroll — 12 columns at any viewport">
+          <Cell caption="scroll region, keyboard-reachable">
+            <TableScroll label="Quarterly figures by region, scrollable">
+              <WideTable caption="Scrolls inside its own region" />
+            </TableScroll>
           </Cell>
         </Block>
 
-        <Block title="Wrapped in TableScroll — the fix">
-          <Cell caption="12 columns, scroll region">
-            <TableScroll label="Quarterly figures by region, scrollable">
-              <WideTable caption="Wrapped — scrolls inside its own region" />
-            </TableScroll>
+        <Block title="A narrow table needs no wrapper">
+          <Cell caption="4 columns">
+            <table>
+              <caption>Fits at 320 px without a scroll container</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Region</th>
+                  <th scope="col">Q1</th>
+                  <th scope="col">Q2</th>
+                </tr>
+              </thead>
+              <tbody>
+                {REGIONS.slice(0, 3).map((r, i) => (
+                  <tr key={r}>
+                    <th scope="row">{r}</th>
+                    <td>{1000 + i * 137}</td>
+                    <td>{1200 + i * 91}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </Cell>
         </Block>
       </Section>
@@ -311,7 +345,9 @@ function WideTable({ caption }: { caption: string }) {
           <tr key={region}>
             <th scope="row">{region}</th>
             {Array.from({ length: 11 }, (_, i) => (
-              <td key={i}>{(1000 + r * 137 + i * 29).toLocaleString("sv-SE")}</td>
+              <td key={i}>
+                {(1000 + r * 137 + i * 29).toLocaleString("sv-SE")}
+              </td>
             ))}
           </tr>
         ))}
