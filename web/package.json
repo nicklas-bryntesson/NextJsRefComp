@@ -8,9 +8,10 @@
     "start": "next start",
     "lint": "eslint",
     "test:unit": "vitest run",
+    "protected:classes": "node scripts/protected-classes.mjs",
+    "verify:appearance": "NODE_PATH=../reference-components/node_modules node tasks/probes/verify-appearance.cjs",
     "verify:axe": "NODE_PATH=../reference-components/node_modules node tasks/probes/axe-dark.cjs",
     "verify:reflow": "NODE_PATH=../reference-components/node_modules node tasks/probes/reflow-sweep.cjs",
-    "verify:appearance": "NODE_PATH=../reference-components/node_modules node tasks/probes/verify-appearance.cjs",
     "verify": "npm run build && npm run lint && npm run test:unit && npm run verify:appearance && npm run verify:axe && npm run verify:reflow",
     "conformance": "bash scripts/conformance.sh"
   },

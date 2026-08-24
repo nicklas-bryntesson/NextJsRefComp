@@ -1,0 +1,211 @@
+{
+  "generatedFrom": "reference-components",
+  "shared": [
+    "ChoiceField",
+    "Notice",
+    "Picklist",
+    "RangeField",
+    "RangeScale",
+    "Wheel",
+    "trigger"
+  ],
+  "components": {
+    "AffixField": [
+      "AffixField",
+      "input",
+      "prefix",
+      "suffix"
+    ],
+    "ChoiceField": [
+      "ChoiceField"
+    ],
+    "ChoiceGroup": [
+      "ChoiceGroup",
+      "content",
+      "hint",
+      "options"
+    ],
+    "DateField": [
+      "DateField",
+      "announce",
+      "arrow",
+      "calendar-footer",
+      "calendar-footer-clear",
+      "calendar-footer-today",
+      "calendar-grid",
+      "calendar-header",
+      "custom",
+      "month-year-trigger",
+      "native",
+      "next-month",
+      "popup",
+      "prev-month",
+      "rail",
+      "segment",
+      "segments",
+      "separator",
+      "trigger",
+      "year-month-picker"
+    ],
+    "DateTimeField": [
+      "DateTimeField",
+      "ampm",
+      "ampm-option",
+      "announce",
+      "arrow",
+      "calendar-footer",
+      "calendar-footer-clear",
+      "calendar-footer-now",
+      "calendar-footer-today",
+      "calendar-grid",
+      "calendar-header",
+      "calendar-inner",
+      "calendar-left",
+      "calendar-month-year",
+      "month-year-trigger",
+      "native",
+      "overlay",
+      "popup",
+      "prev-month",
+      "rail",
+      "segment",
+      "segments",
+      "separator",
+      "time-columns",
+      "trigger",
+      "year-month-picker"
+    ],
+    "FileUpload": [
+      "FileUpload",
+      "drop-label",
+      "input",
+      "item",
+      "item-error",
+      "item-name",
+      "item-remove",
+      "item-size",
+      "label",
+      "list",
+      "selected",
+      "trigger"
+    ],
+    "MonthField": [
+      "MonthField",
+      "announce",
+      "arrow",
+      "footer",
+      "footer-clear",
+      "footer-now",
+      "native",
+      "option",
+      "overlay",
+      "popup",
+      "rail",
+      "segment",
+      "segments",
+      "separator",
+      "trigger",
+      "year-month-picker"
+    ],
+    "MotionRegion": [
+      "MotionRegion",
+      "control",
+      "demo-animation"
+    ],
+    "Notice": [
+      "Notice",
+      "content",
+      "icon",
+      "title"
+    ],
+    "Picklist": [
+      "Picklist",
+      "content",
+      "deselect",
+      "hint",
+      "option",
+      "options"
+    ],
+    "RangeField": [
+      "RangeField"
+    ],
+    "RangeGroup": [
+      "RangeGroup",
+      "digits",
+      "fill",
+      "roles",
+      "track"
+    ],
+    "RangeScale": [
+      "RangeScale",
+      "digits",
+      "fill",
+      "hint",
+      "reference",
+      "swatch",
+      "ticks",
+      "track",
+      "value"
+    ],
+    "ScrollArea": [
+      "ScrollArea",
+      "fades",
+      "scrollbar",
+      "thumb",
+      "viewport"
+    ],
+    "ThemeSwitch": [
+      "ThemeSwitch",
+      "icon",
+      "indicator",
+      "options",
+      "visually-hidden"
+    ],
+    "TimeField": [
+      "TimeField",
+      "announce",
+      "arrow",
+      "footer",
+      "footer-clear",
+      "footer-now",
+      "native",
+      "option",
+      "overlay",
+      "popup",
+      "rail",
+      "segment",
+      "segments",
+      "separator",
+      "time-columns",
+      "trigger"
+    ],
+    "ToggleTip": [
+      "arrow",
+      "icon",
+      "popup",
+      "rail",
+      "title"
+    ],
+    "WeekField": [
+      "WeekField",
+      "announce",
+      "arrow",
+      "calendar-footer",
+      "calendar-footer-clear",
+      "calendar-footer-now",
+      "calendar-grid",
+      "calendar-header",
+      "calendar-month-year",
+      "native",
+      "overlay",
+      "popup",
+      "prefix",
+      "prev-month",
+      "rail",
+      "segment",
+      "segments",
+      "separator",
+      "trigger"
+    ]
+  }
+}

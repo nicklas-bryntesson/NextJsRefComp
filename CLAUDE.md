@@ -60,6 +60,43 @@ web/                      the Next.js app
    TypeScript class — port the logic." Use React state and effects; reflect state
    into `data-*` attributes, because that is where CSS and the tests read it.
 
+## Phase B has a safety net — use it
+
+Class names are contractual (F-008) and Phase B's whole job is rewriting class
+attributes, so the names are pinned:
+
+```bash
+cd web
+npm run protected:classes    # regenerate after a submodule bump
+npm run test:unit            # the guard runs here, and in `npm run verify`
+```
+
+`web/scripts/protected-classes.mjs` GENERATES `src/components/protected-classes.json`
+from the contract itself — every class the e2e specs select on, plus every element
+class a component's own stylesheet qualifies from its root. 83 names across the 18
+components. Never hand-edit the JSON: a stale allow-list reads as coverage.
+
+The guard (`src/components/tests/protected-classes.test.ts`) reads only
+`className=` and `className:` values, and that restriction is load-bearing. Its
+first version scanned every string literal and **could not fail** — a component's
+own code contains its parts as selectors (`querySelector('.popup')`), so the name
+survived in the source while the class vanished from the DOM. Verify a guard can
+fail before trusting it green.
+
+Before translating a component, snapshot it:
+
+```bash
+node tasks/probes/phase-b-snapshot.cjs <Name> tasks/phase-b/<Name>.before.json
+# translate, then
+node tasks/probes/phase-b-snapshot.cjs <Name> tasks/phase-b/<Name>.after.json
+node tasks/probes/phase-b-diff.cjs tasks/phase-b/<Name>.{before,after}.json
+```
+
+Both appearances, 52 computed properties. Every difference is a question; declare
+the intended ones first and the diff should contain nothing else. Notice's
+translation moved five properties, all three of them declared plus two
+`currentColor` followers, and zero geometry (F-088).
+
 ## The two-phase rule (this is the whole method)
 
 PORTING.md is emphatic and we follow it exactly. Doing both at once "leaves you
