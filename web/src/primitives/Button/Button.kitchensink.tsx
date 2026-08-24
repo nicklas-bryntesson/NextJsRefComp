@@ -16,6 +16,8 @@
  * them from a Razor layout partial we are not porting.
  */
 
+import type { ReactNode } from "react";
+
 import { Block, Cell, Section } from "@/components/kitchensink-ui";
 import { ActionButton } from "./ActionButton";
 import { CtaLinkButton } from "./CtaLinkButton";
@@ -27,6 +29,22 @@ const INTENTS: Intent[] = ["neutral", "destructive", "success"];
 const SIZES: Size[] = ["sm", "md", "lg"];
 const STATES = ["hover", "focus", "active"] as const;
 
+/* `Cell` from the shared chrome is `display: grid` with one column, which is
+ * right for the reference-components ports — a form field IS full-width. A
+ * `.Button` is `display: inline-grid`, so as a grid child it takes
+ * `justify-self: stretch` and every button in a cell widens to the widest label
+ * in that cell. Measured before this wrapper: a 137px "pill false" and a 404px
+ * one, same component, same size, and the icon-only buttons rendered as
+ * full-width bars rather than squares.
+ *
+ * `Cell` is off-limits to this port (and correctly so — changing it would move
+ * every reference-components demo), so the fix is one wrapper on our side.
+ * Recorded as a finding: the chrome is field-shaped, and an intrinsically-sized
+ * component has to opt out of it. */
+function Row({ children }: { children: ReactNode }) {
+  return <div className="grid justify-items-start gap-xxs">{children}</div>;
+}
+
 export function ButtonKitchensink() {
   return (
     <>
@@ -36,12 +54,14 @@ export function ButtonKitchensink() {
         <Block title="Emphasis × interaction state (intent neutral, size md)">
           {EMPHASES.map((emphasis) => (
             <Cell key={emphasis} caption={emphasis}>
-              <ActionButton emphasis={emphasis}>Default</ActionButton>
-              {STATES.map((s) => (
-                <ActionButton key={s} emphasis={emphasis} testState={s}>
-                  {s}
-                </ActionButton>
-              ))}
+              <Row>
+                <ActionButton emphasis={emphasis}>Default</ActionButton>
+                {STATES.map((s) => (
+                  <ActionButton key={s} emphasis={emphasis} testState={s}>
+                    {s}
+                  </ActionButton>
+                ))}
+              </Row>
             </Cell>
           ))}
         </Block>
@@ -49,11 +69,17 @@ export function ButtonKitchensink() {
         <Block title="Emphasis × intent">
           {EMPHASES.map((emphasis) => (
             <Cell key={emphasis} caption={emphasis}>
-              {INTENTS.map((intent) => (
-                <ActionButton key={intent} emphasis={emphasis} intent={intent}>
-                  {intent}
-                </ActionButton>
-              ))}
+              <Row>
+                {INTENTS.map((intent) => (
+                  <ActionButton
+                    key={intent}
+                    emphasis={emphasis}
+                    intent={intent}
+                  >
+                    {intent}
+                  </ActionButton>
+                ))}
+              </Row>
             </Cell>
           ))}
         </Block>
@@ -61,16 +87,18 @@ export function ButtonKitchensink() {
         <Block title="Size × pill">
           {SIZES.map((size) => (
             <Cell key={size} caption={size}>
-              <ActionButton size={size}>pill false</ActionButton>
-              <ActionButton size={size} pill>
-                pill true
-              </ActionButton>
-              <ActionButton size={size} emphasis="secondary">
-                secondary
-              </ActionButton>
-              <ActionButton size={size} emphasis="secondary" pill>
-                secondary pill
-              </ActionButton>
+              <Row>
+                <ActionButton size={size}>pill false</ActionButton>
+                <ActionButton size={size} pill>
+                  pill true
+                </ActionButton>
+                <ActionButton size={size} emphasis="secondary">
+                  secondary
+                </ActionButton>
+                <ActionButton size={size} emphasis="secondary" pill>
+                  secondary pill
+                </ActionButton>
+              </Row>
             </Cell>
           ))}
         </Block>
@@ -78,13 +106,23 @@ export function ButtonKitchensink() {
         <Block title="Icon × icon-position × size">
           {SIZES.map((size) => (
             <Cell key={size} caption={size}>
-              <ActionButton size={size} icon="icon-arrow-right" iconPosition="right">
-                right
-              </ActionButton>
-              <ActionButton size={size} icon="icon-arrow-left" iconPosition="left">
-                left
-              </ActionButton>
-              <ActionButton size={size}>no icon</ActionButton>
+              <Row>
+                <ActionButton
+                  size={size}
+                  icon="icon-arrow-right"
+                  iconPosition="right"
+                >
+                  right
+                </ActionButton>
+                <ActionButton
+                  size={size}
+                  icon="icon-arrow-left"
+                  iconPosition="left"
+                >
+                  left
+                </ActionButton>
+                <ActionButton size={size}>no icon</ActionButton>
+              </Row>
             </Cell>
           ))}
         </Block>
@@ -92,20 +130,26 @@ export function ButtonKitchensink() {
         <Block title="Icon-only (icon + no children → data-icon-only)">
           {SIZES.map((size) => (
             <Cell key={size} caption={size}>
-              <ActionButton size={size} icon="icon-plus" ariaLabel={`Add (${size})`} />
-              <ActionButton
-                size={size}
-                emphasis="secondary"
-                icon="icon-plus"
-                ariaLabel={`Add secondary (${size})`}
-              />
-              <ActionButton
-                size={size}
-                emphasis="secondary"
-                pill
-                icon="icon-plus"
-                ariaLabel={`Add pill (${size})`}
-              />
+              <Row>
+                <ActionButton
+                  size={size}
+                  icon="icon-plus"
+                  ariaLabel={`Add (${size})`}
+                />
+                <ActionButton
+                  size={size}
+                  emphasis="secondary"
+                  icon="icon-plus"
+                  ariaLabel={`Add secondary (${size})`}
+                />
+                <ActionButton
+                  size={size}
+                  emphasis="secondary"
+                  pill
+                  icon="icon-plus"
+                  ariaLabel={`Add pill (${size})`}
+                />
+              </Row>
             </Cell>
           ))}
         </Block>
@@ -113,37 +157,53 @@ export function ButtonKitchensink() {
         <Block title="Disabled — a functional state, so it gets no interaction columns">
           {EMPHASES.map((emphasis) => (
             <Cell key={emphasis} caption={emphasis}>
-              <ActionButton emphasis={emphasis} disabled>
-                disabled
-              </ActionButton>
-              <ActionButton emphasis={emphasis} disabled icon="icon-arrow-right">
-                disabled + icon
-              </ActionButton>
-              <ActionButton emphasis={emphasis} testState="disabled">
-                pinned
-              </ActionButton>
+              <Row>
+                <ActionButton emphasis={emphasis} disabled>
+                  disabled
+                </ActionButton>
+                <ActionButton
+                  emphasis={emphasis}
+                  disabled
+                  icon="icon-arrow-right"
+                >
+                  disabled + icon
+                </ActionButton>
+                <ActionButton emphasis={emphasis} testState="disabled">
+                  pinned
+                </ActionButton>
+              </Row>
             </Cell>
           ))}
         </Block>
 
         <Block title="button-type">
           <Cell caption="button (default)">
-            <ActionButton>button</ActionButton>
+            <Row>
+              <ActionButton>button</ActionButton>
+            </Row>
           </Cell>
           <Cell caption="submit">
-            <ActionButton buttonType="submit">submit</ActionButton>
+            <Row>
+              <ActionButton buttonType="submit">submit</ActionButton>
+            </Row>
           </Cell>
           <Cell caption="reset">
-            <ActionButton buttonType="reset">reset</ActionButton>
+            <Row>
+              <ActionButton buttonType="reset">reset</ActionButton>
+            </Row>
           </Cell>
         </Block>
 
         <Block title="Suppression rule — no children, no icon, no aria-label renders nothing">
           <Cell caption="empty (renders null)">
-            <ActionButton />
+            <Row>
+              <ActionButton />
+            </Row>
           </Cell>
           <Cell caption="aria-label only">
-            <ActionButton ariaLabel="Labelled but empty" />
+            <Row>
+              <ActionButton ariaLabel="Labelled but empty" />
+            </Row>
           </Cell>
         </Block>
       </Section>
@@ -152,14 +212,21 @@ export function ButtonKitchensink() {
         <Block title="Emphasis × interaction state (no intent axis on this component)">
           {EMPHASES.map((emphasis) => (
             <Cell key={emphasis} caption={emphasis}>
-              <LinkButton href="#link-button" emphasis={emphasis}>
-                Default
-              </LinkButton>
-              {STATES.map((s) => (
-                <LinkButton key={s} href="#link-button" emphasis={emphasis} testState={s}>
-                  {s}
+              <Row>
+                <LinkButton href="#link-button" emphasis={emphasis}>
+                  Default
                 </LinkButton>
-              ))}
+                {STATES.map((s) => (
+                  <LinkButton
+                    key={s}
+                    href="#link-button"
+                    emphasis={emphasis}
+                    testState={s}
+                  >
+                    {s}
+                  </LinkButton>
+                ))}
+              </Row>
             </Cell>
           ))}
         </Block>
@@ -167,49 +234,64 @@ export function ButtonKitchensink() {
         <Block title="Size × pill × icon">
           {SIZES.map((size) => (
             <Cell key={size} caption={size}>
-              <LinkButton href="#link-button" size={size}>
-                plain
-              </LinkButton>
-              <LinkButton href="#link-button" size={size} pill icon="icon-arrow-right">
-                pill + icon
-              </LinkButton>
-              <LinkButton
-                href="#link-button"
-                size={size}
-                icon="icon-arrow-left"
-                iconPosition="left"
-              >
-                icon left
-              </LinkButton>
-              <LinkButton
-                href="#link-button"
-                size={size}
-                icon="icon-plus"
-                ariaLabel={`Add link (${size})`}
-              />
+              <Row>
+                <LinkButton href="#link-button" size={size}>
+                  plain
+                </LinkButton>
+                <LinkButton
+                  href="#link-button"
+                  size={size}
+                  pill
+                  icon="icon-arrow-right"
+                >
+                  pill + icon
+                </LinkButton>
+                <LinkButton
+                  href="#link-button"
+                  size={size}
+                  icon="icon-arrow-left"
+                  iconPosition="left"
+                >
+                  icon left
+                </LinkButton>
+                <LinkButton
+                  href="#link-button"
+                  size={size}
+                  icon="icon-plus"
+                  ariaLabel={`Add link (${size})`}
+                />
+              </Row>
             </Cell>
           ))}
         </Block>
 
         <Block title="target — _blank gains rel=noopener noreferrer">
           <Cell caption="no target">
-            <LinkButton href="https://example.com">same tab</LinkButton>
+            <Row>
+              <LinkButton href="https://example.com">same tab</LinkButton>
+            </Row>
           </Cell>
           <Cell caption='target="_blank"'>
-            <LinkButton href="https://example.com" target="_blank">
-              new tab
-            </LinkButton>
+            <Row>
+              <LinkButton href="https://example.com" target="_blank">
+                new tab
+              </LinkButton>
+            </Row>
           </Cell>
           <Cell caption='target="_self"'>
-            <LinkButton href="https://example.com" target="_self">
-              self
-            </LinkButton>
+            <Row>
+              <LinkButton href="https://example.com" target="_self">
+                self
+              </LinkButton>
+            </Row>
           </Cell>
         </Block>
 
         <Block title="No href — the source still emits an <a>, which has no link role">
           <Cell caption="href omitted">
-            <LinkButton emphasis="secondary">not a link</LinkButton>
+            <Row>
+              <LinkButton emphasis="secondary">not a link</LinkButton>
+            </Row>
           </Cell>
         </Block>
       </Section>
@@ -217,35 +299,54 @@ export function ButtonKitchensink() {
       <Section id="cta-link-button" title="CtaLinkButton — app-cta-link-button">
         <Block title="Variant glow × interaction state">
           <Cell caption="default">
-            <CtaLinkButton href="#cta-link-button">Get started</CtaLinkButton>
+            <Row>
+              <CtaLinkButton href="#cta-link-button">Get started</CtaLinkButton>
+            </Row>
           </Cell>
           {STATES.map((s) => (
             <Cell key={s} caption={s}>
-              <CtaLinkButton href="#cta-link-button" testState={s}>
-                Get started
-              </CtaLinkButton>
+              <Row>
+                <CtaLinkButton href="#cta-link-button" testState={s}>
+                  Get started
+                </CtaLinkButton>
+              </Row>
             </Cell>
           ))}
-          <Cell caption="disabled (pinned)">
-            <CtaLinkButton href="#cta-link-button" testState="disabled">
-              Get started
-            </CtaLinkButton>
-          </Cell>
+          {/* NO DISABLED CELL, and that is a finding rather than an omission.
+              `CtaButton.css` styles `&:disabled` with `opacity: 0.5`, but
+              `CtaLinkButtonTagHelper` always renders an `<a>` and `:disabled`
+              never matches an anchor — so for this component the rule is
+              unreachable dead code. Demonstrating it via the
+              `[data-test-state="disabled"]` pin put a REAL WCAG 1.4.3 failure on
+              the page: axe measured the label at 2.89:1 (#f7f7f4 on the
+              opacity-flattened #93928f), and the inactive-component exception
+              does not apply because the element is not actually disabled.
+              Removed. See findings/primitives-Button.md. */}
         </Block>
 
         <Block title="Icon — always right, no position axis">
           <Cell caption="no icon">
-            <CtaLinkButton href="#cta-link-button">Download</CtaLinkButton>
+            <Row>
+              <CtaLinkButton href="#cta-link-button">Download</CtaLinkButton>
+            </Row>
           </Cell>
           <Cell caption="with icon">
-            <CtaLinkButton href="#cta-link-button" icon="icon-arrow-right">
-              Download
-            </CtaLinkButton>
+            <Row>
+              <CtaLinkButton href="#cta-link-button" icon="icon-arrow-right">
+                Download
+              </CtaLinkButton>
+            </Row>
           </Cell>
           <Cell caption='target="_blank"'>
-            <CtaLinkButton href="https://example.com" target="_blank" icon="icon-arrow-right">
-              External
-            </CtaLinkButton>
+            <Row>
+              <CtaLinkButton
+                href="https://example.com"
+                target="_blank"
+                icon="icon-arrow-right"
+              >
+                External
+              </CtaLinkButton>
+            </Row>
           </Cell>
         </Block>
       </Section>
