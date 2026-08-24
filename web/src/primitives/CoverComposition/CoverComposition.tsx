@@ -94,7 +94,9 @@ export function CoverComposition({
               <p>{preamble}</p>
             </div>
           ) : null}
-          {actions ? <div className="link-group">{actions}</div> : null}
+          {actions ? (
+            <div className="link-group flex flex-wrap gap-sm">{actions}</div>
+          ) : null}
         </div>
       </div>
     </div>

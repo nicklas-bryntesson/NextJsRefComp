@@ -431,78 +431,11 @@
     }
   }
 
-  & .link-group {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--size-md);
-  }
+  /* `.link-group` moved to utilities on the JSX — see CoverComposition.tsx.
+     The class name is KEPT on the element; only the declarations left. */
 }
 
-/* Demo-only CTA styling. The real component composes `app-link-button`, which is
-   `primitives/Button`'s job; this exists so the kitchensink can show a CTA on
-   media without this port taking a dependency on another port in flight. */
-.CoverComposition-demoCta {
-  display: inline-grid;
-  place-items: center;
-  min-block-size: 2.75rem;
-  padding-inline: var(--size-xl);
-  border-radius: var(--radius-md);
-  background-color: var(--brand-primary);
-  color: var(--text-inverse);
-  font-family: var(--fontFamily-label);
-  font-size: var(--fontSize-label);
-  font-weight: var(--fontWeight-label);
-  text-decoration: none;
-}
-
-.CoverComposition-demoCta--quiet {
-  background-color: color-mix(in oklch, var(--_on-media-ground) 55%, transparent);
-  color: var(--_on-media-ink);
-  border: 1px solid color-mix(in oklch, var(--_on-media-ink) 55%, transparent);
-}
-
-.CoverComposition-demoCta:focus-visible {
-  outline: 2px solid var(--_on-media-ink);
-  outline-offset: 2px;
-}
-
-
-/* ── STACKED: the content is NOT on media ─────────────────────────────────────
- *
- * Below 21.25 rem the source stacks — media above, content below — so the
- * content sits on the PAGE ground and must follow the page appearance. Every
- * `--_on-media-*` use above has to revert here or a light page gets near-white
- * text on cream. This is the reason the on-media pair is scoped to the overlay
- * layout rather than to the component: an appearance-independent surface is a
- * property of the LAYOUT STATE, not of the component. Container query first,
- * viewport MQ as the `@supports not` fallback — the source's own idiom.
+/* Demo-only CTA styling moved to utilities in the kitchensink — see
+ * `CoverComposition.kitchensink.tsx`. It was the one rule set in this file with
+ * no conditional behaviour and no seam, which is exactly why it converted.
  */
-@supports (container-type: inline-size) {
-  @container (max-width: 21.24999rem) {
-    .CoverComposition-heading,
-    .CoverComposition .Prose {
-      color: var(--text-primary);
-    }
-
-    .CoverComposition-demoCta--quiet {
-      background-color: var(--color-surface-card);
-      color: var(--text-primary);
-      border-color: var(--color-hairline-strong);
-    }
-  }
-}
-
-@supports not (container-type: inline-size) {
-  @media (max-width: 21.24999rem) {
-    .CoverComposition-heading,
-    .CoverComposition .Prose {
-      color: var(--text-primary);
-    }
-
-    .CoverComposition-demoCta--quiet {
-      background-color: var(--color-surface-card);
-      color: var(--text-primary);
-      border-color: var(--color-hairline-strong);
-    }
-  }
-}

@@ -56,6 +56,13 @@ const TARGETS = {
     '.CoverComposition', '.media-container', '.overlay', '.content-container',
     '.content-container > div', '.CoverComposition-heading', '.Prose', '.link-group',
     '.video-controls', '.video-toggle', 'video', 'img',
+    /* Added AFTER the step-2 snapshot was taken, so these carry no before/after
+       coverage for the step-3 commit — they are here so the NEXT change to the
+       hero is guarded. The CTA was verified against the step-2 CSS by hand:
+       min-block-size 2.75rem, padding-inline var(--size-xl) which the bridge maps
+       to --spacing-lg (24px, NOT Tailwind's --spacing-xl 32px — the first draft
+       used `px-xl` and was 8px wide on each side). F-097. */
+    '.CoverComposition-demoCta', '.CoverComposition-demoCta--quiet',
   ],
   '/primitives/circlediagram': [
     '.CircleDiagram', '.CircleDiagram-chart', '.CircleDiagram-center',

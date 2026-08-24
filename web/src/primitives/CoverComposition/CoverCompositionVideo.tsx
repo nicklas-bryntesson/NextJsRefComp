@@ -27,7 +27,13 @@
  *   `src/components/ScrollArea/ScrollArea.tsx`.
  */
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type { ReactNode } from "react";
 import "./CoverComposition.css";
 
@@ -73,8 +79,11 @@ function prefersReducedMotion() {
 
 /** The two blockers the source reads off `navigator.connection`, feature-tested. */
 function connectionBlocked() {
-  const c = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } })
-    .connection;
+  const c = (
+    navigator as Navigator & {
+      connection?: { saveData?: boolean; effectiveType?: string };
+    }
+  ).connection;
   if (!c) return false;
   if (c.saveData) return true;
   return c.effectiveType === "slow-2g" || c.effectiveType === "2g";
@@ -141,7 +150,9 @@ export function CoverCompositionVideo({
     const onCanPlay = () => setState((s) => (s === "idle" ? "ready" : s));
     const onPlay = () => setState("playing");
     const onPause = () =>
-      setState(() => (userPausedRef.current ? "pausedByUser" : "pausedByPolicy"));
+      setState(() =>
+        userPausedRef.current ? "pausedByUser" : "pausedByPolicy",
+      );
     const onError = () => setState("error");
     video.addEventListener("canplay", onCanPlay);
     video.addEventListener("play", onPlay);
@@ -236,7 +247,9 @@ export function CoverCompositionVideo({
               onClick={onToggle}
             >
               <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
-                <path d={isPlaying ? "M6 5h4v14H6zm8 0h4v14h-4z" : "M8 5v14l11-7z"} />
+                <path
+                  d={isPlaying ? "M6 5h4v14H6zm8 0h4v14h-4z" : "M8 5v14l11-7z"}
+                />
               </svg>
             </button>
           </div>
@@ -251,7 +264,9 @@ export function CoverCompositionVideo({
               <p>{preamble}</p>
             </div>
           ) : null}
-          {actions ? <div className="link-group">{actions}</div> : null}
+          {actions ? (
+            <div className="link-group flex flex-wrap gap-sm">{actions}</div>
+          ) : null}
         </div>
       </div>
     </div>

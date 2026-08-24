@@ -68,128 +68,77 @@
  * radius on a 12 px square reads as a circle), none on the figure itself.
  */
 
+/* ── STEP 3: what is left after the Tailwind conversion ──────────────────────
+ *
+ * Every declaration that was only a VALUE moved to a utility in
+ * `CircleDiagram.tsx`, alongside the original class names (all eleven kept).
+ * What remains is the three things a utility cannot express:
+ *
+ *  1. THE OVERRIDE SEAM. `--CircleDiagram-size`, `--CircleDiagram-hole` and the
+ *     six palette steps. A host re-tints or resizes the chart by reassigning
+ *     these in one scoped rule. There is no utility equivalent: the winning value
+ *     would be a class on the element, so re-tinting would mean editing every
+ *     call site. This is F-062 measured on a second component, and it is the
+ *     reason the conversion is partial by design rather than by fatigue.
+ *
+ *  2. A CONDITION WITH TWO LINKED HALVES. `@supports (container-type)` wrapping a
+ *     `@container` query, plus an `@supports not` viewport fallback. Tailwind v4
+ *     has container variants; it has no way to say "these two rule sets are the
+ *     same decision made twice for different engines".
+ *
+ *  3. AN ELEMENT-SELECTOR RESET. `figure { margin-inline: 0 }` cancels a UA
+ *     default on an element the component does not always own.
+ *
+ * `flex-direction: row` in the container query beats the `flex-col` utility
+ * because this file is UNLAYERED and Tailwind's utilities live in
+ * `@layer utilities` — unlayered declarations win over layered ones regardless of
+ * source order. That is load-bearing and invisible at the call site: a reader of
+ * the JSX sees `flex-col` and cannot tell that a media query overrides it. F-096.
+ */
+
 .CircleDiagram {
     --CircleDiagram-size: 200px;
     --CircleDiagram-hole: 25%;
 
     /* A six-step monochromatic ramp in the brand hue. Both operands are
        `light-dark()` pairs, so the ramp follows `color-scheme` with no `dark:`
-       variants. These six custom properties are the OVERRIDE SEAM — a host
-       re-tints the chart by reassigning them in a scoped rule, which is exactly
-       the seam F-062 found a utility conversion destroys. Kept deliberately.
-       See the header for why the timeline pastels are not used. F-082. */
+       variants. See the header above for why the timeline pastels are not used
+       (F-082), and point 1 for why these stay custom properties. */
     --CircleDiagram-color-1: var(--color-primary);
     --CircleDiagram-color-2: color-mix(in oklch, var(--color-primary) 78%, var(--color-surface-strong));
     --CircleDiagram-color-3: color-mix(in oklch, var(--color-primary) 60%, var(--color-surface-strong));
     --CircleDiagram-color-4: color-mix(in oklch, var(--color-primary) 44%, var(--color-surface-strong));
     --CircleDiagram-color-5: color-mix(in oklch, var(--color-primary) 29%, var(--color-surface-strong));
     --CircleDiagram-color-6: color-mix(in oklch, var(--color-primary) 15%, var(--color-surface-strong));
-
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--size-md);
-    margin-block: var(--size-md);
 }
 
 .CircleDiagram-chart {
-    /* `min(…, 100%)` WAS WRONG HERE AND THE MEASUREMENT CAUGHT IT. A percentage
-       width on a flex item whose container is sized from its content is a
-       circular dependency: the browser resolves it against an indefinite size,
-       falls back to the content size, and an empty div with `aspect-ratio: 1`
-       has no content — so the 200 px donut rendered at 62.27 px on a 1280 px
-       viewport. `width` + `max-inline-size: 100%` expresses the same intent
-       without the circularity, and `flex-shrink` is restored to 1 (the source
-       pins it to 0) so the circle still shrinks below 200 px rather than
-       overflowing. F-090. */
+    /* `min(…, 100%)` WAS WRONG HERE AND THE MEASUREMENT CAUGHT IT: a percentage
+       width on a flex item whose container is sized from its content is a circular
+       dependency, so the 200px donut rendered at 62.27px. `width` plus a
+       `max-w-full` utility expresses the same intent without the circularity.
+       F-090. The width itself stays here because it reads the size seam. */
     width: var(--CircleDiagram-size);
-    max-inline-size: 100%;
-    aspect-ratio: 1;
-    height: auto;
-    border-radius: 50%;
-    position: relative;
-    /* Source had `flex-shrink: 0`. With a hard 200px basis that is a reflow
-       failure waiting to happen — see F-087, where the viewport media query fired
-       in a card too narrow to hold 200px + a legend and pushed 67px of document
-       scroll at 1024px. */
-    flex-shrink: 1;
 }
 
-/* Donut hole */
 .CircleDiagram-center {
-    position: absolute;
+    /* Reads the hole seam, so it stays. `inset-[25%]` would hard-code it. */
     inset: var(--CircleDiagram-hole);
-    border-radius: 50%;
-    /* Was a hardcoded white literal, so the donut hole stayed white on a #232320
-       card in dark. F-083. */
-    background: var(--color-surface-card);
-}
-
-.CircleDiagram-caption {
-    display: flex;
-    flex-direction: column;
-    gap: var(--size-xs, 0.5rem);
-}
-
-.CircleDiagram-subtitle {
-    font-family: var(--fontFamily-body);
-    font-size: var(--fontSize-body-small);
-    color: var(--text-secondary, currentColor);
-    margin: 0;
-}
-
-.CircleDiagram-legend {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: var(--size-xs, 0.5rem);
-}
-
-.CircleDiagram-legend-item {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-family: var(--fontFamily-label);
-    font-size: var(--fontSize-label-small); /* REPAIR: source read `-sm`, which does not exist. F-084. */
-}
-
-.CircleDiagram-legend-swatch {
-    width: 12px;
-    height: 12px;
-    border-radius: 2px;
-    flex-shrink: 0;
-}
-
-.CircleDiagram-legend-label {
-    flex: 1;
-    color: var(--text-primary);
-}
-
-.CircleDiagram-legend-value {
-    /* Was an opacity multiplier. Opacity on text scales whatever ratio the
-       inherited colour happened to have, which is how a design system ships a
-       contrast failure it cannot see. A token is a ratio. F-085. */
-    color: var(--text-secondary);
 }
 
 /* Side-by-side when space allows.
  *
  * THE SOURCE ASKED THE WRONG QUESTION. It gates the row layout on a VIEWPORT
- * media query, but this component is a rich-text block: an editor drops it into
- * whatever column the template gives them, and the viewport says nothing about
- * how wide that column is. Measured on this kitchensink: at a 480 px viewport
- * the media query fired, the 200 px chart (which the source pins with
- * `flex-shrink: 0`) plus the legend no longer fit the card it sits in, and the
- * figure pushed 12 px of horizontal scroll onto the DOCUMENT — a WCAG 1.4.10
- * failure introduced by a breakpoint that was measuring the wrong box. At 1024 px
- * it was 67 px.
+ * media query, but this is a rich-text block: an editor drops it into whatever
+ * column the template gives them, and the viewport says nothing about how wide
+ * that column is. Measured on this kitchensink before the change: at a 480px
+ * viewport the media query fired, the 200px chart (which the source pins with
+ * `flex-shrink: 0`) plus the legend no longer fit the card, and the figure pushed
+ * 12px of horizontal scroll onto the DOCUMENT. At 1024px it was 67px.
  *
- * Converted to a container query on the component itself, with the viewport MQ
- * kept as an `@supports not` fallback. This is the same preferred-plus-fallback
- * pattern `CoverComposition.css` already uses in the source, so it is the source
- * repo's own newer idiom rather than an invention. F-087.
+ * Container query with the viewport MQ as an `@supports not` fallback — the same
+ * preferred-plus-fallback pattern `CoverComposition.css` already uses upstream,
+ * so it is the source repo's own newer idiom rather than an invention. F-087.
  */
 @supports (container-type: inline-size) {
     .CircleDiagram {
@@ -213,80 +162,9 @@
     }
 }
 
-/* A legend row must be allowed to reflow, or one long label sets the figure's
-   min-content width and the figure sets the document's. `min-inline-size: 0` on
-   the growing child is the load-bearing half — a flex item defaults to
-   `min-width: auto`, which is its longest word, not zero. */
-.CircleDiagram-legend-item {
-    flex-wrap: wrap;
-}
-
-.CircleDiagram-legend-label {
-    min-inline-size: 0;
-    overflow-wrap: break-word;
-}
-
-/* The value is tabular and short, so it never needs to shrink — but it must not
-   be the thing that refuses to. */
-.CircleDiagram-legend-value {
-    flex: 0 0 auto;
-    font-variant-numeric: tabular-nums;
-}
-
-
-/* Heading type for the title. The source composes `app-heading element="h4"`, so
-   the type came from HeadingTagHelper and never lived in this stylesheet.
-   `--fontSize-h4` is the design's h4 step (title-md, 1.125rem). */
-.CircleDiagram-title {
-    margin: 0;
-    font-family: var(--fontFamily-heading);
-    font-size: var(--fontSize-h4);
-    font-weight: var(--fontWeight-heading);
-    line-height: var(--lineHeight-heading);
-    letter-spacing: var(--letterSpacing-heading);
-    color: var(--text-primary);
-}
-
 /* `figure` carries a UA `margin-inline: 40px` that the source never reset, so
-   every chart was indented 40px on both sides for no stated reason. */
+   every chart was indented 40px on both sides for no stated reason. An element
+   selector, so there is no call site to put a utility on. */
 figure.CircleDiagram {
     margin-inline: 0;
-    /* `figure` carries a UA `margin-inline: 40px` that the source never reset, so
-       every chart was indented 40px on both sides for no stated reason. */
-    max-inline-size: 100%;
-}
-
-/* NO `min-inline-size` HERE, and the first attempt at one is worth recording.
- * `min-inline-size: min(100%, 18rem)` looks like a floor and is not one: the
- * `100%` resolves against the containing block, so in a 62px container the floor
- * evaluates to 62px and defends nothing. Same circular-percentage trap as the
- * chart width (F-090), one level up.
- *
- * The component is fluid — it fills its container, and a 62px donut in a 62px box
- * is CORRECT. The defect was that the kitchensink handed it a 62px box: `Cell`
- * now sizes its inner track `minmax(0, 1fr)`, so a Cell's min-content
- * contribution is zero, and `Block` is `flex-wrap` — six zero-min cells all fit
- * on one line and each got 1/6 of the row. Measured: the 200px donut rendered at
- * 62.27px on a 1280px viewport in a card with ample room.
- *
- * So the floor belongs to the DEMO, not to the component, and it goes in
- * `CircleDiagram.kitchensink.tsx` as a wrapper. Same conclusion the Button port
- * reached with its `Row`: the shared chrome is field-shaped, and an
- * intrinsically-sized component has to state its own width at the call site.
- * F-091.
- */
-
-/* The swatch is redundant with the label text beside it and the chart is
-   `aria-hidden`, so neither has to clear 1.4.11 as a "meaningful graphic".
-   A hairline still gives the palest ramp steps a visible edge on the card. */
-.CircleDiagram-legend-swatch {
-    border: 1px solid var(--color-hairline);
-    border-radius: var(--radius-xs);
-}
-
-/* The caption has to be allowed to shrink, or the fixed-width chart plus a long
-   label sets the flex container's width and the figure overflows its cell. */
-.CircleDiagram-caption {
-    min-inline-size: 0;
-    flex: 1 1 auto;
 }

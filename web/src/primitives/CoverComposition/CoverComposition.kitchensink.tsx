@@ -40,21 +40,42 @@ const IMAGE =
     </svg>`,
   );
 
-function Frame({ caption, children }: { caption: string; children: ReactNode }) {
+function Frame({
+  caption,
+  children,
+}: {
+  caption: string;
+  children: ReactNode;
+}) {
   return (
     <div className="mb-xl grid min-w-0 gap-xxs">
       <span className="text-caption text-body">{caption}</span>
-      <div className="min-w-0 overflow-hidden rounded-lg border border-hairline">{children}</div>
+      <div className="min-w-0 overflow-hidden rounded-lg border border-hairline">
+        {children}
+      </div>
     </div>
   );
 }
 
+/* STEP 3. The demo CTA was the only rule set in `CoverComposition.css` with no
+ * conditional behaviour and no override seam, and it converted cleanly — which is
+ * the point. `--_on-media-ink` and `--_on-media-ground` are still read through
+ * `var()` in arbitrary values, because there is no utility for "the appearance-
+ * independent on-media pair"; the mechanism survives the conversion only because
+ * a custom property can be referenced from an arbitrary value. Every structural
+ * class name is kept. F-096. */
+const CTA_BASE =
+  "CoverComposition-demoCta inline-grid min-h-11 place-items-center rounded-md px-lg font-sans text-button font-medium no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--_on-media-ink)]";
+const CTA_SOLID = "bg-primary text-on-primary";
+const CTA_QUIET =
+  "CoverComposition-demoCta--quiet border text-[var(--_on-media-ink)] bg-[color-mix(in_oklch,var(--_on-media-ground)_55%,transparent)] border-[color-mix(in_oklch,var(--_on-media-ink)_55%,transparent)]";
+
 const ACTIONS = (
   <>
-    <a className="CoverComposition-demoCta" href="#cover-image">
+    <a className={`${CTA_BASE} ${CTA_SOLID}`} href="#cover-image">
       Get started
     </a>
-    <a className="CoverComposition-demoCta CoverComposition-demoCta--quiet" href="#cover-image">
+    <a className={`${CTA_BASE} ${CTA_QUIET}`} href="#cover-image">
       Read the docs
     </a>
   </>
@@ -75,11 +96,7 @@ export function CoverCompositionKitchensink() {
           />
         </Frame>
         <Frame caption="title only — no preamble, no CTAs">
-          <CoverComposition
-            title="Title only"
-            imageSrc={IMAGE}
-            imageAlt=""
-          />
+          <CoverComposition title="Title only" imageSrc={IMAGE} imageAlt="" />
         </Frame>
         <Frame caption="long preamble — the 50ch clamp on .Prose">
           <CoverComposition
